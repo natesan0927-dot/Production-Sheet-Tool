@@ -65,7 +65,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         company = CompanyProfile.load()
-        if not company.logo:
+        if not company.logo or not company.logo.storage.exists(company.logo.name):
             self._seed_logo(company)
 
         for name in ROLES:
