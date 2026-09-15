@@ -50,7 +50,16 @@ git push -u origin main
      master data, sets your real logo, creates the 8 one-click demo accounts,
      and creates your own admin account (from the environment variables
      below) — automatically, on every deploy, no manual step required.
-   - **Start Command**: `gunicorn titans_crm.wsgi:application --bind 0.0.0.0:$PORT`
+   - **Start Command**:
+     ```
+     python manage.py seed_data && gunicorn titans_crm.wsgi:application --bind 0.0.0.0:$PORT
+     ```
+     Render's Free plan doesn't guarantee that files written during the Build
+     Command are still there when the service actually starts (or restarts,
+     or wakes up from sleep), so `seed_data` runs again right before gunicorn
+     every time the process boots — it's instant (it only creates things that
+     are missing), and it's what makes your logo, roles, demo accounts and
+     admin account self-heal on their own instead of silently going missing.
    - **Plan**: Free (upgrade to Starter later if you need the things listed
      under "Free plan limitations")
 3. **Environment variables** (Render's "Environment" tab) — add these now:
