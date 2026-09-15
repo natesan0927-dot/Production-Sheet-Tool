@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ quotation.quotation_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ quotation.quotation_number }} <span class="badge bg-secondary">{{ quotation.get_status_display }}</span></h4>
+    <div class="text-muted small">{{ quotation.customer.customer_name }} · {{ quotation.lead.project_name }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if local_copy_url %}<a href="{{ local_copy_url }}" class="btn btn-outline-primary btn-sm">Download PDF</a>{% endif %}
+    {% if quotation.status == "draft" %}
+    <form method="post" action="{% url 'sales:quotation_send' quotation.pk %}">{% csrf_token %}<button class="btn btn-success btn-sm">Mark as Sent</button></form>
+    {% endif %}
+    <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reviseModal">Revise</button>
+    {% if not quotation.lead.is_won and not quotation.lead.is_lost %}
+    <a href="{% url 'crm:lead_mark_won' quotation.lead.pk %}" class="btn btn-primary btn-sm">Proceed to Won</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>Description</th><th>Dimensions</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Glass</th><th>Hardware</th></tr></thead>
+      <tbody>
+        {% for item in quotation.items.all %}
+        <tr><td>{{ item.description }}</td><td>{{ item.dimensions }}</td><td>{{ item.quantity }}</td><td>{{ item.unit_rate }}</td><td>{{ item.amount }}</td><td>{{ item.glass }}</td><td>{{ item.hardware }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer">
+    <table class="table table-sm mb-0" style="max-width:320px; margin-left:auto">
+      <tr><td>Subtotal</td><td class="text-end">₹{{ quotation.subtotal }}</td></tr>
+      <tr><td>Discount</td><td class="text-end">₹{{ quotation.discount }}</td></tr>
+      <tr><td>Tax ({{ quotation.tax_percent }}%)</td><td class="text-end">₹{{ quotation.tax_amount }}</td></tr>
+      <tr class="fw-bold"><td>Total</td><td class="text-end">₹{{ quotation.total_value }}</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold">Revision History</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Version</th><th>Status</th><th>Value</th><th>Reason</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for v in all_versions %}
+        <tr class="{% if v.pk == quotation.pk %}table-active{% endif %}">
+          <td><a href="{% url 'sales:quotation_detail' v.pk %}">V{{ v.version }}</a></td>
+          <td>{{ v.get_status_display }}</td><td>₹{{ v.total_value }}</td><td>{{ v.revision_reason|default:"—" }}</td><td>{{ v.created_at|date:"d M Y" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="reviseModal">
+  <div class="modal-dialog">
+    <form method="post" action="{% url 'sales:quotation_revise' quotation.pk %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header"><h6 class="modal-title">Revise Quotation</h6></div>
+      <div class="modal-body">
+        <label class="form-label small">Reason for revision</label>
+        <textarea name="reason" class="form-control form-control-sm" rows="3" required></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm btn-warning">Create Revision</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "core/pdf/pdf_base.html" %}
+{% block doc_title %}Service Complaint{% endblock %}
+{% block doc_number %}{{ complaint.complaint_number }}{% endblock %}
+{% block doc_date %}{{ complaint.complaint_date }}{% endblock %}
+{% block content %}
+<div class="section-title">Complaint Details</div>
+<table class="kv">
+  <tr><td class="label">Customer</td><td>{{ complaint.customer.customer_name }}</td></tr>
+  <tr><td class="label">Order</td><td>{{ complaint.order|default:"—" }}</td></tr>
+  <tr><td class="label">Product</td><td>{{ complaint.product|default:"—" }}</td></tr>
+  <tr><td class="label">Description</td><td>{{ complaint.description }}</td></tr>
+  <tr><td class="label">Priority</td><td>{{ complaint.get_priority_display }}</td></tr>
+  <tr><td class="label">Assigned Technician</td><td>{{ complaint.assigned_technician|default:"—" }}</td></tr>
+  <tr><td class="label">Status</td><td>{{ complaint.get_status_display }}</td></tr>
+  <tr><td class="label">Resolution</td><td>{{ complaint.resolution|default:"—" }}</td></tr>
+  <tr><td class="label">Service Charges</td><td>₹{{ complaint.service_charges }}</td></tr>
+</table>
+{% endblock %}

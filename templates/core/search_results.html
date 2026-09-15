@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<h4 class="mb-3">Search results for "{{ query }}"</h4>
+{% for label, items in results %}
+  {% if items %}
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">{{ label }}</div>
+    <div class="list-group list-group-flush">
+      {% for item in items %}
+      <a href="{{ item.get_absolute_url }}" class="list-group-item list-group-item-action">{{ item }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+{% empty %}
+<p class="text-muted">Type a search term above.</p>
+{% endfor %}
+{% endblock %}

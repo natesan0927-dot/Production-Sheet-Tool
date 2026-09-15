@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Lost Lead Analysis{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Lost Lead Analysis</h4>
+  <a href="?export=excel" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</a>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card"><div class="card-header fw-semibold">By Competitor</div>
+      <table class="table table-sm mb-0">{% for c in by_competitor %}<tr><td>{{ c.competitor__name }}</td><td>{{ c.count }}</td></tr>{% empty %}<tr><td class="text-muted text-center py-2">No data</td></tr>{% endfor %}</table>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card"><div class="card-header fw-semibold">By Reason</div>
+      <table class="table table-sm mb-0">{% for r in by_reason %}<tr><td>{{ r.reason_category }}</td><td>{{ r.count }}</td></tr>{% empty %}<tr><td class="text-muted text-center py-2">No data</td></tr>{% endfor %}</table>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header fw-semibold">All Lost Leads</div>
+  <table class="table table-sm mb-0">
+    <thead class="table-light"><tr><th>Lead</th><th>Customer</th><th>Lost Date</th><th>Reason</th><th>Competitor</th><th>Their Price</th><th>Our Price</th></tr></thead>
+    <tbody>
+      {% for d in details %}
+      <tr><td>{{ d.lead.lead_id }}</td><td>{{ d.lead.customer.customer_name }}</td><td>{{ d.lost_date }}</td><td>{{ d.get_reason_category_display }}</td><td>{{ d.competitor|default:"—" }}</td><td>{{ d.competitor_price|default:"—" }}</td><td>{{ d.customer_quoted_price|default:"—" }}</td></tr>
+      {% empty %}<tr><td colspan="7" class="text-center text-muted py-3">No lost leads recorded.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Employees{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Employees</h4>
+  <a href="{% url 'accounts:employee_create' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus me-1"></i>Add Employee</a>
+</div>
+<form class="mb-3" method="get" style="max-width:320px">
+  <input type="search" name="q" class="form-control form-control-sm" placeholder="Search employees..." value="{{ request.GET.q }}">
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light"><tr><th>Employee ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Role</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for e in employees %}
+        <tr onclick="window.location='{% url 'accounts:employee_detail' e.pk %}'" style="cursor:pointer">
+          <td>{{ e.employee_id|default:"—" }}</td>
+          <td>{{ e.get_full_name|default:e.username }}</td>
+          <td>{{ e.department|default:"—" }}</td>
+          <td>{{ e.designation|default:"—" }}</td>
+          <td>{% for r in e.role_names %}<span class="badge bg-secondary">{{ r }}</span>{% endfor %}</td>
+          <td>{% if e.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-danger">Inactive</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No employees found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "core/_pagination.html" %}
+{% endblock %}

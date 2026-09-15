@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ lead.lead_id }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ lead.lead_id }} <span class="badge bg-{{ lead.status.color }}">{{ lead.status }}</span></h4>
+    <div class="text-muted small">{{ lead.customer.customer_name }} · {{ lead.project_name|default:"—" }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if local_copy_url %}<a href="{{ local_copy_url }}" class="btn btn-outline-primary btn-sm">Download PDF</a>{% endif %}
+    <a href="{% url 'crm:lead_update' lead.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+    {% if not lead.is_won and not lead.is_lost %}
+    <a href="{% url 'crm:lead_mark_won' lead.pk %}" class="btn btn-success btn-sm">Mark as Won</a>
+    <a href="{% url 'crm:lead_mark_lost' lead.pk %}" class="btn btn-danger btn-sm">Mark as Lost</a>
+    {% endif %}
+    <a href="{% url 'measurement:request_create' %}?lead={{ lead.pk }}" class="btn btn-outline-primary btn-sm">Request Measurement</a>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Lead Details</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <table class="table table-sm">
+              <tr><th style="width:160px">Contact Number</th><td>{{ lead.contact_number|default:lead.customer.mobile_number }}</td></tr>
+              <tr><th>Email</th><td>{{ lead.email|default:lead.customer.email }}</td></tr>
+              <tr><th>Lead Source</th><td>{{ lead.lead_source|default:"—" }}</td></tr>
+              <tr><th>Priority</th><td>{{ lead.get_priority_display }}</td></tr>
+              <tr><th>Salesperson</th><td>{{ lead.assigned_salesperson|default:"Unassigned" }}</td></tr>
+            </table>
+          </div>
+          <div class="col-md-6">
+            <table class="table table-sm">
+              <tr><th style="width:160px">Requirement</th><td>{{ lead.requirement|default:"—" }}</td></tr>
+              <tr><th>Approx. Quantity</th><td>{{ lead.approximate_quantity|default:"—" }}</td></tr>
+              <tr><th>Expected Value</th><td>{{ lead.expected_value|default:"—" }}</td></tr>
+              <tr><th>Expected Closing</th><td>{{ lead.expected_closing_date|default:"—" }}</td></tr>
+              <tr><th>Remarks</th><td>{{ lead.remarks|default:"—" }}</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Follow-ups</div>
+      <div class="card-body">
+        <form method="post" action="{% url 'crm:followup_create' lead.pk %}" class="border rounded p-3 mb-3 bg-light">
+          {% csrf_token %}
+          <div class="row g-2">
+            <div class="col-md-3">{{ followup_form.type|add_class:"form-select form-select-sm" }}</div>
+            <div class="col-md-2">{{ followup_form.date|add_class:"form-control form-control-sm" }}</div>
+            <div class="col-md-2">{{ followup_form.time|add_class:"form-control form-control-sm" }}</div>
+            <div class="col-md-2">{{ followup_form.next_followup_date|add_class:"form-control form-control-sm" }}</div>
+            <div class="col-md-3">{{ followup_form.next_action|add_class:"form-control form-control-sm"|attr:"placeholder:Next action" }}</div>
+            <div class="col-md-6">{{ followup_form.discussion|add_class:"form-control form-control-sm"|attr:"placeholder:Discussion" }}</div>
+            <div class="col-md-6">{{ followup_form.customer_response|add_class:"form-control form-control-sm"|attr:"placeholder:Customer response" }}</div>
+          </div>
+          <button class="btn btn-sm btn-primary mt-2">Log Follow-up</button>
+        </form>
+        <ul class="timeline">
+          {% for f in followups %}
+          <li>
+            <strong>{{ f.get_type_display }}</strong> — {{ f.date }} {{ f.time|default:"" }}
+            <div class="small">{{ f.discussion }}</div>
+            {% if f.customer_response %}<div class="small text-muted">Response: {{ f.customer_response }}</div>{% endif %}
+            {% if f.next_followup_date %}<div class="small text-primary">Next: {{ f.next_followup_date }} — {{ f.next_action }}</div>{% endif %}
+          </li>
+          {% empty %}<li class="pending text-muted">No follow-ups logged yet.</li>{% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Quotations</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Number</th><th>Version</th><th>Status</th><th>Value</th></tr></thead>
+          <tbody>
+            {% for q in quotations %}
+            <tr onclick="window.location='{{ q.get_absolute_url }}'" style="cursor:pointer">
+              <td>{{ q.quotation_number }}</td><td>V{{ q.version }}</td><td>{{ q.get_status_display }}</td><td>{{ q.total_value }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="4" class="text-muted text-center py-3">No quotations yet.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer d-flex gap-2">
+        <form method="post" action="{% url 'sales:quotation_request' lead.pk %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-secondary">Request Quotation</button>
+        </form>
+        <a href="{% url 'sales:quotation_create' %}?lead={{ lead.pk }}" class="btn btn-sm btn-outline-primary">Create Quotation</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Assign Salesperson</div>
+      <div class="card-body">
+        <form method="post" action="{% url 'crm:lead_assign' lead.pk %}" class="d-flex gap-2">
+          {% csrf_token %}
+          {{ assign_form.assigned_to|add_class:"form-select form-select-sm" }}
+          <button class="btn btn-sm btn-primary">Assign</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header fw-semibold">Timeline</div>
+      <div class="card-body">
+        <ul class="timeline">
+          {% for e in timeline %}<li>{{ e.label }}{% if e.date %} <span class="text-muted small">— {{ e.date }}</span>{% endif %}</li>{% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

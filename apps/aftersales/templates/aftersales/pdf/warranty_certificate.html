@@ -1,0 +1,19 @@
+{% extends "core/pdf/pdf_base.html" %}
+{% block doc_title %}Warranty Certificate{% endblock %}
+{% block doc_number %}{{ warranty.certificate_number }}{% endblock %}
+{% block doc_date %}{{ warranty.warranty_start_date }}{% endblock %}
+{% block content %}
+<div class="section-title">Warranty Details</div>
+<table class="kv">
+  <tr><td class="label">Customer</td><td>{{ order.customer.customer_name }}</td></tr>
+  <tr><td class="label">Order Number</td><td>{{ order.order_number }}</td></tr>
+  <tr><td class="label">Products Covered</td><td>{{ warranty.product_summary }}</td></tr>
+  <tr><td class="label">Warranty Start Date</td><td>{{ warranty.warranty_start_date }}</td></tr>
+  <tr><td class="label">Warranty End Date</td><td>{{ warranty.warranty_end_date }}</td></tr>
+</table>
+<div class="section-title">Terms</div>
+<p>{{ warranty.warranty_terms|linebreaksbr }}</p>
+<div class="signature-box">
+  <div class="signature-line">Authorized Signatory, {{ company.name }}</div>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Sales Targets{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Sales Targets</h4>
+  <a href="{% url 'sales:target_create' %}" class="btn btn-primary btn-sm">Set Target</a>
+</div>
+<div class="card">
+  <table class="table table-sm mb-0">
+    <thead class="table-light"><tr><th>Salesperson / Team</th><th>Period</th><th>Target</th><th>Achieved</th><th>Pending</th><th>Achievement</th></tr></thead>
+    <tbody>
+      {% for t in targets %}
+      <tr>
+        <td>{{ t.salesperson|default:t.team_name|default:t.branch }}</td>
+        <td>{{ t.month }}/{{ t.year }}</td>
+        <td>₹{{ t.target_amount }}</td>
+        <td>₹{{ t.achieved_amount }}</td>
+        <td>₹{{ t.pending_amount }}</td>
+        <td>
+          <div class="progress" style="height:16px; width:120px">
+            <div class="progress-bar {% if t.achievement_percent >= 100 %}bg-success{% elif t.achievement_percent >= 60 %}bg-warning{% else %}bg-danger{% endif %}" style="width:{{ t.achievement_percent }}%">{{ t.achievement_percent }}%</div>
+          </div>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No targets set yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

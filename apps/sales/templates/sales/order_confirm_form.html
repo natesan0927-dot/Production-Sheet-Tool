@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Confirm Order — Won{% endblock %}
+{% block content %}
+<h4 class="mb-1 text-success">Mark as Won — Order Confirmation</h4>
+<div class="text-muted small mb-3">{{ lead.lead_id }} — {{ lead.customer.customer_name }} · Quotation {{ quotation.quotation_number }} (₹{{ quotation.total_value }})</div>
+<div class="card" style="max-width:720px">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "core/_form_fields.html" %}
+      <button class="btn btn-success btn-sm">Confirm Order</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

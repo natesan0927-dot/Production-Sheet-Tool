@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ dispatch.dispatch_id }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ dispatch.dispatch_id }} <span class="badge {% if dispatch.status == 'dispatched' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ dispatch.get_status_display }}</span></h4>
+    <div class="text-muted small">{{ dispatch.order.order_number }} — {{ dispatch.order.customer.customer_name }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if local_copy_url %}<a href="{{ local_copy_url }}" class="btn btn-outline-primary btn-sm">Download Challan</a>{% endif %}
+    {% if dispatch.status == "pending" %}
+    <form method="post" action="{% url 'logistics:dispatch_mark_dispatched' dispatch.pk %}">{% csrf_token %}<button class="btn btn-success btn-sm">Mark as Dispatched</button></form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="max-width:640px">
+  <div class="card-body">
+    <form method="post" action="{% url 'logistics:dispatch_update' dispatch.pk %}" novalidate>
+      {% csrf_token %}
+      {% include "core/_form_fields.html" %}
+      <button class="btn btn-primary btn-sm">Save Dispatch Details</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

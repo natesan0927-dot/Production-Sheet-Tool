@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ complaint.complaint_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ complaint.complaint_number }} <span class="badge bg-secondary">{{ complaint.get_status_display }}</span></h4>
+    <div class="text-muted small">{{ complaint.customer.customer_name }} {% if complaint.order %}· {{ complaint.order.order_number }}{% endif %}</div>
+  </div>
+  {% if local_copy_url %}<a href="{{ local_copy_url }}" class="btn btn-outline-primary btn-sm">Download PDF</a>{% endif %}
+</div>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Complaint Details</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><th style="width:150px">Product</th><td>{{ complaint.product|default:"—" }}</td></tr>
+          <tr><th>Category</th><td>{{ complaint.category|default:"—" }}</td></tr>
+          <tr><th>Description</th><td>{{ complaint.description }}</td></tr>
+          <tr><th>Priority</th><td>{{ complaint.get_priority_display }}</td></tr>
+          <tr><th>Warranty</th><td>{% if complaint.is_warranty %}Under Warranty{% else %}Chargeable{% endif %}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header fw-semibold">Update Status</div>
+      <div class="card-body">
+        <form method="post" action="{% url 'aftersales:complaint_update' complaint.pk %}" novalidate>
+          {% csrf_token %}
+          {% include "core/_form_fields.html" %}
+          <button class="btn btn-primary btn-sm">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

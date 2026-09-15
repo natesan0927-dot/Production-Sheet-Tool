@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Service Requests{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Service Requests</h4>
+  <a href="{% url 'aftersales:complaint_create' %}" class="btn btn-primary btn-sm">Log Complaint</a>
+</div>
+<div class="card">
+  <table class="table table-hover mb-0 align-middle">
+    <thead class="table-light"><tr><th>Complaint #</th><th>Customer</th><th>Priority</th><th>Status</th><th>Technician</th><th>Date</th></tr></thead>
+    <tbody>
+      {% for c in complaints %}
+      <tr onclick="window.location='{% url 'aftersales:complaint_detail' c.pk %}'" style="cursor:pointer">
+        <td>{{ c.complaint_number }}</td><td>{{ c.customer.customer_name }}</td><td>{{ c.get_priority_display }}</td>
+        <td><span class="badge bg-secondary">{{ c.get_status_display }}</span></td><td>{{ c.assigned_technician|default:"Unassigned" }}</td><td>{{ c.complaint_date }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No service requests yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

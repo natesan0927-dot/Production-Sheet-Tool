@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h4 class="mb-3">Reports</h4>
+<div class="row g-3">
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'reports:monthly_sales' %}"><div class="card h-100"><div class="card-body"><h6 class="fw-bold">Monthly Sales Report</h6><div class="small text-muted">Leads, quotations, won orders, salesperson performance</div></div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'reports:lost_leads' %}"><div class="card h-100"><div class="card-body"><h6 class="fw-bold">Lost Lead Analysis</h6><div class="small text-muted">Competitor and reason-wise breakdown</div></div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'reports:production' %}"><div class="card h-100"><div class="card-body"><h6 class="fw-bold">Production Report</h6><div class="small text-muted">Sheet status and progress</div></div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'reports:customers' %}"><div class="card h-100"><div class="card-body"><h6 class="fw-bold">Customer Report</h6><div class="small text-muted">Full customer directory</div></div></div></a></div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Leads</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'crm:lead_pipeline' %}" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-diagram-project me-1"></i>Pipeline View</a>
+    <a href="{% url 'crm:lead_create' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus me-1"></i>Add Lead</a>
+  </div>
+</div>
+<form class="row g-2 mb-3">
+  <div class="col-auto"><input type="search" name="q" class="form-control form-control-sm" placeholder="Search leads..." value="{{ request.GET.q }}"></div>
+  <div class="col-auto">
+    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for s in statuses %}<option value="{{ s.pk }}" {% if request.GET.status == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">Filter</button></div>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light"><tr><th>Lead ID</th><th>Customer</th><th>Status</th><th>Priority</th><th>Salesperson</th><th>Expected Value</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for lead in leads %}
+        <tr onclick="window.location='{% url 'crm:lead_detail' lead.pk %}'" style="cursor:pointer">
+          <td>{{ lead.lead_id }}</td>
+          <td>{{ lead.customer.customer_name }}</td>
+          <td><span class="badge bg-{{ lead.status.color }}">{{ lead.status }}</span></td>
+          <td>{{ lead.get_priority_display }}</td>
+          <td>{{ lead.assigned_salesperson|default:"Unassigned" }}</td>
+          <td>{{ lead.expected_value|default:"—" }}</td>
+          <td>{{ lead.created_date|date:"d M Y" }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No leads found.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "core/_pagination.html" %}
+{% endblock %}

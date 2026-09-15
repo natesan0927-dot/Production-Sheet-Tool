@@ -1,0 +1,29 @@
+{% extends "core/pdf/pdf_base.html" %}
+{% block doc_title %}Final Handover Certificate{% endblock %}
+{% block doc_number %}{{ order.order_number }}{% endblock %}
+{% block doc_date %}{{ handover.installation_date|default:"—" }}{% endblock %}
+{% block content %}
+<div class="section-title">Handover Details</div>
+<table class="kv">
+  <tr><td class="label">Customer</td><td>{{ order.customer.customer_name }}</td></tr>
+  <tr><td class="label">Project</td><td>{{ order.lead.project_name|default:"—" }}</td></tr>
+  <tr><td class="label">Order Number</td><td>{{ order.order_number }}</td></tr>
+  <tr><td class="label">Installation Date</td><td>{{ handover.installation_date|default:"—" }}</td></tr>
+  <tr><td class="label">Installed Items</td><td>{{ handover.installed_items_summary }}</td></tr>
+  <tr><td class="label">Installation Team</td><td>{{ installation.team_leader|default:"—" }} and team</td></tr>
+  <tr><td class="label">Customer Confirmation</td><td>{% if handover.customer_confirmation %}Confirmed{% else %}Pending{% endif %}</td></tr>
+  <tr><td class="label">Remarks</td><td>{{ handover.remarks|default:"—" }}</td></tr>
+</table>
+
+<p style="margin-top:16px">I/We confirm that the above items have been installed satisfactorily at the site mentioned above.</p>
+
+<table style="width:100%; margin-top:30px"><tr>
+  <td style="width:50%">
+    {% if handover.customer_signature %}<img src="{{ handover.customer_signature.path }}" style="max-height:60px"><br>{% endif %}
+    <div class="signature-line">Customer Signature</div>
+  </td>
+  <td style="width:50%">
+    <div class="signature-line">{{ handover.company_representative }}, {{ company.name }}</div>
+  </td>
+</tr></table>
+{% endblock %}

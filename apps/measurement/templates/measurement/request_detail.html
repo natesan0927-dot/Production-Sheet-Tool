@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ measurement.measurement_id }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0">{{ measurement.measurement_id }} <span class="badge bg-secondary">{{ measurement.get_status_display }}</span></h4>
+    <div class="text-muted small">{{ measurement.customer.customer_name }} · {{ measurement.lead.lead_id }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if local_copy_url %}<a href="{{ local_copy_url }}" class="btn btn-outline-primary btn-sm">Download Excel</a>{% endif %}
+    {% if measurement.status != "completed" %}
+    <form method="post" action="{% url 'measurement:request_complete' measurement.pk %}" onsubmit="return confirm('Mark this measurement as completed and notify the salesperson?')">{% csrf_token %}
+      <button class="btn btn-success btn-sm">Mark Completed</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold">Site Details</div>
+  <div class="card-body">
+    <table class="table table-sm">
+      <tr><th style="width:160px">Site Address</th><td>{{ measurement.site_address }}</td></tr>
+      <tr><th>Contact Person</th><td>{{ measurement.contact_person }}</td></tr>
+      <tr><th>Assigned To</th><td>{{ measurement.assigned_to|default:"Unassigned" }}</td></tr>
+      <tr><th>Scheduled Date</th><td>{{ measurement.scheduled_date|default:"—" }}</td></tr>
+      <tr><th>Instructions</th><td>{{ measurement.instructions|default:"—" }}</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold">Measurement Items</div>
+  <div class="card-body">
+    <form method="post" action="{% url 'measurement:request_save_items' measurement.pk %}">
+      {% csrf_token %}
+      {{ item_formset.management_form }}
+      <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>Window#</th><th>Room</th><th>W</th><th>H</th><th>Qty</th><th>Window Type</th><th>Door Type</th><th>Opening</th><th>Glass</th><th>Profile</th><th>Hardware</th><th>Remarks</th></tr></thead>
+        <tbody>
+        {% for f in item_formset %}
+          <tr>
+            {{ f.id }}
+            <td>{{ f.window_number|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.room_location|add_class:"form-control form-control-sm" }}</td>
+            <td style="width:80px">{{ f.width|add_class:"form-control form-control-sm" }}</td>
+            <td style="width:80px">{{ f.height|add_class:"form-control form-control-sm" }}</td>
+            <td style="width:60px">{{ f.quantity|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.window_type|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.door_type|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.opening_type|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.glass_type|add_class:"form-select form-select-sm" }}</td>
+            <td>{{ f.profile_series|add_class:"form-select form-select-sm" }}</td>
+            <td>{{ f.hardware|add_class:"form-select form-select-sm" }}</td>
+            <td>{{ f.remarks|add_class:"form-control form-control-sm" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <button class="btn btn-sm btn-primary">Save Items</button>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold">Photos / Drawings</div>
+  <div class="card-body">
+    <form method="post" action="{% url 'measurement:request_upload' measurement.pk %}" enctype="multipart/form-data" class="row g-2 mb-3">
+      {% csrf_token %}
+      <div class="col-auto"><input type="file" name="files" multiple class="form-control form-control-sm"></div>
+      <div class="col-auto">
+        <select name="category" class="form-select form-select-sm">
+          <option value="site_photo">Site Photo</option>
+          <option value="drawing">Drawing / Sketch</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="col-auto"><button class="btn btn-sm btn-outline-primary">Upload</button></div>
+    </form>
+    <div class="d-flex flex-wrap gap-2">
+      {% for a in attachments %}
+      <a href="{{ a.file.url }}" target="_blank" class="border rounded p-2 small text-decoration-none">{{ a.get_category_display }}<br>{{ a.file.name|slice:"-24:" }}</a>
+      {% empty %}<div class="text-muted small">No files uploaded yet.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

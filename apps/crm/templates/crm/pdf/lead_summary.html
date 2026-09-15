@@ -1,0 +1,31 @@
+{% extends "core/pdf/pdf_base.html" %}
+{% block doc_title %}Lead Summary{% endblock %}
+{% block doc_number %}{{ lead.lead_id }}{% endblock %}
+{% block doc_date %}{{ lead.created_date|date:"d M Y" }}{% endblock %}
+{% block content %}
+<div class="section-title">Lead Information</div>
+<table class="kv">
+  <tr><td class="label">Customer</td><td>{{ lead.customer.customer_name }} ({{ lead.customer.customer_code }})</td></tr>
+  <tr><td class="label">Contact Number</td><td>{{ lead.contact_number|default:lead.customer.mobile_number }}</td></tr>
+  <tr><td class="label">Email</td><td>{{ lead.email|default:"—" }}</td></tr>
+  <tr><td class="label">Project Name</td><td>{{ lead.project_name|default:"—" }}</td></tr>
+  <tr><td class="label">Project Location</td><td>{{ lead.project_location|default:"—" }}</td></tr>
+  <tr><td class="label">Lead Source</td><td>{{ lead.lead_source|default:"—" }}</td></tr>
+  <tr><td class="label">Requirement</td><td>{{ lead.requirement|default:"—" }}</td></tr>
+  <tr><td class="label">Approximate Quantity</td><td>{{ lead.approximate_quantity|default:"—" }}</td></tr>
+  <tr><td class="label">Expected Value</td><td>{{ lead.expected_value|default:"—" }}</td></tr>
+  <tr><td class="label">Expected Closing Date</td><td>{{ lead.expected_closing_date|default:"—" }}</td></tr>
+  <tr><td class="label">Assigned Salesperson</td><td>{{ lead.assigned_salesperson|default:"Unassigned" }}</td></tr>
+  <tr><td class="label">Priority</td><td>{{ lead.get_priority_display }}</td></tr>
+  <tr><td class="label">Status</td><td>{{ lead.status }}</td></tr>
+  <tr><td class="label">Remarks</td><td>{{ lead.remarks|default:"—" }}</td></tr>
+</table>
+
+<div class="section-title">Follow-up History</div>
+<table class="data-table">
+  <tr><th>Date</th><th>Type</th><th>Discussion</th><th>Next Action</th></tr>
+  {% for f in lead.followups.all %}
+  <tr><td>{{ f.date }}</td><td>{{ f.get_type_display }}</td><td>{{ f.discussion }}</td><td>{{ f.next_action }}</td></tr>
+  {% empty %}<tr><td colspan="4">No follow-ups recorded.</td></tr>{% endfor %}
+</table>
+{% endblock %}

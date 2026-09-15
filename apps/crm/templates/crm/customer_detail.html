@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.customer_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-0">{{ customer.customer_name }} <span class="text-muted small">({{ customer.customer_code }})</span></h4>
+    <div class="text-muted small">{{ customer.get_customer_type_display }} · {{ customer.project_name|default:"No project name" }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if local_copy_url %}<a href="{{ local_copy_url }}" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-download me-1"></i>Download Profile PDF</a>{% endif %}
+    <a href="{% url 'crm:customer_update' customer.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+    <a href="{% url 'crm:lead_create' %}?customer={{ customer.pk }}" class="btn btn-primary btn-sm">New Lead</a>
+  </div>
+</div>
+
+<ul class="nav nav-tabs" id="customerTabs">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-info">Information</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-leads">Leads ({{ leads.count }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-orders">Orders ({{ orders|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-comm">Communication</button></li>
+</ul>
+<div class="tab-content border border-top-0 p-3 bg-white">
+  <div class="tab-pane fade show active" id="tab-info">
+    <div class="row">
+      <div class="col-md-6">
+        <table class="table table-sm">
+          <tr><th style="width:170px">Contact Person</th><td>{{ customer.contact_person|default:"—" }}</td></tr>
+          <tr><th>Mobile</th><td>{{ customer.mobile_number }}</td></tr>
+          <tr><th>Alternate</th><td>{{ customer.alternate_number|default:"—" }}</td></tr>
+          <tr><th>Email</th><td>{{ customer.email|default:"—" }}</td></tr>
+          <tr><th>Lead Source</th><td>{{ customer.lead_source|default:"—" }}</td></tr>
+          <tr><th>Salesperson</th><td>{{ customer.assigned_salesperson|default:"—" }}</td></tr>
+        </table>
+      </div>
+      <div class="col-md-6">
+        <table class="table table-sm">
+          <tr><th style="width:170px">Address</th><td>{{ customer.address|default:"—" }}</td></tr>
+          <tr><th>City / State</th><td>{{ customer.city }} {{ customer.state }}</td></tr>
+          <tr><th>Pincode</th><td>{{ customer.pincode|default:"—" }}</td></tr>
+          <tr><th>Project Address</th><td>{{ customer.project_address|default:"—" }}</td></tr>
+          <tr><th>Notes</th><td>{{ customer.notes|default:"—"|linebreaksbr }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tab-leads">
+    <table class="table table-sm table-hover">
+      <thead><tr><th>Lead ID</th><th>Status</th><th>Priority</th><th>Expected Value</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for lead in leads %}
+        <tr onclick="window.location='{% url 'crm:lead_detail' lead.pk %}'" style="cursor:pointer">
+          <td>{{ lead.lead_id }}</td>
+          <td><span class="badge bg-{{ lead.status.color }}">{{ lead.status }}</span></td>
+          <td>{{ lead.get_priority_display }}</td>
+          <td>{{ lead.expected_value|default:"—" }}</td>
+          <td>{{ lead.created_date|date:"d M Y" }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="5" class="text-muted text-center py-3">No leads yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tab-pane fade" id="tab-orders">
+    <table class="table table-sm table-hover">
+      <thead><tr><th>Order #</th><th>Status</th><th>Final Value</th><th>Confirmed</th></tr></thead>
+      <tbody>
+        {% for order in orders %}
+        <tr onclick="window.location='{{ order.get_absolute_url }}'" style="cursor:pointer">
+          <td>{{ order.order_number }}</td>
+          <td>{{ order.get_status_display }}</td>
+          <td>{{ order.final_value }}</td>
+          <td>{{ order.confirmed_at|date:"d M Y" }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="4" class="text-muted text-center py-3">No orders yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tab-pane fade" id="tab-comm">
+    <ul class="timeline mt-2">
+      {% for c in communications %}
+      <li><strong>{{ c.get_type_display }}</strong> — {{ c.date|date:"d M Y H:i" }} <span class="text-muted">by {{ c.user|default:"—" }}</span><div class="small">{{ c.notes }}</div></li>
+      {% empty %}<li class="pending text-muted">No communication logged yet.</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

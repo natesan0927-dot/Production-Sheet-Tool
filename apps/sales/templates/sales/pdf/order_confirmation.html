@@ -1,0 +1,35 @@
+{% extends "core/pdf/pdf_base.html" %}
+{% block doc_title %}Order Confirmation{% endblock %}
+{% block doc_number %}{{ order.order_number }}{% endblock %}
+{% block doc_date %}{{ order.confirmed_at|date:"d M Y" }}{% endblock %}
+{% block content %}
+<div class="section-title">Customer &amp; Order</div>
+<table class="kv">
+  <tr><td class="label">Customer</td><td>{{ order.customer.customer_name }}</td></tr>
+  <tr><td class="label">Project</td><td>{{ order.lead.project_name|default:"—" }}</td></tr>
+  <tr><td class="label">Quotation Reference</td><td>{{ order.quotation.quotation_number }} (V{{ order.confirmed_quotation_version }})</td></tr>
+  <tr><td class="label">Salesperson</td><td>{{ order.salesperson }}</td></tr>
+</table>
+
+<div class="section-title">Items</div>
+<table class="data-table">
+  <tr><th>#</th><th>Description</th><th>Dimensions</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>
+  {% for item in items %}
+  <tr><td>{{ forloop.counter }}</td><td>{{ item.description }}</td><td>{{ item.dimensions }}</td><td>{{ item.quantity }}</td><td>₹{{ item.unit_rate }}</td><td>₹{{ item.amount }}</td></tr>
+  {% endfor %}
+</table>
+
+<table class="totals-table" style="width:300px; margin-left:auto; margin-top:8px">
+  <tr><td>Final Value</td><td style="text-align:right">₹{{ order.final_value }}</td></tr>
+  <tr><td>Advance</td><td style="text-align:right">₹{{ order.advance_amount }}</td></tr>
+  <tr class="grand"><td>Balance</td><td style="text-align:right">₹{{ order.balance_amount }}</td></tr>
+</table>
+
+<div class="section-title">Delivery</div>
+<table class="kv">
+  <tr><td class="label">Payment Terms</td><td>{{ order.payment_terms|default:"—" }}</td></tr>
+  <tr><td class="label">Expected Delivery</td><td>{{ order.expected_delivery_date|default:"—" }}</td></tr>
+  <tr><td class="label">Expected Installation</td><td>{{ order.expected_installation_date|default:"—" }}</td></tr>
+  <tr><td class="label">Special Instructions</td><td>{{ order.special_instructions|default:"—" }}</td></tr>
+</table>
+{% endblock %}

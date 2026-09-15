@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Monthly Sales Report{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Monthly Sales Report — {{ month }}/{{ year }}</h4>
+  <a href="?year={{ year }}&month={{ month }}&export=excel" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</a>
+</div>
+<form class="row g-2 mb-3">
+  <div class="col-auto"><input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" style="width:100px"></div>
+  <div class="col-auto"><input type="number" name="month" min="1" max="12" value="{{ month }}" class="form-control form-control-sm" style="width:80px"></div>
+  <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">Go</button></div>
+</form>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="stat-value">{{ total_leads }}</div><div class="stat-label">Leads</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="stat-value">{{ quotations_issued }}</div><div class="stat-label">Quotations</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="stat-value">{{ won_orders }}</div><div class="stat-label">Won Orders</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="stat-value">₹{{ won_value|floatformat:0 }}</div><div class="stat-label">Won Value</div></div></div></div>
+</div>
+<div class="card">
+  <div class="card-header fw-semibold">Salesperson Performance</div>
+  <table class="table table-sm mb-0">
+    <thead class="table-light"><tr><th>Salesperson</th><th>Orders</th><th>Value</th></tr></thead>
+    <tbody>
+      {% for r in by_salesperson %}
+      <tr><td>{{ r.salesperson__first_name|default:"Unassigned" }} {{ r.salesperson__last_name }}</td><td>{{ r.count }}</td><td>₹{{ r.total }}</td></tr>
+      {% empty %}<tr><td colspan="3" class="text-center text-muted py-3">No orders this period.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

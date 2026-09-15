@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}Create Quotation{% endblock %}
+{% block content %}
+<h4 class="mb-1">Create Quotation</h4>
+<div class="text-muted small mb-3">{{ lead.lead_id }} — {{ lead.customer.customer_name }} · {{ lead.project_name }}</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">Terms</div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-4">{% include "core/_field.html" with field=form.payment_terms %}</div>
+        <div class="col-md-4">{% include "core/_field.html" with field=form.delivery_period %}</div>
+        <div class="col-md-4">{% include "core/_field.html" with field=form.tax_percent %}</div>
+        <div class="col-md-6">{% include "core/_field.html" with field=form.warranty_text %}</div>
+        <div class="col-md-6">{% include "core/_field.html" with field=form.terms_text %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">Line Items</div>
+    <div class="card-body">
+      {{ formset.management_form }}
+      <table class="table table-sm" id="items-table">
+        <thead><tr><th>Description</th><th>Dimensions</th><th>Qty</th><th>Rate</th><th>Glass</th><th>Hardware</th><th>Accessories</th><th></th></tr></thead>
+        <tbody>
+        {% for f in formset %}
+          <tr>
+            {{ f.id }}
+            <td>{{ f.description|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.dimensions|add_class:"form-control form-control-sm" }}</td>
+            <td style="width:70px">{{ f.quantity|add_class:"form-control form-control-sm" }}</td>
+            <td style="width:100px">{{ f.unit_rate|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.glass|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.hardware|add_class:"form-control form-control-sm" }}</td>
+            <td>{{ f.accessories|add_class:"form-control form-control-sm" }}</td>
+            <td>{% if f.DELETE %}<div class="form-check">{{ f.DELETE }}</div>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <button class="btn btn-primary btn-sm">Save Quotation</button>
+</form>
+{% endblock %}

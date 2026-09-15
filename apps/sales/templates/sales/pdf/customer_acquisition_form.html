@@ -1,0 +1,37 @@
+{% extends "core/pdf/pdf_base.html" %}
+{% block doc_title %}Customer Acquisition Form{% endblock %}
+{% block doc_number %}{{ order.order_number }}{% endblock %}
+{% block doc_date %}{% now "d M Y" %}{% endblock %}
+{% block content %}
+<p class="text-muted">Auto-populated from CRM records already on file — no information has been re-entered.</p>
+<div class="section-title">Customer Details</div>
+<table class="kv">
+  <tr><td class="label">Customer Name</td><td>{{ customer.customer_name }}</td></tr>
+  <tr><td class="label">Address</td><td>{{ customer.address }}</td></tr>
+  <tr><td class="label">Mobile</td><td>{{ customer.mobile_number }}</td></tr>
+  <tr><td class="label">Email</td><td>{{ customer.email|default:"—" }}</td></tr>
+  <tr><td class="label">Project Name</td><td>{{ customer.project_name|default:"—" }}</td></tr>
+  <tr><td class="label">Project Address</td><td>{{ customer.project_address|default:"—" }}</td></tr>
+</table>
+
+<div class="section-title">Order Details</div>
+<table class="kv">
+  <tr><td class="label">Order Number</td><td>{{ order.order_number }}</td></tr>
+  <tr><td class="label">Quotation Number</td><td>{{ quotation.quotation_number }}</td></tr>
+  <tr><td class="label">Final Order Value</td><td>₹{{ order.final_value }}</td></tr>
+  <tr><td class="label">Payment Terms</td><td>{{ order.payment_terms|default:"—" }}</td></tr>
+  <tr><td class="label">Advance Amount</td><td>₹{{ order.advance_amount }}</td></tr>
+  <tr><td class="label">Balance Amount</td><td>₹{{ order.balance_amount }}</td></tr>
+  <tr><td class="label">Order Date</td><td>{{ order.confirmed_at|date:"d M Y" }}</td></tr>
+  <tr><td class="label">Expected Delivery Date</td><td>{{ order.expected_delivery_date|default:"—" }}</td></tr>
+  <tr><td class="label">Salesperson</td><td>{{ order.salesperson }}</td></tr>
+</table>
+
+<div class="section-title">Product Details</div>
+<table class="data-table">
+  <tr><th>Description</th><th>Dimensions</th><th>Qty</th><th>Glass</th><th>Hardware</th></tr>
+  {% for item in items %}
+  <tr><td>{{ item.description }}</td><td>{{ item.dimensions }}</td><td>{{ item.quantity }}</td><td>{{ item.glass }}</td><td>{{ item.hardware }}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
