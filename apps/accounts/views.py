@@ -14,6 +14,7 @@ from apps.core.mixins import RoleRequiredMixin
 
 class TitansLoginView(auth_views.LoginView):
     template_name = "accounts/login.html"
+    redirect_authenticated_user = True
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
