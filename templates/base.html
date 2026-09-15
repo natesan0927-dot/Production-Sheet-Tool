@@ -21,7 +21,7 @@
 <nav id="tw-sidebar">
   <div class="brand">
     <div class="brand-mark">
-      {% if company.logo %}<img src="{{ company.logo.url }}" alt="{{ company.name }}">{% else %}<img src="{% static 'branding/titans_logo.png' %}" alt="{{ company.name }}">{% endif %}
+      <img src="{% static 'branding/titans_logo.png' %}" alt="{{ company.name }}">
     </div>
     <div>
       <div class="brand-name">{{ company.name }}</div>

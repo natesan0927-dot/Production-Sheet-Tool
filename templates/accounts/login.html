@@ -7,7 +7,7 @@
   <div class="auth-visual">
     <div class="d-flex align-items-center gap-3">
       <div class="auth-logo-ring">
-        <img src="{% if company.logo %}{{ company.logo.url }}{% else %}{% static 'branding/titans_logo.png' %}{% endif %}" alt="{{ company.name }}">
+        <img src="{% static 'branding/titans_logo.png' %}" alt="{{ company.name }}">
       </div>
       <div>
         <div class="fw-bold fs-4" style="font-family:'Playfair Display', serif">{{ company.name }}</div>
