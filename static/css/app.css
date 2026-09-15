@@ -383,6 +383,7 @@ tr[onclick]:hover td { background-color: #FBF6E7; }
     repeating-linear-gradient(0deg, rgba(217,175,62,.06) 0 2px, transparent 2px 72px);
 }
 .auth-visual > * { position: relative; z-index: 1; }
+.auth-visual h1, .auth-visual h2, .auth-visual h3, .auth-visual h4 { color: #fff; }
 .auth-form-side { flex: 1; display: flex; align-items: center; justify-content: center; background: #fff; padding: 2.5rem 2rem; }
 
 .auth-logo-ring {

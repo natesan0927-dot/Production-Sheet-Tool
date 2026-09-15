@@ -17,8 +17,9 @@ urlpatterns = [
     path("reports/", include("apps.reports.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# This is a small internal tool with no CDN/object storage in front of it,
+# so Django serves uploaded media itself in production too, not just DEBUG.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 admin.site.site_header = "Titans Windows — CRM/ERP Administration"
 admin.site.site_title = "Titans CRM Admin"
