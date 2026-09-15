@@ -68,11 +68,12 @@ class Command(BaseCommand):
         if not company.logo:
             self._seed_logo(company)
 
-        self._seed_demo_users()
-
         for name in ROLES:
             Group.objects.get_or_create(name=name)
         self.stdout.write(self.style.SUCCESS(f"Roles ready ({len(ROLES)})"))
+
+        self._seed_demo_users()
+        self._seed_superuser()
 
         for i, (name, is_won, is_lost, is_default, color) in enumerate(LEAD_STATUSES):
             LeadStatus.objects.get_or_create(
@@ -147,3 +148,25 @@ class Command(BaseCommand):
             group = Group.objects.get(name=group_name)
             user.groups.set([group])
         self.stdout.write(self.style.SUCCESS(f"Demo accounts ready ({len(DEMO_USERS)}), password: {DEMO_PASSWORD}"))
+
+    def _seed_superuser(self):
+        """
+        Creates a real admin account from environment variables, so a host
+        with no interactive shell (e.g. Render's free plan) still ends up
+        with a proper login -- this only ever CREATES the account once; if
+        it already exists (or was since edited by hand), it's left alone.
+        """
+        import os
+
+        from apps.accounts.models import User
+
+        username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
+        password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
+        if not username or not password:
+            return
+        if User.objects.filter(username=username).exists():
+            self.stdout.write(f"Superuser '{username}' already exists -- left untouched.")
+            return
+        email = os.environ.get("DJANGO_SUPERUSER_EMAIL", "")
+        User.objects.create_superuser(username=username, email=email, password=password)
+        self.stdout.write(self.style.SUCCESS(f"Superuser '{username}' created from environment variables."))
