@@ -114,6 +114,7 @@
         <a href="{{ t.url }}" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
           <span class="stat-icon" style="width:34px;height:34px;font-size:.8rem"><i class="fa-solid {{ t.icon }}"></i></span>
           <span class="flex-grow-1 small fw-semibold">{{ t.label }}</span>
+          {% if t.overdue %}<span class="badge bg-danger">Overdue</span>{% endif %}
           <span class="text-muted small">{{ t.due|default:"—" }}</span>
         </a>
         {% empty %}<div class="list-group-item text-muted small py-4 text-center">Nothing pending — nice work.</div>{% endfor %}
@@ -132,7 +133,6 @@
         {% endfor %}
       </div>
     </div>
-    {% endif %}
     <div class="card">
       <div class="card-header"><i class="fa-solid fa-list-check me-1 text-primary"></i>My Open Tasks</div>
       <div class="list-group list-group-flush" style="max-height:420px; overflow:auto">
@@ -140,11 +140,35 @@
         <a href="{{ t.url }}" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
           <span class="stat-icon" style="width:32px;height:32px;font-size:.75rem"><i class="fa-solid {{ t.icon }}"></i></span>
           <span class="flex-grow-1 small fw-semibold">{{ t.label }}</span>
+          {% if t.overdue %}<span class="badge bg-danger">Overdue</span>{% endif %}
           <span class="text-muted small">{{ t.due|default:"—" }}</span>
         </a>
         {% empty %}<div class="list-group-item text-muted small py-4 text-center">Nothing pending — nice work.</div>{% endfor %}
       </div>
     </div>
+    {% elif dashboard_mode == "sales" %}
+    <div class="card">
+      <div class="card-header"><i class="fa-solid fa-phone-volume me-1 text-primary"></i>Needs Follow-up</div>
+      <div class="list-group list-group-flush">
+        {% for f in needs_followup %}
+        <a href="{{ f.url }}" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+          <span class="stat-icon" style="width:32px;height:32px;font-size:.75rem"><i class="fa-solid {{ f.icon }}"></i></span>
+          <span class="flex-grow-1 small fw-semibold">{{ f.label }}</span>
+          <span class="text-muted small">{{ f.due }}</span>
+        </a>
+        {% empty %}<div class="list-group-item text-muted small py-4 text-center">No follow-ups due — nice work.</div>{% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="card">
+      <div class="card-body text-center py-4">
+        <i class="fa-solid fa-book-open fs-3 text-primary mb-2"></i>
+        <div class="fw-semibold small mb-1">New to this system?</div>
+        <p class="text-muted small mb-3">See what your role does and how the day-to-day flow works.</p>
+        <a href="{% url 'core:guide' %}" class="btn btn-outline-primary btn-sm">Open your Guide</a>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

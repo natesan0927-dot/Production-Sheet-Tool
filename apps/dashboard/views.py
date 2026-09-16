@@ -63,12 +63,26 @@ def home(request):
         "today_sales": orders.filter(confirmed_at__date=today).aggregate(v=Sum("final_value"))["v"] or 0,
         "month_sales": orders.filter(confirmed_at__date__gte=month_start).aggregate(v=Sum("final_value"))["v"] or 0,
         "year_sales": orders.filter(confirmed_at__date__gte=year_start).aggregate(v=Sum("final_value"))["v"] or 0,
-        "pending_quotations": Quotation.objects.filter(status__in=["draft", "sent", "negotiation"]).count(),
+        "pending_quotations": Quotation.objects.filter(
+            status__in=["draft", "sent", "negotiation"], lead__in=leads
+        ).count(),
     }
 
     followups = FollowUp.objects.filter(lead__in=leads)
     sales_stats["followups_today"] = followups.filter(next_followup_date=today).count()
     sales_stats["followups_overdue"] = followups.filter(next_followup_date__lt=today).count()
+
+    needs_followup = []
+    open_followups = followups.filter(
+        next_followup_date__lte=today, lead__status__is_won=False, lead__status__is_lost=False
+    ).select_related("lead", "lead__customer").order_by("next_followup_date")[:10]
+    for f in open_followups:
+        needs_followup.append({
+            "label": f"{f.lead.customer.customer_name} — {f.next_action or f.get_type_display()}",
+            "url": f.lead.get_absolute_url(),
+            "due": f.next_followup_date,
+            "icon": "fa-phone-volume",
+        })
 
     production_stats = {
         "awaiting_final_measurement": FinalMeasurementRequest.objects.exclude(status="approved").count(),
@@ -134,6 +148,12 @@ def home(request):
     for c in ServiceComplaint.objects.filter(assigned_technician=user).exclude(status__in=["resolved", "closed"])[:10]:
         my_tasks.append({"label": f"Service: {c.complaint_number}", "url": c.get_absolute_url(), "due": c.scheduled_date, "icon": "fa-headset"})
 
+    # Overdue-first, then soonest due date, so the thing that most needs
+    # attention right now is always at the top rather than in queryset order.
+    for task in my_tasks:
+        task["overdue"] = bool(task["due"] and task["due"] < today)
+    my_tasks.sort(key=lambda t: (t["due"] is None, t["due"] or today))
+
     context = {
         "dashboard_mode": mode,
         "is_management": is_management,
@@ -148,5 +168,6 @@ def home(request):
         "chart_months": json.dumps(months),
         "chart_values": json.dumps(monthly_values),
         "my_tasks": my_tasks,
+        "needs_followup": needs_followup,
     }
     return render(request, "dashboard/home.html", context)
