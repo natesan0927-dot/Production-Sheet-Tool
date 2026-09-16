@@ -189,3 +189,46 @@ def settings_hub(request):
 
         raise PermissionDenied("You do not have access to Admin Settings.")
     return render(request, "core/settings_hub.html")
+
+
+@login_required
+def guide(request):
+    """
+    Plain-language "what does my role do / how do I use this / what's the
+    flow" page. Shows the signed-in user's own role by default; anyone whose
+    nav_sections overlap another role's guide can switch to it too, which
+    naturally covers Admin Staff/Management/Super Admin (who have every
+    section) without any special-casing.
+    """
+    from apps.core.access import ROLE_PRIORITY, primary_role_label, user_sections
+    from apps.core.guide_content import GUIDES, guide_icon
+
+    viewer_sections = user_sections(request.user)
+    viewer_primary = primary_role_label(request.user)
+
+    def can_view(role):
+        role_data = GUIDES.get(role)
+        if not role_data:
+            return False
+        if role == viewer_primary:
+            return True
+        return any(section["nav_section"] in viewer_sections for section in role_data["sections"])
+
+    requested = request.GET.get("role")
+    if requested and can_view(requested):
+        selected_role = requested
+    elif viewer_primary in GUIDES:
+        selected_role = viewer_primary
+    else:
+        selected_role = None
+
+    browsable_roles = [role for role in ROLE_PRIORITY if can_view(role)]
+    selected_guide = GUIDES.get(selected_role)
+
+    return render(request, "core/guide.html", {
+        "selected_role": selected_role,
+        "guide": selected_guide,
+        "guide_icon": guide_icon(selected_role) if selected_role else "fa-book-open",
+        "browsable_roles": browsable_roles,
+        "viewer_primary": viewer_primary,
+    })

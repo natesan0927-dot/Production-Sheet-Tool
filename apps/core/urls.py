@@ -12,4 +12,5 @@ urlpatterns = [
     path("notifications/read-all/", views.notification_mark_all_read, name="notifications_read_all"),
     path("search/", views.global_search, name="search"),
     path("settings/", views.settings_hub, name="settings_hub"),
+    path("guide/", views.guide, name="guide"),
 ]
