@@ -1,12 +1,13 @@
 {% extends "base.html" %}
-{% load widget_tweaks %}
+{% load widget_tweaks journey_tags %}
 {% block title %}Quality Check — {{ qc.production_sheet.production_number }}{% endblock %}
 {% block content %}
+{% journey_stepper qc %}
 <h4 class="mb-1">Quality Check — {{ qc.production_sheet.production_number }}</h4>
 <div class="text-muted small mb-3">{{ qc.production_sheet.order.order_number }} — {{ qc.production_sheet.order.customer.customer_name }}</div>
 
 {% if not can_approve %}
-<div class="alert alert-warning small">You can view this quality check, but only Quality Control (or a Production Manager) can record the result.</div>
+<div class="mb-3">{% include "partials/awaiting_approval.html" with role="Quality Control" %}</div>
 {% endif %}
 <div class="card" style="max-width:640px">
   <div class="card-body">

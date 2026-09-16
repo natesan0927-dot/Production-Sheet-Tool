@@ -1,0 +1,33 @@
+{% if stages %}
+<div class="tw-journey-wrap mb-4">
+  {% if banner %}
+  <div class="tw-journey-banner tw-journey-banner-{{ banner.type }}">
+    <i class="fa-solid {% if banner.type == 'lost' %}fa-circle-xmark{% else %}fa-ban{% endif %} me-2"></i>{{ banner.message }}
+  </div>
+  {% endif %}
+  <div class="tw-journey">
+    {% for stage in stages %}
+    <div class="tw-journey-step state-{{ stage.state }}{% if stage.is_current_page %} is-here{% endif %}">
+      {% if not forloop.first %}<span class="tw-journey-line"></span>{% endif %}
+      {% if stage.url %}<a href="{{ stage.url }}" class="tw-journey-node" title="{{ stage.label }}">{% else %}<span class="tw-journey-node">{% endif %}
+        {% if stage.state == "done" %}<i class="fa-solid fa-check"></i>
+        {% elif stage.state == "current" %}<i class="fa-solid fa-circle-dot"></i>
+        {% elif stage.state == "not_applicable" %}<i class="fa-solid fa-xmark"></i>
+        {% else %}<span class="tw-journey-dot"></span>{% endif %}
+      {% if stage.url %}</a>{% else %}</span>{% endif %}
+      <div class="tw-journey-label">
+        {{ stage.label }}
+        {% if stage.sublabel %}<span class="tw-journey-sublabel">{{ stage.sublabel }}</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if service_badge.active %}
+    <div class="tw-journey-step state-done tw-journey-badge-step">
+      <span class="tw-journey-line"></span>
+      <span class="tw-journey-node tw-journey-node-badge"><i class="fa-solid fa-shield-halved"></i></span>
+      <div class="tw-journey-label">{{ service_badge.label }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

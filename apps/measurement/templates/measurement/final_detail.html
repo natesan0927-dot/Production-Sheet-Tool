@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% load widget_tweaks %}
+{% load widget_tweaks journey_tags %}
 {% block title %}{{ final_measurement.final_measurement_id }}{% endblock %}
 {% block content %}
+{% journey_stepper final_measurement %}
 <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
   <div>
     <h4 class="mb-0">{{ final_measurement.final_measurement_id }} <span class="badge bg-secondary">{{ final_measurement.get_status_display }}</span></h4>
@@ -14,7 +15,7 @@
       <button class="btn btn-success btn-sm">Approve for Production</button>
     </form>
     {% elif final_measurement.status == "completed" %}
-    <span class="badge bg-warning">Awaiting approval (Admin Staff / Production Manager)</span>
+    {% include "partials/awaiting_approval.html" with role="Production Manager" %}
     {% endif %}
   </div>
 </div>

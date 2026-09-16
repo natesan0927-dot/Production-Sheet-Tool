@@ -342,6 +342,45 @@ tr[onclick]:hover td { background-color: #FBF6E7; }
 }
 .timeline li.pending::before { background: #CBD5E1; box-shadow: 0 0 0 1px #CBD5E1; }
 
+/* Order journey stepper */
+.tw-journey-banner {
+  display: flex; align-items: center; font-weight: 700; font-size: .85rem;
+  padding: .6rem 1rem; border-radius: .65rem; margin-bottom: .85rem;
+}
+.tw-journey-banner-lost { background: #FEE2E2; color: #B91C1C; }
+.tw-journey-banner-cancelled { background: #F1F5F9; color: #475569; }
+.tw-journey {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0;
+  background: #fff; border: 1px solid var(--tw-border); border-radius: var(--bs-border-radius-lg);
+  padding: 1.1rem 1rem .9rem;
+}
+.tw-journey-step { display: flex; flex-direction: column; align-items: center; position: relative; width: 92px; text-align: center; }
+.tw-journey-line { position: absolute; top: 15px; right: 50%; width: 100%; height: 2px; background: var(--tw-border); z-index: 0; }
+.tw-journey-step.state-done .tw-journey-line { background: var(--tw-gold); }
+.tw-journey-node {
+  width: 30px; height: 30px; border-radius: 50%; flex: none; z-index: 1;
+  display: flex; align-items: center; justify-content: center; font-size: .78rem;
+  background: #EEF1F9; color: var(--tw-ink-muted); border: 2px solid #EEF1F9; text-decoration: none;
+}
+.tw-journey-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tw-ink-muted); opacity: .4; }
+.tw-journey-step.state-done .tw-journey-node { background: var(--tw-gold); color: var(--tw-navy); border-color: var(--tw-gold); }
+.tw-journey-step.state-current .tw-journey-node { background: var(--tw-navy); color: var(--tw-gold-300); border-color: var(--tw-navy); animation: tw-journey-pulse 1.8s ease-in-out infinite; }
+.tw-journey-step.state-not_applicable .tw-journey-node { background: #F1F5F9; color: #B5BDCC; border-color: #F1F5F9; }
+.tw-journey-step.state-upcoming .tw-journey-node { background: #F5F6FA; border-color: #F5F6FA; }
+.tw-journey-step.is-here .tw-journey-node { box-shadow: 0 0 0 3px var(--tw-gold-100); }
+a.tw-journey-node:hover { opacity: .85; }
+.tw-journey-label { font-size: .72rem; font-weight: 700; color: var(--tw-ink-soft); margin-top: .4rem; line-height: 1.2; }
+.tw-journey-step.state-not_applicable .tw-journey-label { color: #B5BDCC; text-decoration: line-through; }
+.tw-journey-sublabel { display: block; font-weight: 500; color: var(--tw-ink-muted); font-size: .66rem; margin-top: .1rem; }
+.tw-journey-node-badge { background: var(--tw-gold-100); color: var(--tw-gold-700); border-color: var(--tw-gold-100); }
+@keyframes tw-journey-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(15,33,73,.35); } 50% { box-shadow: 0 0 0 5px rgba(15,33,73,0); } }
+@media (max-width: 900px) { .tw-journey-step { width: 74px; } .tw-journey-label { font-size: .66rem; } }
+
+.tw-awaiting-approval {
+  display: inline-flex; align-items: center; font-size: .84rem; font-weight: 600;
+  background: #FEF3C7; color: #B45309; padding: .5rem .85rem; border-radius: .6rem;
+}
+
 /* Kanban */
 .kanban-col { min-width: 280px; background: #EEF1F9; border-radius: .9rem; padding: .75rem; }
 .kanban-card {
