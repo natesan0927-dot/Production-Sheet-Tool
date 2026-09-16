@@ -126,8 +126,18 @@ def qc_detail(request, pk):
             for item in checklist_items:
                 passed = request.POST.get(f"passed_{item.pk}") == "on"
                 qc.results.update_or_create(checklist_item=item, defaults={"passed": passed})
-            services.process_qc_result(qc, request.user, form.cleaned_data["status"], form.cleaned_data["remarks"])
-            messages.success(request, f"Quality check recorded: {qc.get_status_display()}.")
+            result_status = form.cleaned_data["status"]
+            services.process_qc_result(qc, request.user, result_status, form.cleaned_data["remarks"])
+            if result_status == "approved":
+                from django.utils.html import format_html
+
+                dispatch = qc.production_sheet.order.dispatch
+                messages.success(
+                    request,
+                    format_html('Quality check approved. <a href="{}">View Dispatch</a>.', dispatch.get_absolute_url()),
+                )
+            else:
+                messages.success(request, f"Quality check recorded: {qc.get_status_display()}.")
             return redirect("production:sheet_detail", pk=qc.production_sheet_id)
     else:
         form = QualityCheckForm(instance=qc)

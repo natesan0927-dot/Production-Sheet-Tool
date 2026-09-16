@@ -49,9 +49,14 @@ def dispatch_update(request, pk):
 @login_required
 @require_POST
 def dispatch_mark_dispatched(request, pk):
+    from django.utils.html import format_html
+
     dispatch = get_object_or_404(Dispatch, pk=pk)
-    services.mark_dispatched(dispatch, request.user)
-    messages.success(request, "Order marked as dispatched. Installation task created.")
+    installation = services.mark_dispatched(dispatch, request.user)
+    messages.success(
+        request,
+        format_html('Order marked as dispatched. <a href="{}">View Installation</a>.', installation.get_absolute_url()),
+    )
     return redirect(f"{reverse('logistics:dispatch_detail', args=[pk])}?autoexport=1")
 
 
@@ -136,14 +141,22 @@ def installation_complete(request, pk):
 @login_required
 @require_POST
 def installation_handover(request, pk):
+    from django.utils.html import format_html
+
     installation = get_object_or_404(Installation, pk=pk)
     form = HandoverForm(request.POST, request.FILES)
     if form.is_valid():
-        services.generate_handover(
+        handover = services.generate_handover(
             installation, request.user,
             customer_confirmation=form.cleaned_data["customer_confirmation"],
             remarks=form.cleaned_data["remarks"],
             signature_file=form.cleaned_data.get("customer_signature"),
         )
-        messages.success(request, "Handover certificate generated and warranty activated.")
+        messages.success(
+            request,
+            format_html(
+                'Handover certificate generated and warranty activated. <a href="{}">View Warranty</a>.',
+                handover.order.warranty.get_absolute_url(),
+            ),
+        )
     return redirect(f"{reverse('logistics:installation_detail', args=[pk])}?autoexport=1")

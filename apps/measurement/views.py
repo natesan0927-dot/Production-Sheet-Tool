@@ -219,9 +219,16 @@ def final_approve(request, pk):
     fm.approved_at = timezone.now()
     fm.save(update_fields=["status", "approved_by", "approved_at"])
 
+    from django.utils.html import format_html
+
     from apps.production.services import create_production_sheet_request
 
-    create_production_sheet_request(fm.order, request.user)
+    sheet = create_production_sheet_request(fm.order, request.user)
 
-    messages.success(request, "Final measurement approved. Production sheet task created.")
+    messages.success(
+        request,
+        format_html(
+            'Final measurement approved. <a href="{}">View Production Sheet</a>.', sheet.get_absolute_url()
+        ),
+    )
     return redirect("measurement:final_detail", pk=pk)
