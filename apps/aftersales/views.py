@@ -79,9 +79,24 @@ def complaint_create(request):
 def complaint_update(request, pk):
     complaint = get_object_or_404(ServiceComplaint, pk=pk)
     if request.method == "POST":
+        previous_technician_id = complaint.assigned_technician_id
+        previous_status = complaint.status
         form = ServiceComplaintUpdateForm(request.POST, instance=complaint)
         if form.is_valid():
             form.save()
+
+            if complaint.assigned_technician_id and complaint.assigned_technician_id != previous_technician_id:
+                notify(
+                    complaint.assigned_technician, f"Service complaint assigned to you: {complaint.complaint_number}",
+                    url=complaint.get_absolute_url(), related_object=complaint,
+                )
+            if complaint.status in ("resolved", "closed") and previous_status not in ("resolved", "closed"):
+                if complaint.order_id and complaint.order.salesperson_id:
+                    notify(
+                        complaint.order.salesperson, f"Service complaint resolved: {complaint.complaint_number}",
+                        url=complaint.get_absolute_url(), related_object=complaint,
+                    )
+
             messages.success(request, "Complaint updated.")
             return redirect(f"{reverse('aftersales:complaint_detail', args=[pk])}?autoexport=1")
     return redirect("aftersales:complaint_detail", pk=pk)

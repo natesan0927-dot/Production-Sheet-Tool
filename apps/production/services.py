@@ -84,3 +84,11 @@ def process_qc_result(quality_check, user, status, remarks=""):
 
             if rework_stage.assigned_to:
                 notify(rework_stage.assigned_to, f"Rework required on {sheet.production_number}", url=sheet.get_absolute_url(), related_object=sheet)
+            else:
+                # The stage this rework is for has no assignee (common right
+                # after a fresh QC rejection) -- without this, the rework
+                # would silently sit with nobody told it exists.
+                from apps.accounts.models import User
+
+                managers = User.objects.filter(groups__name__in=["Production Manager", "Super Admin"], is_active=True).distinct()
+                notify_many(managers, f"Rework required on {sheet.production_number} — needs an assignee", url=sheet.get_absolute_url(), related_object=sheet)

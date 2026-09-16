@@ -77,12 +77,15 @@ def notifications_poll(request):
     someone else's action (another role finishing their step) shows up
     without the user having to reload or navigate anywhere.
     """
+    from django.urls import reverse
+
     qs = request.user.notifications.all()[:8]
     items = [
         {
             "id": n.pk,
             "verb": n.verb,
             "url": n.get_absolute_url(),
+            "read_url": reverse("core:notification_read", args=[n.pk]),
             "is_read": n.is_read,
             "since": naturaltime_short(n.created_at),
         }

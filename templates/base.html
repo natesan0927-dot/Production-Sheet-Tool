@@ -182,7 +182,7 @@
     if (data.items && data.items.length) {
       list.innerHTML = data.items.map(function (n) {
         var cls = "dropdown-item small rounded" + (n.is_read ? "" : " fw-semibold");
-        return '<a href="' + n.url + '" class="' + cls + '">' + n.verb +
+        return '<a href="' + n.read_url + '" class="' + cls + '">' + n.verb +
                '<span class="d-block text-muted" style="font-size:.68rem">' + n.since + '</span></a>';
       }).join("");
     }

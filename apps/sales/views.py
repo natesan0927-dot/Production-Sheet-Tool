@@ -140,6 +140,12 @@ def quotation_revise(request, pk):
             new_version.recalculate_totals()
             original.status = "superseded"
             original.save(update_fields=["status"])
+
+            if original.lead.assigned_salesperson:
+                notify(
+                    original.lead.assigned_salesperson, f"Quotation revised: {new_version.quotation_number}",
+                    url=new_version.get_absolute_url(), related_object=new_version,
+                )
         messages.success(request, f"Created revision {new_version.quotation_number}.")
         return redirect("sales:quotation_detail", pk=new_version.pk)
     messages.error(request, "Please provide a reason for the revision.")

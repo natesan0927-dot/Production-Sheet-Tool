@@ -254,6 +254,17 @@ def lead_mark_lost(request, pk):
             if lost_status:
                 lead.status = lost_status
                 lead.save(update_fields=["status"])
+
+            from apps.accounts.models import User
+            from apps.core.notifications import notify_many
+
+            reason = detail.reason.name if detail.reason_id else "No reason recorded"
+            recipients = User.objects.filter(groups__name__in=["Sales Manager", "Management"], is_active=True).distinct()
+            notify_many(
+                recipients, f"Lead Lost: {lead.lead_id} — {reason}",
+                url=lead.get_absolute_url(), related_object=lead,
+            )
+
             messages.warning(request, f"Lead {lead.lead_id} marked as Lost.")
             return redirect("crm:lead_detail", pk=pk)
     else:
