@@ -45,7 +45,7 @@
 
     {% if 'measurement' in nav_sections %}
     <div class="nav-section">Measurement</div>
-    <a class="nav-link {% if 'measurement/requests' in request.path %}active{% endif %}" href="{% url 'measurement:request_list' %}"><i class="fa-solid fa-ruler-combined"></i>Site Measurement</a>
+    <a class="nav-link {% if 'measurement/requests' in request.path %}active{% endif %}" href="{% url 'measurement:request_list' %}"><i class="fa-solid fa-ruler-combined"></i>Rough Measurement</a>
     <a class="nav-link {% if 'measurement/final' in request.path %}active{% endif %}" href="{% url 'measurement:final_list' %}"><i class="fa-solid fa-ruler"></i>Final Measurement</a>
     {% endif %}
 

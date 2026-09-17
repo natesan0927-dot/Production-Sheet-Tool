@@ -57,6 +57,10 @@ class MeasurementRequestDetailView(LoginRequiredMixin, RoleRequiredMixin, Detail
 def request_create(request):
     lead_id = request.GET.get("lead")
     lead = get_object_or_404(Lead, pk=lead_id)
+    existing = lead.measurement_requests.exclude(status="cancelled").first()
+    if existing:
+        messages.info(request, f"A measurement is already requested for this lead ({existing.measurement_id}).")
+        return redirect("measurement:request_detail", pk=existing.pk)
     if request.method == "POST":
         form = MeasurementRequestForm(request.POST)
         if form.is_valid():

@@ -16,7 +16,7 @@ from django.urls import reverse
 STAGE_DEFS = [
     ("lead_created", "Lead Created"),
     ("assigned", "Assigned to Sales"),
-    ("measurement", "Site Measurement"),
+    ("measurement", "Rough Measurement"),
     ("quotation", "Quotation"),
     ("followup_won", "Follow-up / Won-Lost"),
     ("order_confirmed", "Order Confirmed"),

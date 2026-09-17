@@ -15,7 +15,13 @@
     <a href="{% url 'crm:lead_mark_won' lead.pk %}" class="btn btn-success btn-sm">Proceed to Won &rarr;</a>
     <a href="{% url 'crm:lead_mark_lost' lead.pk %}" class="btn btn-danger btn-sm">Mark as Lost</a>
     {% endif %}
-    <a href="{% url 'measurement:request_create' %}?lead={{ lead.pk }}" class="btn btn-outline-primary btn-sm">Request Measurement</a>
+    {% if active_measurement_request %}
+    <button class="btn btn-outline-secondary btn-sm" disabled title="{{ active_measurement_request.measurement_id }} — {{ active_measurement_request.get_status_display }}">
+      <i class="fa-solid fa-circle-check me-1"></i>Already Requested
+    </button>
+    {% else %}
+    <a href="{% url 'measurement:request_create' %}?lead={{ lead.pk }}" class="btn btn-outline-primary btn-sm">Request Rough Measurement</a>
+    {% endif %}
   </div>
 </div>
 

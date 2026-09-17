@@ -146,6 +146,7 @@ class LeadDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
         ctx["assign_form"] = LeadAssignForm(initial={"assigned_to": lead.assigned_salesperson_id})
         ctx["quotations"] = getattr(lead, "quotations", None).all() if hasattr(lead, "quotations") else []
         ctx["measurement_requests"] = getattr(lead, "measurement_requests", None).all() if hasattr(lead, "measurement_requests") else []
+        ctx["active_measurement_request"] = lead.measurement_requests.exclude(status="cancelled").first()
         ctx["timeline"] = build_lead_timeline(lead)
         return ctx
 

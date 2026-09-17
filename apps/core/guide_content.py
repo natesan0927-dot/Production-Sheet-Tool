@@ -87,7 +87,7 @@ GUIDES = {
                 {"label": "Sales Pipeline", "url_name": "crm:lead_pipeline", "description": "A board view of every lead by stage."},
             ]},
             {"nav_section": "measurement", "title": "Measurement", "features": [
-                {"label": "Site Measurement", "url_name": "measurement:request_list",
+                {"label": "Rough Measurement", "url_name": "measurement:request_list",
                  "description": "Visibility into measurement jobs feeding your team's quotations."},
             ]},
             {"nav_section": "insights", "title": "Insights", "features": [
@@ -117,7 +117,7 @@ GUIDES = {
                 {"label": "Sales Targets", "url_name": "sales:target_list", "description": "Your monthly target and progress."},
             ]},
             {"nav_section": "measurement", "title": "Measurement", "features": [
-                {"label": "Site Measurement", "url_name": "measurement:request_list",
+                {"label": "Rough Measurement", "url_name": "measurement:request_list",
                  "description": "Requests you've raised and whether they're complete."},
             ]},
         ],
@@ -136,7 +136,7 @@ GUIDES = {
     },
     "Quotation Staff": {
         "title": "Quotation Staff",
-        "mission": "Turn a completed site measurement into a formal, accurate, company-branded quotation.",
+        "mission": "Turn a completed rough measurement into a formal, accurate, company-branded quotation.",
         "sections": [
             {"nav_section": "crm_sales", "title": "CRM & Sales", "features": [
                 {"label": "Quotations", "url_name": "sales:quotation_list", "description": "Every quotation, at every stage — draft, sent, negotiation, won or lost."},
@@ -159,7 +159,7 @@ GUIDES = {
                     "pre-quotation survey, and the final pre-production re-check after the order is confirmed.",
         "sections": [
             {"nav_section": "measurement", "title": "Measurement", "features": [
-                {"label": "Site Measurement", "url_name": "measurement:request_list",
+                {"label": "Rough Measurement", "url_name": "measurement:request_list",
                  "description": "Your queue of measurement requests — assigned, scheduled, and completed jobs."},
                 {"label": "Final Measurement", "url_name": "measurement:final_list",
                  "description": "Post-order re-measurement jobs, done right before production starts."},
