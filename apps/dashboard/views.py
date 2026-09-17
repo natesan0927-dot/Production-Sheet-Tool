@@ -140,7 +140,8 @@ def home(request):
     for m in MeasurementRequest.objects.filter(assigned_to=user).exclude(status__in=["completed", "cancelled"])[:10]:
         my_tasks.append({"label": f"Measurement: {m.measurement_id}", "url": m.get_absolute_url(), "due": m.scheduled_date, "icon": "fa-ruler-combined"})
     for f in FinalMeasurementRequest.objects.filter(assigned_to=user).exclude(status__in=["approved"])[:10]:
-        my_tasks.append({"label": f"Final Measurement: {f.final_measurement_id}", "url": f.get_absolute_url(), "due": f.scheduled_date, "icon": "fa-ruler"})
+        due = f.scheduled_date or f.site_ready_expected_date or f.due_date
+        my_tasks.append({"label": f"Final Measurement: {f.final_measurement_id}", "url": f.get_absolute_url(), "due": due, "icon": "fa-ruler"})
     for t in ProductionTask.objects.filter(assigned_to=user).exclude(status="completed").select_related("production_sheet", "stage")[:10]:
         my_tasks.append({"label": f"{t.stage.name}: {t.production_sheet.production_number}", "url": t.production_sheet.get_absolute_url(), "due": None, "icon": "fa-industry"})
     for i in Installation.objects.filter(installation_team=user).exclude(status="completed")[:10]:

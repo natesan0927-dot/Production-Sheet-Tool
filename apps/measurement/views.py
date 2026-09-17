@@ -13,6 +13,7 @@ from apps.core.notifications import notify
 from apps.crm.models import Lead
 from apps.measurement.forms import (
     FinalMeasurementItemFormSet, FinalMeasurementRequestForm, MeasurementItemFormSet, MeasurementRequestForm,
+    SiteReadyUncertainForm,
 )
 from apps.measurement.models import FinalMeasurementRequest, MeasurementRequest
 from apps.sales.models import Order
@@ -192,6 +193,36 @@ def final_create(request):
     else:
         form = FinalMeasurementRequestForm()
     return render(request, "measurement/final_form.html", {"form": form, "order": order})
+
+
+@login_required
+@require_POST
+def final_site_not_ready(request, pk):
+    fm = get_object_or_404(FinalMeasurementRequest, pk=pk)
+    form = SiteReadyUncertainForm(request.POST)
+    if form.is_valid():
+        fm.site_ready_uncertain = True
+        fm.site_ready_expected_date = form.cleaned_data["site_ready_expected_date"]
+        fm.save(update_fields=["site_ready_uncertain", "site_ready_expected_date"])
+        if fm.order.salesperson:
+            notify(
+                fm.order.salesperson,
+                f"Site not ready for final measurement: {fm.final_measurement_id} (expected {fm.site_ready_expected_date})",
+                url=fm.get_absolute_url(), related_object=fm,
+            )
+        messages.warning(request, "Marked as site-not-ready. This will keep showing as a reminder until it's cleared.")
+    return redirect("measurement:final_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def final_site_ready(request, pk):
+    fm = get_object_or_404(FinalMeasurementRequest, pk=pk)
+    fm.site_ready_uncertain = False
+    fm.site_ready_expected_date = None
+    fm.save(update_fields=["site_ready_uncertain", "site_ready_expected_date"])
+    messages.success(request, "Site marked ready.")
+    return redirect("measurement:final_detail", pk=pk)
 
 
 @login_required

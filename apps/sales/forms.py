@@ -32,11 +32,16 @@ class OrderConfirmForm(forms.ModelForm):
             "final_order_value", "discount", "tax", "payment_terms", "advance_amount",
             "balance_amount", "expected_delivery_date", "expected_installation_date", "special_instructions",
         ]
+        labels = {"expected_delivery_date": "Delivery Date (Committed)"}
         widgets = {
             "expected_delivery_date": forms.DateInput(attrs={"type": "date"}),
             "expected_installation_date": forms.DateInput(attrs={"type": "date"}),
             "special_instructions": forms.Textarea(attrs={"rows": 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["expected_delivery_date"].required = True
 
 
 class PaymentForm(forms.ModelForm):

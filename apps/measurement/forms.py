@@ -37,6 +37,12 @@ class FinalMeasurementRequestForm(forms.ModelForm):
         }
 
 
+class SiteReadyUncertainForm(forms.Form):
+    site_ready_expected_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}), label="Expected site-ready date"
+    )
+
+
 FinalMeasurementItemFormSet = inlineformset_factory(
     FinalMeasurementRequest, FinalMeasurementItem,
     fields=[

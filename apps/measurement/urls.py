@@ -16,5 +16,7 @@ urlpatterns = [
     path("final/add/", views.final_create, name="final_create"),
     path("final/<int:pk>/", views.FinalMeasurementDetailView.as_view(), name="final_detail"),
     path("final/<int:pk>/items/", views.final_save_items, name="final_save_items"),
+    path("final/<int:pk>/site-not-ready/", views.final_site_not_ready, name="final_site_not_ready"),
+    path("final/<int:pk>/site-ready/", views.final_site_ready, name="final_site_ready"),
     path("final/<int:pk>/approve/", views.final_approve, name="final_approve"),
 ]

@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -105,6 +107,8 @@ class FinalMeasurementRequest(models.Model):
     scheduled_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default="pending")
     site_readiness = models.CharField(max_length=150, blank=True)
+    site_ready_uncertain = models.BooleanField(default=False)
+    site_ready_expected_date = models.DateField(null=True, blank=True)
     special_remarks = models.TextField(blank=True)
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
@@ -127,6 +131,11 @@ class FinalMeasurementRequest(models.Model):
 
     def get_absolute_url(self):
         return reverse("measurement:final_detail", args=[self.pk])
+
+    @property
+    def due_date(self):
+        """Final measurement must happen within 2 days of order confirmation."""
+        return self.order.confirmed_at.date() + datetime.timedelta(days=2)
 
 
 class FinalMeasurementItem(models.Model):
