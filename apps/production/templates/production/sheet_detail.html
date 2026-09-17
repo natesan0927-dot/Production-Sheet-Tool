@@ -14,12 +14,23 @@
     <form method="post" action="{% url 'production:sheet_submit' sheet.pk %}">{% csrf_token %}<button class="btn btn-outline-primary btn-sm">Submit for Approval</button></form>
     {% endif %}
     {% if sheet.status == "submitted" and can_approve_sheet %}
-    <form method="post" action="{% url 'production:sheet_approve' sheet.pk %}">{% csrf_token %}<button class="btn btn-success btn-sm">Approve Production</button></form>
+      {% if sheet.order.acquisition_form.is_signed %}
+      <form method="post" action="{% url 'production:sheet_approve' sheet.pk %}">{% csrf_token %}<button class="btn btn-success btn-sm">Approve Production</button></form>
+      {% else %}
+      <a href="{% url 'sales:order_detail' sheet.order.pk %}" class="btn btn-warning btn-sm"><i class="fa-solid fa-triangle-exclamation me-1"></i>Upload Signed CAF First</a>
+      {% endif %}
     {% elif sheet.status == "submitted" %}
     {% include "partials/awaiting_approval.html" with role="Production Manager" %}
     {% endif %}
   </div>
 </div>
+
+{% if sheet.status == "submitted" and not sheet.order.acquisition_form.is_signed %}
+<div class="tw-awaiting-approval mb-3">
+  <i class="fa-regular fa-file-lines me-2"></i>
+  The signed Customer Acquisition Form hasn't been uploaded yet — production can't start until it's on the <a href="{% url 'sales:order_detail' sheet.order.pk %}">Order page</a>.
+</div>
+{% endif %}
 
 <div class="card mb-3">
   <div class="card-header fw-semibold">Items</div>

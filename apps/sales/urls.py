@@ -17,6 +17,7 @@ urlpatterns = [
     path("orders/<int:pk>/", views.OrderDetailView.as_view(), name="order_detail"),
     path("orders/<int:pk>/payment/", views.payment_add, name="payment_add"),
     path("orders/<int:pk>/caf/regenerate/", views.caf_regenerate, name="caf_regenerate"),
+    path("orders/<int:pk>/caf/upload-signed/", views.caf_upload_signed, name="caf_upload_signed"),
     path("orders/<int:pk>/invoiced/", views.order_mark_invoiced, name="order_mark_invoiced"),
 
     path("payments/", views.payment_dashboard, name="payment_dashboard"),

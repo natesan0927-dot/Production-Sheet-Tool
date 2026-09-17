@@ -68,6 +68,10 @@ def sheet_submit(request, pk):
 @require_POST
 def sheet_approve(request, pk):
     sheet = get_object_or_404(ProductionSheet, pk=pk)
+    caf = getattr(sheet.order, "acquisition_form", None)
+    if not caf or not caf.is_signed:
+        messages.error(request, "Upload the signed Customer Acquisition Form on the Order page before starting production.")
+        return redirect(f"{reverse('production:sheet_detail', args=[pk])}")
     services.approve_production_sheet(sheet, request.user)
     messages.success(request, "Production sheet approved. Production stage tasks created.")
     return redirect(f"{reverse('production:sheet_detail', args=[pk])}?autoexport=1")

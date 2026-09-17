@@ -252,6 +252,15 @@ class CustomerAcquisitionForm(models.Model):
     generated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     pdf_file = models.FileField(upload_to="caf/%Y/%m/", blank=True, null=True)
 
+    # The customer's physically signed copy -- production cannot be approved
+    # until this is uploaded (see apps.production.views.sheet_approve).
+    is_signed = models.BooleanField(default=False)
+    signed_pdf_file = models.FileField(upload_to="caf/signed/%Y/%m/", blank=True, null=True)
+    signed_uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    signed_uploaded_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["-generated_at"]
 

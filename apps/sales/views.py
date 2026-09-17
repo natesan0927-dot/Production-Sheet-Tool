@@ -336,6 +336,28 @@ def caf_regenerate(request, pk):
     return redirect(f"{reverse('sales:order_detail', args=[order.pk])}?autoexport=1")
 
 
+@login_required
+@require_POST
+def caf_upload_signed(request, pk):
+    from django.utils import timezone
+
+    order = get_object_or_404(Order, pk=pk)
+    caf = getattr(order, "acquisition_form", None)
+    signed_file = request.FILES.get("signed_pdf_file")
+    if not caf:
+        messages.error(request, "Generate the Customer Acquisition Form first.")
+    elif not signed_file:
+        messages.error(request, "Choose the signed CAF file to upload.")
+    else:
+        caf.signed_pdf_file = signed_file
+        caf.is_signed = True
+        caf.signed_uploaded_by = request.user
+        caf.signed_uploaded_at = timezone.now()
+        caf.save(update_fields=["signed_pdf_file", "is_signed", "signed_uploaded_by", "signed_uploaded_at"])
+        messages.success(request, "Signed Customer Acquisition Form uploaded. Production can now be approved.")
+    return redirect("sales:order_detail", pk=order.pk)
+
+
 # ---------------------------------------------------------------------------
 # Sales targets
 # ---------------------------------------------------------------------------
