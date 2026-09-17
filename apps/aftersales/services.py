@@ -2,7 +2,7 @@ from dateutil.relativedelta import relativedelta
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
-from apps.core.exports import render_pdf_response
+from apps.core.exports import render_pdf_response, render_pdf_response_from_string
 from apps.core.models import CompanyProfile
 
 
@@ -24,10 +24,15 @@ def activate_warranty(order, user=None):
         warranty_terms=company.default_warranty_terms,
     )
 
-    exported = render_pdf_response(
-        "aftersales/pdf/warranty_certificate.html", {"warranty": warranty, "order": order},
-        filename=f"Warranty_{warranty.certificate_number}.pdf",
-    )
+    from apps.core.models import DocumentTemplate
+
+    pdf_context = {"warranty": warranty, "order": order}
+    filename = f"Warranty_{warranty.certificate_number}.pdf"
+    template = DocumentTemplate.objects.filter(code="warranty_certificate", is_active=True).first()
+    if template:
+        exported = render_pdf_response_from_string(template.html_body, pdf_context, filename)
+    else:
+        exported = render_pdf_response("aftersales/pdf/warranty_certificate.html", pdf_context, filename)
     warranty.certificate_pdf.save(exported.filename, ContentFile(exported.content), save=True)
 
     order.status = "completed"

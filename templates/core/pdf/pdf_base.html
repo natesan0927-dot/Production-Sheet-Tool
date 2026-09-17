@@ -32,6 +32,7 @@
   <table class="letterhead">
     <tr>
       <td style="width:60%">
+        {% if logo_path %}<img src="{{ logo_path }}" style="height:42px; margin-bottom:4px">{% endif %}
         <div class="company-name">{{ company.name }}</div>
         <div class="company-tagline">{{ company.tagline }}</div>
         <div class="company-tagline">{{ company.address }}</div>

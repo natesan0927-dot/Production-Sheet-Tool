@@ -59,6 +59,30 @@ GLASS_TYPES = ["Single", "Double", "Toughened", "Laminated", "Clear", "Frosted",
 HARDWARE_TYPES = ["Handle", "Lock", "Hinge", "Roller", "Espagnolette", "Other"]
 ACCESSORY_TYPES = ["Mesh", "Reinforcement", "Silicone", "Beading", "Coupler", "Connector", "Other"]
 
+# Exact content of apps/aftersales/templates/aftersales/pdf/warranty_certificate.html,
+# seeded as the starting point for the admin-editable version so switching
+# over doesn't change anything until someone actually edits it.
+WARRANTY_CERTIFICATE_TEMPLATE = """{% extends "core/pdf/pdf_base.html" %}
+{% block doc_title %}Warranty Certificate{% endblock %}
+{% block doc_number %}{{ warranty.certificate_number }}{% endblock %}
+{% block doc_date %}{{ warranty.warranty_start_date }}{% endblock %}
+{% block content %}
+<div class="section-title">Warranty Details</div>
+<table class="kv">
+  <tr><td class="label">Customer</td><td>{{ order.customer.customer_name }}</td></tr>
+  <tr><td class="label">Order Number</td><td>{{ order.order_number }}</td></tr>
+  <tr><td class="label">Products Covered</td><td>{{ warranty.product_summary }}</td></tr>
+  <tr><td class="label">Warranty Start Date</td><td>{{ warranty.warranty_start_date }}</td></tr>
+  <tr><td class="label">Warranty End Date</td><td>{{ warranty.warranty_end_date }}</td></tr>
+</table>
+<div class="section-title">Terms</div>
+<p>{{ warranty.warranty_terms|linebreaksbr }}</p>
+<div class="signature-box">
+  <div class="signature-line">Authorized Signatory, {{ company.name }}</div>
+</div>
+{% endblock %}
+"""
+
 
 class Command(BaseCommand):
     help = "Seed default roles and configurable master data for Titans Windows CRM."
@@ -115,7 +139,27 @@ class Command(BaseCommand):
                 PaymentTermStep(template=template, label="After Installation", percent=10, trigger="After installation", sequence=3),
             ])
 
+        self._seed_document_templates()
+
         self.stdout.write(self.style.SUCCESS("Master data seeded successfully."))
+
+    def _seed_document_templates(self):
+        """
+        Seeds the admin-editable warranty certificate template with the exact
+        content of today's hardcoded fallback, so switching to the editable
+        version (apps.aftersales.services.activate_warranty) is a no-op until
+        someone actually edits it in Settings -> Document Templates.
+        """
+        from apps.core.models import DocumentTemplate
+
+        DocumentTemplate.objects.get_or_create(
+            code="warranty_certificate",
+            defaults={
+                "name": "Warranty Certificate",
+                "html_body": WARRANTY_CERTIFICATE_TEMPLATE,
+                "is_active": True,
+            },
+        )
 
     def _seed_logo(self, company):
         from pathlib import Path

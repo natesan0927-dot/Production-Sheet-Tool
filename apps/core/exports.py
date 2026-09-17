@@ -65,15 +65,49 @@ def is_registered(model_name: str) -> bool:
     return model_name.lower() in _REGISTRY
 
 
-def render_pdf_response(template_name, context, filename) -> ExportedFile:
-    from apps.core.models import CompanyProfile
-
-    full_context = {"company": CompanyProfile.load()}
-    full_context.update(context)
-    html = render_to_string(template_name, full_context)
+def _html_to_pdf_bytes(html: str) -> bytes:
     buffer = io.BytesIO()
     pisa.CreatePDF(src=html, dest=buffer, encoding="utf-8")
-    return ExportedFile(filename=filename, content=buffer.getvalue(), content_type="application/pdf")
+    return buffer.getvalue()
+
+
+def _pdf_base_context():
+    """
+    Shared context every generated PDF's letterhead needs. Logo comes from
+    the static source tree (via staticfiles finders), not CompanyProfile.logo
+    -- the latter is a media upload, and this host's media storage isn't
+    reliably persistent (see TESTING_DEPLOYMENT.md), whereas the bundled
+    static file always exists in the checked-out source. xhtml2pdf needs a
+    real filesystem path here, not a URL.
+    """
+    from django.contrib.staticfiles import finders
+
+    from apps.core.models import CompanyProfile
+
+    return {"company": CompanyProfile.load(), "logo_path": finders.find("branding/titans_logo.png")}
+
+
+def render_pdf_response(template_name, context, filename) -> ExportedFile:
+    """Render a PDF from a template *file* (the usual case)."""
+    full_context = _pdf_base_context()
+    full_context.update(context)
+    html = render_to_string(template_name, full_context)
+    return ExportedFile(filename=filename, content=_html_to_pdf_bytes(html), content_type="application/pdf")
+
+
+def render_pdf_response_from_string(html_body, context, filename) -> ExportedFile:
+    """
+    Render a PDF from a template *string* -- used for the admin-editable
+    DocumentTemplate.html_body, so an admin can tweak a document's layout
+    without touching code. Same context/company injection as
+    render_pdf_response, just a Django Template string instead of a file.
+    """
+    from django.template import Context, Template
+
+    full_context = _pdf_base_context()
+    full_context.update(context)
+    html = Template(html_body).render(Context(full_context))
+    return ExportedFile(filename=filename, content=_html_to_pdf_bytes(html), content_type="application/pdf")
 
 
 def workbook_response(headers, rows, filename, sheet_title="Data") -> ExportedFile:
