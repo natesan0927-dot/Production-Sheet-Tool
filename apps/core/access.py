@@ -20,13 +20,14 @@ SECTION_ROLES = {
     "insights": [SUPER, MANAGEMENT, "Sales Manager", "Production Manager", "Admin Staff"],
     "people": [SUPER, MANAGEMENT, "Admin Staff"],
     "settings": [SUPER, "Admin Staff"],
+    "payments": [SUPER, MANAGEMENT, "Accounts Staff"],
 }
 
 # Human labels for the little role badge shown next to the user's name.
 ROLE_PRIORITY = [
     SUPER, MANAGEMENT, "Sales Manager", "Salesperson", "Quotation Staff", "Measurement Staff",
     "Admin Staff", "Production Manager", "Production Staff", "Quality Control", "Dispatch Staff",
-    "Installation Team", "Service/Maintenance Staff",
+    "Installation Team", "Service/Maintenance Staff", "Accounts Staff",
 ]
 
 

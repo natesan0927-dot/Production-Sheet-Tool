@@ -16,6 +16,7 @@ DEMO_USERS = [
     ("demo_dispatch", "Dispatch Staff", "Divya", "Logistics", False),
     ("demo_installation", "Installation Team", "Arjun", "Install", False),
     ("demo_service", "Service/Maintenance Staff", "Meena", "Support", False),
+    ("demo_accounts", "Accounts Staff", "Ramesh", "Accounts", False),
 ]
 
 DEMO_ICONS = {
@@ -27,4 +28,5 @@ DEMO_ICONS = {
     "Dispatch Staff": "fa-truck",
     "Installation Team": "fa-screwdriver-wrench",
     "Service/Maintenance Staff": "fa-headset",
+    "Accounts Staff": "fa-file-invoice-dollar",
 }

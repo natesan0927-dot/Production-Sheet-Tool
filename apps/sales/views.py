@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
-from apps.core.mixins import RoleRequiredMixin
+from apps.core.mixins import RoleRequiredMixin, require_section
 from apps.core.models import LeadStatus
 from apps.core.notifications import notify, notify_many
 from apps.crm.models import Lead
@@ -288,6 +288,42 @@ def payment_add(request, pk):
     else:
         messages.error(request, "Please correct the payment details.")
     return redirect("sales:order_detail", pk=pk)
+
+
+@require_section("payments")
+def payment_dashboard(request):
+    """
+    Every order that still owes money, for the Accounts team -- split into
+    "not yet invoiced" and "invoiced, awaiting payment", each sorted so the
+    order that's been waiting longest shows up first.
+    """
+    from django.utils import timezone
+
+    today = timezone.now().date()
+    due_orders = [o for o in Order.objects.select_related("customer", "salesperson").exclude(status="cancelled") if o.due_amount() > 0]
+
+    not_invoiced = sorted((o for o in due_orders if not o.is_invoiced), key=lambda o: o.confirmed_at)
+    invoiced = sorted((o for o in due_orders if o.is_invoiced), key=lambda o: o.invoiced_at or o.confirmed_at)
+
+    return render(request, "sales/payment_dashboard.html", {
+        "not_invoiced": not_invoiced,
+        "invoiced": invoiced,
+        "today": today,
+    })
+
+
+@login_required
+@require_POST
+def order_mark_invoiced(request, pk):
+    from django.utils import timezone
+
+    order = get_object_or_404(Order, pk=pk)
+    order.is_invoiced = True
+    order.invoiced_at = timezone.now()
+    order.invoiced_by = request.user
+    order.save(update_fields=["is_invoiced", "invoiced_at", "invoiced_by"])
+    messages.success(request, f"{order.order_number} marked invoiced.")
+    return redirect(request.META.get("HTTP_REFERER") or "sales:payment_dashboard")
 
 
 @login_required

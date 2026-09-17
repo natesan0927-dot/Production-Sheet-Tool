@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
@@ -28,6 +29,8 @@ def _dashboard_mode(user):
         return "service"
     if user.has_role("Measurement Staff"):
         return "measurement"
+    if user.has_role("Accounts Staff"):
+        return "accounts"
     return "sales"  # Sales Manager, Salesperson, Quotation Staff, Admin Staff, fallback
 
 
@@ -121,6 +124,13 @@ def home(request):
         "completed_this_month": MeasurementRequest.objects.filter(assigned_to=user, status="completed", completed_at__date__gte=month_start).count(),
     }
 
+    due_orders = [o for o in Order.objects.exclude(status="cancelled") if o.due_amount() > 0]
+    accounts_stats = {
+        "pending_invoice": sum(1 for o in due_orders if not o.is_invoiced),
+        "awaiting_payment": sum(1 for o in due_orders if o.is_invoiced),
+        "total_due": sum((o.due_amount() for o in due_orders), Decimal("0")),
+    }
+
     funnel_statuses = LeadStatus.objects.filter(is_won=False, is_lost=False).order_by("sequence")
     funnel = [{"label": s.name, "count": leads.filter(status=s).count()} for s in funnel_statuses]
     funnel.append({"label": "Won", "count": crm_stats["won_leads"]})
@@ -155,6 +165,16 @@ def home(request):
         task["overdue"] = bool(task["due"] and task["due"] < today)
     my_tasks.sort(key=lambda t: (t["due"] is None, t["due"] or today))
 
+    payment_followups = []
+    for o in sorted(due_orders, key=lambda o: o.invoiced_at or o.confirmed_at)[:10]:
+        payment_followups.append({
+            "label": f"{o.order_number} — {o.customer.customer_name} (₹{o.due_amount()} due)",
+            "url": o.get_absolute_url(),
+            "due": None,
+            "icon": "fa-file-invoice-dollar",
+            "tag": "Invoiced" if o.is_invoiced else "Not invoiced",
+        })
+
     context = {
         "dashboard_mode": mode,
         "is_management": is_management,
@@ -165,10 +185,12 @@ def home(request):
         "dispatch_stats": dispatch_stats,
         "service_stats": service_stats,
         "measurement_stats": measurement_stats,
+        "accounts_stats": accounts_stats,
         "funnel": funnel,
         "chart_months": json.dumps(months),
         "chart_values": json.dumps(monthly_values),
         "my_tasks": my_tasks,
         "needs_followup": needs_followup,
+        "payment_followups": payment_followups,
     }
     return render(request, "dashboard/home.html", context)

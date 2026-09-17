@@ -11,7 +11,7 @@ from apps.core.models import (
 ROLES = [
     "Super Admin", "Management", "Sales Manager", "Salesperson", "Measurement Staff", "Quotation Staff",
     "Admin Staff", "Production Manager", "Production Staff", "Quality Control", "Dispatch Staff",
-    "Installation Team", "Service/Maintenance Staff",
+    "Installation Team", "Service/Maintenance Staff", "Accounts Staff",
 ]
 
 LEAD_STATUSES = [

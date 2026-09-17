@@ -321,4 +321,22 @@ GUIDES = {
             "Warranty start dates are set automatically the moment installation is handed over — you don't need to calculate them by hand.",
         ],
     },
+    "Accounts Staff": {
+        "title": "Accounts Staff",
+        "mission": "Chase down payment on every order that's still owed money, from invoicing through to final collection.",
+        "sections": [
+            {"nav_section": "payments", "title": "Accounts", "features": [
+                {"label": "Payments", "url_name": "sales:payment_dashboard",
+                 "description": "Every order with a balance due, split into not-yet-invoiced and invoiced-but-unpaid."},
+            ]},
+        ],
+        "flow": [
+            {"step": "An order still owes money", "detail": "It shows up automatically on your Payments dashboard — nothing to search for.", "handoff_from": "Salesperson"},
+            {"step": "Send the invoice", "detail": "Once you've invoiced the customer, mark the order Invoiced — this moves it into the “awaiting payment” list and is what tells you to start following up."},
+            {"step": "Follow up until it's paid", "detail": "The order keeps showing up on your dashboard, oldest first, until a payment brings the balance to zero — payments themselves are recorded on the order's own page."},
+        ],
+        "tips": [
+            "The balance due updates automatically the moment anyone records a payment against an order — you're always looking at the real number, not a snapshot.",
+        ],
+    },
 }

@@ -67,6 +67,11 @@
     <a class="nav-link {% if 'complaint' in request.path %}active{% endif %}" href="{% url 'aftersales:complaint_list' %}"><i class="fa-solid fa-headset"></i>Service Requests</a>
     {% endif %}
 
+    {% if 'payments' in nav_sections %}
+    <div class="nav-section">Accounts</div>
+    <a class="nav-link {% if 'payments' in request.path %}active{% endif %}" href="{% url 'sales:payment_dashboard' %}"><i class="fa-solid fa-file-invoice-dollar"></i>Payments</a>
+    {% endif %}
+
     {% if 'insights' in nav_sections %}
     <div class="nav-section">Insights</div>
     <a class="nav-link {% if request.resolver_match.namespace == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="fa-solid fa-chart-line"></i>Reports</a>

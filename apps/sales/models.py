@@ -167,6 +167,12 @@ class Order(models.Model):
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default="confirmed")
     confirmed_at = models.DateTimeField(auto_now_add=True)
 
+    is_invoiced = models.BooleanField(default=False)
+    invoiced_at = models.DateTimeField(null=True, blank=True)
+    invoiced_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
     history = HistoricalRecords()
 
     class Meta:

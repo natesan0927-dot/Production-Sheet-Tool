@@ -17,6 +17,9 @@ urlpatterns = [
     path("orders/<int:pk>/", views.OrderDetailView.as_view(), name="order_detail"),
     path("orders/<int:pk>/payment/", views.payment_add, name="payment_add"),
     path("orders/<int:pk>/caf/regenerate/", views.caf_regenerate, name="caf_regenerate"),
+    path("orders/<int:pk>/invoiced/", views.order_mark_invoiced, name="order_mark_invoiced"),
+
+    path("payments/", views.payment_dashboard, name="payment_dashboard"),
 
     path("targets/", views.TargetListView.as_view(), name="target_list"),
     path("targets/add/", views.target_create, name="target_create"),
