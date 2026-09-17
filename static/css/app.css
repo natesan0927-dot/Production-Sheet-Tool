@@ -343,6 +343,11 @@ tr[onclick]:hover td { background-color: #FBF6E7; }
 .timeline li.pending::before { background: #CBD5E1; box-shadow: 0 0 0 1px #CBD5E1; }
 
 /* Order journey stepper */
+.tw-journey-customer {
+  font-size: .78rem; font-weight: 600; color: var(--tw-ink-soft);
+  margin-bottom: .5rem;
+}
+.tw-journey-customer strong { color: var(--tw-navy); }
 .tw-journey-banner {
   display: flex; align-items: center; font-weight: 700; font-size: .85rem;
   padding: .6rem 1rem; border-radius: .65rem; margin-bottom: .85rem;

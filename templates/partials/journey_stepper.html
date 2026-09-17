@@ -1,5 +1,9 @@
 {% if stages %}
 <div class="tw-journey-wrap mb-4">
+  <div class="tw-journey-customer">
+    <i class="fa-regular fa-id-card me-1"></i>Customer: <strong>{{ customer_id }}</strong> — {{ customer_name }}
+    {% if quotation_number %}<span class="ms-2">· Quotation: <strong>{{ quotation_number }}</strong></span>{% endif %}
+  </div>
   {% if banner %}
   <div class="tw-journey-banner tw-journey-banner-{{ banner.type }}">
     <i class="fa-solid {% if banner.type == 'lost' %}fa-circle-xmark{% else %}fa-ban{% endif %} me-2"></i>{{ banner.message }}

@@ -268,4 +268,9 @@ def build_journey(obj):
                 stage["is_current_page"] = True
                 break
 
-    return {"stages": stages, "banner": banner, "service_badge": service_badge}
+    return {
+        "stages": stages, "banner": banner, "service_badge": service_badge,
+        "customer_id": lead.customer.customer_code,
+        "customer_name": lead.customer.customer_name,
+        "quotation_number": latest_q.quotation_number if latest_q else None,
+    }
