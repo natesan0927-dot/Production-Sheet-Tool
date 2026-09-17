@@ -32,7 +32,32 @@
 </div>
 
 <div class="card mb-3">
-  <div class="card-header fw-semibold">Measurement Items</div>
+  <div class="card-header fw-semibold"><i class="fa-solid fa-file-arrow-up me-2 text-primary"></i>Upload the Measurement Sheet from Site</div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">Take a photo or scan of the measurements you recorded on site and upload it here — this is the quickest way to get it to the quotation team.</p>
+    <form method="post" action="{% url 'measurement:request_upload' measurement.pk %}" enctype="multipart/form-data" class="row g-2 mb-3">
+      {% csrf_token %}
+      <div class="col-auto"><input type="file" name="files" multiple class="form-control form-control-sm"></div>
+      <div class="col-auto">
+        <select name="category" class="form-select form-select-sm">
+          <option value="measurement_sheet" selected>Measurement Sheet</option>
+          <option value="site_photo">Site Photo</option>
+          <option value="drawing">Drawing / Sketch</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="col-auto"><button class="btn btn-sm btn-primary">Upload</button></div>
+    </form>
+    <div class="d-flex flex-wrap gap-2">
+      {% for a in attachments %}
+      <a href="{{ a.file.url }}" target="_blank" class="border rounded p-2 small text-decoration-none">{{ a.get_category_display }}<br>{{ a.file.name|slice:"-24:" }}</a>
+      {% empty %}<div class="text-muted small">No files uploaded yet.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold">Measurement Items <span class="text-muted fw-normal small">— or enter dimensions manually instead of uploading</span></div>
   <div class="card-body">
     <form method="post" action="{% url 'measurement:request_save_items' measurement.pk %}">
       {% csrf_token %}
@@ -61,31 +86,8 @@
         </tbody>
       </table>
       </div>
-      <button class="btn btn-sm btn-primary">Save Items</button>
+      <button class="btn btn-sm btn-outline-primary">Save Items</button>
     </form>
-  </div>
-</div>
-
-<div class="card mb-3">
-  <div class="card-header fw-semibold">Photos / Drawings</div>
-  <div class="card-body">
-    <form method="post" action="{% url 'measurement:request_upload' measurement.pk %}" enctype="multipart/form-data" class="row g-2 mb-3">
-      {% csrf_token %}
-      <div class="col-auto"><input type="file" name="files" multiple class="form-control form-control-sm"></div>
-      <div class="col-auto">
-        <select name="category" class="form-select form-select-sm">
-          <option value="site_photo">Site Photo</option>
-          <option value="drawing">Drawing / Sketch</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <div class="col-auto"><button class="btn btn-sm btn-outline-primary">Upload</button></div>
-    </form>
-    <div class="d-flex flex-wrap gap-2">
-      {% for a in attachments %}
-      <a href="{{ a.file.url }}" target="_blank" class="border rounded p-2 small text-decoration-none">{{ a.get_category_display }}<br>{{ a.file.name|slice:"-24:" }}</a>
-      {% empty %}<div class="text-muted small">No files uploaded yet.</div>{% endfor %}
-    </div>
   </div>
 </div>
 {% endblock %}

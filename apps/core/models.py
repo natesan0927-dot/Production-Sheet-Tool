@@ -310,6 +310,7 @@ class Attachment(models.Model):
     CATEGORY_CHOICES = [
         ("site_photo", "Site Photo"),
         ("drawing", "Drawing / Sketch"),
+        ("measurement_sheet", "Measurement Sheet (photo/PDF)"),
         ("before", "Before Photo"),
         ("during", "During Photo"),
         ("completion", "Completion Photo"),
