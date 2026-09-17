@@ -144,6 +144,18 @@ a { text-decoration: none; transition: color .15s ease; }
 }
 #tw-sidebar .nav-link i, #tw-sidebar .nav-link .nav-ico { width: 1.4rem; flex: none; text-align: center; margin-right: .6rem; font-size: .95rem; }
 
+/* Section colour-coding -- each module gets its own accent so the sidebar
+   reads as distinct areas rather than one long navy/gold list. Active-state
+   gold highlighting (above) always wins over this. */
+.nav-group[data-accent="sales"] .nav-link i { color: var(--tw-gold-300); }
+.nav-group[data-accent="measurement"] .nav-link i { color: #7DD3FC; }
+.nav-group[data-accent="production"] .nav-link i { color: #C4B5FD; }
+.nav-group[data-accent="logistics"] .nav-link i { color: #6EE7B7; }
+.nav-group[data-accent="aftersales"] .nav-link i { color: #FCA5A5; }
+.nav-group[data-accent="payments"] .nav-link i { color: #FCD34D; }
+.nav-group[data-accent="insights"] .nav-link i { color: #93C5FD; }
+.nav-group .nav-link.active i { color: inherit; }
+
 #tw-sidebar .sidebar-footer {
   margin: 1.1rem .8rem 1.2rem;
   padding: .75rem .85rem;
@@ -481,5 +493,23 @@ a.tw-journey-node:hover { opacity: .85; }
 
 /* Misc interactive touches */
 .card, .btn, .nav-link, .kanban-card, .stat-card { will-change: transform; }
-a.list-group-item, .list-group-item-action { transition: background .12s ease; }
+a.list-group-item, .list-group-item-action { transition: background .12s ease, transform .12s ease, box-shadow .12s ease; }
+a.list-group-item-action:hover, .list-group-item-action:hover { transform: translateX(2px); }
 .dropdown-item.rounded:active, .dropdown-item.rounded:hover { background-color: var(--tw-gold-100); color: var(--tw-gold-700); }
+
+/* Stat cards/rows fade upward into place instead of just appearing, and
+   stagger slightly so a row of 3-4 cards doesn't pop in all at once. */
+@keyframes tw-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.row.g-3 > [class*="col-"] > .stat-card {
+  animation: tw-fade-up .35s ease both;
+}
+.row.g-3 > [class*="col-"]:nth-child(1) > .stat-card { animation-delay: 0s; }
+.row.g-3 > [class*="col-"]:nth-child(2) > .stat-card { animation-delay: .05s; }
+.row.g-3 > [class*="col-"]:nth-child(3) > .stat-card { animation-delay: .1s; }
+.row.g-3 > [class*="col-"]:nth-child(4) > .stat-card { animation-delay: .15s; }
+@media (prefers-reduced-motion: reduce) {
+  .row.g-3 > [class*="col-"] > .stat-card { animation: none; }
+}

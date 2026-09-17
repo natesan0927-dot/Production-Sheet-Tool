@@ -35,46 +35,60 @@
 
     {% if 'crm_sales' in nav_sections %}
     <div class="nav-section">CRM &amp; Sales</div>
+    <div class="nav-group" data-accent="sales">
     <a class="nav-link {% if 'customer' in request.path %}active{% endif %}" href="{% url 'crm:customer_list' %}"><i class="fa-solid fa-address-book"></i>Customers</a>
     <a class="nav-link {% if '/leads/' in request.path and 'pipeline' not in request.path %}active{% endif %}" href="{% url 'crm:lead_list' %}"><i class="fa-solid fa-filter"></i>Leads</a>
     <a class="nav-link {% if 'pipeline' in request.path %}active{% endif %}" href="{% url 'crm:lead_pipeline' %}"><i class="fa-solid fa-diagram-project"></i>Sales Pipeline</a>
     <a class="nav-link {% if 'quotation' in request.path %}active{% endif %}" href="{% url 'sales:quotation_list' %}"><i class="fa-solid fa-file-invoice-dollar"></i>Quotations</a>
     <a class="nav-link {% if '/orders/' in request.path %}active{% endif %}" href="{% url 'sales:order_list' %}"><i class="fa-solid fa-file-signature"></i>Orders</a>
     <a class="nav-link {% if 'target' in request.path %}active{% endif %}" href="{% url 'sales:target_list' %}"><i class="fa-solid fa-bullseye"></i>Sales Targets</a>
+    </div>
     {% endif %}
 
     {% if 'measurement' in nav_sections %}
     <div class="nav-section">Measurement</div>
+    <div class="nav-group" data-accent="measurement">
     <a class="nav-link {% if 'measurement/requests' in request.path %}active{% endif %}" href="{% url 'measurement:request_list' %}"><i class="fa-solid fa-ruler-combined"></i>Rough Measurement</a>
     <a class="nav-link {% if 'measurement/final' in request.path %}active{% endif %}" href="{% url 'measurement:final_list' %}"><i class="fa-solid fa-ruler"></i>Final Measurement</a>
+    </div>
     {% endif %}
 
     {% if 'production' in nav_sections %}
     <div class="nav-section">Production</div>
+    <div class="nav-group" data-accent="production">
     <a class="nav-link {% if 'production/sheets' in request.path %}active{% endif %}" href="{% url 'production:sheet_list' %}"><i class="fa-solid fa-industry"></i>Production Sheets</a>
     <a class="nav-link {% if 'qc' in request.path %}active{% endif %}" href="{% url 'production:qc_list' %}"><i class="fa-solid fa-circle-check"></i>Quality Control</a>
+    </div>
     {% endif %}
 
     {% if 'dispatch' in nav_sections or 'installation' in nav_sections %}
     <div class="nav-section">Logistics</div>
+    <div class="nav-group" data-accent="logistics">
     {% if 'dispatch' in nav_sections %}<a class="nav-link {% if 'dispatch' in request.path %}active{% endif %}" href="{% url 'logistics:dispatch_list' %}"><i class="fa-solid fa-truck"></i>Dispatch</a>{% endif %}
     {% if 'installation' in nav_sections %}<a class="nav-link {% if 'installation' in request.path %}active{% endif %}" href="{% url 'logistics:installation_list' %}"><i class="fa-solid fa-screwdriver-wrench"></i>Installation</a>{% endif %}
+    </div>
     {% endif %}
 
     {% if 'aftersales' in nav_sections %}
     <div class="nav-section">After Sales</div>
+    <div class="nav-group" data-accent="aftersales">
     <a class="nav-link {% if 'warranty' in request.path %}active{% endif %}" href="{% url 'aftersales:warranty_list' %}"><i class="fa-solid fa-shield-halved"></i>Warranty</a>
     <a class="nav-link {% if 'complaint' in request.path %}active{% endif %}" href="{% url 'aftersales:complaint_list' %}"><i class="fa-solid fa-headset"></i>Service Requests</a>
+    </div>
     {% endif %}
 
     {% if 'payments' in nav_sections %}
     <div class="nav-section">Accounts</div>
+    <div class="nav-group" data-accent="payments">
     <a class="nav-link {% if 'payments' in request.path %}active{% endif %}" href="{% url 'sales:payment_dashboard' %}"><i class="fa-solid fa-file-invoice-dollar"></i>Payments</a>
+    </div>
     {% endif %}
 
     {% if 'insights' in nav_sections %}
     <div class="nav-section">Insights</div>
+    <div class="nav-group" data-accent="insights">
     <a class="nav-link {% if request.resolver_match.namespace == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="fa-solid fa-chart-line"></i>Reports</a>
+    </div>
     {% endif %}
 
     {% if 'people' in nav_sections or 'settings' in nav_sections %}
