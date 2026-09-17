@@ -49,8 +49,15 @@ STATUS_TO_STAGE_KEY = {
 }
 
 
-def _stage(key, label, state, url=None, sublabel=None):
-    return {"key": key, "label": label, "state": state, "url": url, "sublabel": sublabel, "is_current_page": False}
+def _stage(key, label, state, url=None, sublabel=None, assignee=None):
+    return {
+        "key": key, "label": label, "state": state, "url": url, "sublabel": sublabel,
+        "assignee": assignee, "is_current_page": False,
+    }
+
+
+def _user_label(user):
+    return (user.get_full_name() or user.username) if user else None
 
 
 def _resolve_lead_id(obj):
@@ -149,6 +156,14 @@ def build_journey(obj):
             for j in range(i):
                 flags[PRE_ORDER_KEYS[j]] = True
 
+    assignees = {
+        "lead_created": None,
+        "assigned": None,
+        "measurement": _user_label(latest_mr.assigned_to) if latest_mr else None,
+        "quotation": None,
+        "followup_won": None,
+    }
+
     stages_by_key = {}
     found_current = False
     for key in PRE_ORDER_KEYS:
@@ -159,7 +174,7 @@ def build_journey(obj):
             found_current = True
         else:
             state = "upcoming"
-        stages_by_key[key] = _stage(key, dict(STAGE_DEFS)[key], state, urls[key], sublabels[key])
+        stages_by_key[key] = _stage(key, dict(STAGE_DEFS)[key], state, urls[key], sublabels[key], assignees[key])
 
     banner = None
     service_badge = {"active": False, "label": "In Service"}
@@ -197,23 +212,35 @@ def build_journey(obj):
             final_measurement = order.final_measurements.order_by("-id").first()
 
             child = {
-                "order_confirmed": (order, order.get_absolute_url(), order.order_number),
+                "order_confirmed": (order.get_absolute_url(), order.order_number, _user_label(order.salesperson)),
                 "final_measurement": (
-                    final_measurement, final_measurement.get_absolute_url() if final_measurement else None,
+                    final_measurement.get_absolute_url() if final_measurement else None,
                     final_measurement.get_status_display() if final_measurement else None,
+                    _user_label(final_measurement.assigned_to) if final_measurement else None,
                 ),
-                "production": (sheet, sheet.get_absolute_url() if sheet else None,
-                                sheet.get_status_display() if sheet else None),
+                "production": (
+                    sheet.get_absolute_url() if sheet else None, sheet.get_status_display() if sheet else None,
+                    _user_label(sheet.prepared_by) if sheet else None,
+                ),
                 "quality_check": (
-                    qc, reverse("production:qc_detail", args=[qc.pk]) if qc else None,
-                    qc.get_status_display() if qc else None,
+                    reverse("production:qc_detail", args=[qc.pk]) if qc else None,
+                    qc.get_status_display() if qc else None, _user_label(qc.checked_by) if qc else None,
                 ),
-                "dispatch": (dispatch, dispatch.get_absolute_url() if dispatch else None,
-                             dispatch.get_status_display() if dispatch else None),
-                "installation": (installation, installation.get_absolute_url() if installation else None,
-                                  installation.get_status_display() if installation else None),
-                "handover": (handover, handover.get_absolute_url() if handover else None,
-                             "Certificate generated" if handover else None),
+                "dispatch": (
+                    dispatch.get_absolute_url() if dispatch else None,
+                    dispatch.get_status_display() if dispatch else None,
+                    _user_label(dispatch.dispatched_by) if dispatch else None,
+                ),
+                "installation": (
+                    installation.get_absolute_url() if installation else None,
+                    installation.get_status_display() if installation else None,
+                    _user_label(installation.team_leader) if installation else None,
+                ),
+                "handover": (
+                    handover.get_absolute_url() if handover else None,
+                    "Certificate generated" if handover else None,
+                    _user_label(handover.company_representative) if handover else None,
+                ),
             }
 
             for key in POST_ORDER_KEYS:
@@ -227,8 +254,8 @@ def build_journey(obj):
                     state = "current"
                 else:
                     state = "upcoming"
-                _, url, sublabel = child[key]
-                stages_by_key[key] = _stage(key, dict(STAGE_DEFS)[key], state, url, sublabel)
+                url, sublabel, assignee = child[key]
+                stages_by_key[key] = _stage(key, dict(STAGE_DEFS)[key], state, url, sublabel, assignee)
 
             if order.status == "completed":
                 service_badge = {"active": True, "label": "In Service"}

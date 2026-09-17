@@ -18,6 +18,7 @@
       <div class="tw-journey-label">
         {{ stage.label }}
         {% if stage.sublabel %}<span class="tw-journey-sublabel">{{ stage.sublabel }}</span>{% endif %}
+        {% if stage.assignee %}<span class="tw-journey-assignee"><i class="fa-regular fa-user"></i> {{ stage.assignee }}</span>{% endif %}
       </div>
     </div>
     {% endfor %}
