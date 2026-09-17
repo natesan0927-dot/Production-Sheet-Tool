@@ -54,10 +54,12 @@
           {% csrf_token %}
           <div class="row g-2">
             <div class="col-md-3">{{ followup_form.type|add_class:"form-select form-select-sm" }}</div>
-            <div class="col-md-2">{{ followup_form.date|add_class:"form-control form-control-sm" }}</div>
             <div class="col-md-2">{{ followup_form.time|add_class:"form-control form-control-sm" }}</div>
-            <div class="col-md-2">{{ followup_form.next_followup_date|add_class:"form-control form-control-sm" }}</div>
-            <div class="col-md-3">{{ followup_form.next_action|add_class:"form-control form-control-sm"|attr:"placeholder:Next action" }}</div>
+            <div class="col-md-3">
+              {{ followup_form.next_followup_date|add_class:"form-control form-control-sm" }}
+              <div class="form-text small">Next follow-up reminder date</div>
+            </div>
+            <div class="col-md-4">{{ followup_form.next_action|add_class:"form-control form-control-sm"|attr:"placeholder:Next action" }}</div>
             <div class="col-md-6">{{ followup_form.discussion|add_class:"form-control form-control-sm"|attr:"placeholder:Discussion" }}</div>
             <div class="col-md-6">{{ followup_form.customer_response|add_class:"form-control form-control-sm"|attr:"placeholder:Customer response" }}</div>
           </div>

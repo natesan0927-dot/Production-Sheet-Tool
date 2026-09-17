@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -164,7 +166,7 @@ class FollowUp(models.Model):
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="followups")
     type = models.CharField(max_length=25, choices=TYPE_CHOICES, default="phone_call")
     date = models.DateField()
-    time = models.TimeField(null=True, blank=True)
+    time = models.TimeField(null=True, blank=True, default=datetime.time(9, 0))
     discussion = models.TextField(blank=True)
     customer_response = models.TextField(blank=True)
     next_followup_date = models.DateField(null=True, blank=True)

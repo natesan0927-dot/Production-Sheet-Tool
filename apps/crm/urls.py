@@ -7,6 +7,7 @@ app_name = "crm"
 urlpatterns = [
     path("customers/", views.CustomerListView.as_view(), name="customer_list"),
     path("customers/add/", views.CustomerCreateView.as_view(), name="customer_create"),
+    path("customers/lookup/", views.customer_lookup, name="customer_lookup"),
     path("customers/<int:pk>/", views.CustomerDetailView.as_view(), name="customer_detail"),
     path("customers/<int:pk>/edit/", views.CustomerUpdateView.as_view(), name="customer_update"),
 

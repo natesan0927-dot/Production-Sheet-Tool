@@ -2,8 +2,10 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
@@ -76,6 +78,30 @@ class CustomerUpdateView(LoginRequiredMixin, AutoLocalExportMixin, UpdateView):
 
     def get_success_url(self):
         return reverse("crm:customer_detail", args=[self.object.pk])
+
+
+@login_required
+def customer_lookup(request):
+    """
+    Looks up a customer by (partial) mobile number while a rep is filling in
+    the Add Lead form, so the same person's details are never re-entered --
+    this is what drives the "one combined step" lead-creation flow.
+    """
+    mobile = request.GET.get("mobile", "").strip()
+    if len(mobile) < 6:
+        return JsonResponse({"found": False})
+    customer = Customer.objects.filter(mobile_number__icontains=mobile).order_by("-created_date").first()
+    if not customer:
+        return JsonResponse({"found": False})
+    return JsonResponse({
+        "found": True,
+        "id": customer.pk,
+        "name": customer.customer_name,
+        "code": customer.customer_code,
+        "mobile": customer.mobile_number,
+        "email": customer.email,
+        "project_name": customer.project_name,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +245,7 @@ def followup_create(request, pk):
         followup = form.save(commit=False)
         followup.lead = lead
         followup.created_by = request.user
+        followup.date = timezone.now().date()
         followup.save()
         messages.success(request, "Follow-up recorded.")
     else:

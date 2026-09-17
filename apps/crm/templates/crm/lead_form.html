@@ -1,17 +1,191 @@
 {% extends "base.html" %}
+{% load widget_tweaks %}
 {% block title %}{% if object %}Edit Lead{% else %}Add Lead{% endif %}{% endblock %}
 {% block content %}
 <h4 class="mb-3">{% if object %}Edit Lead{% else %}Add Lead{% endif %}</h4>
 <div class="card" style="max-width:820px">
   <div class="card-body">
-    <form method="post" novalidate>
+    <form method="post" novalidate id="lead-form">
       {% csrf_token %}
+
       {% if not object %}
-      <div class="alert alert-secondary small">Pick an existing customer, or fill in the "New Customer" fields below — you only need to enter customer details once; they automatically flow through to every later stage.</div>
-      {% endif %}
+      <h6 class="fw-bold mb-3"><i class="fa-solid fa-user me-2 text-primary"></i>Customer</h6>
+      <div class="mb-3" style="max-width:320px">
+        <label class="form-label small fw-semibold">Mobile Number <span class="text-danger">*</span></label>
+        <div class="input-group input-group-sm">
+          <input type="text" id="mobile-lookup" class="form-control" placeholder="10-digit mobile number" autocomplete="off">
+          <span class="input-group-text" id="lookup-spinner" style="display:none"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+        </div>
+        <div class="form-text">Enter the customer's number first — we'll check if they're already in the system.</div>
+      </div>
+
+      {{ form.customer.as_hidden }}
+      <div id="existing-customer-box" class="alert alert-success py-2 small d-none">
+        <i class="fa-solid fa-circle-check me-1"></i> Found existing customer:
+        <strong id="existing-customer-name"></strong>
+        <span class="text-muted">(<span id="existing-customer-code"></span>)</span>
+        — their details will be reused automatically, nothing to retype.
+        <a href="#" id="use-different-customer" class="d-block small mt-1">Not them? Enter a new customer instead</a>
+      </div>
+
+      <div id="new-customer-fields">
+        <div class="row g-2">
+          <div class="col-md-6">{{ form.new_customer_name|add_class:"form-control form-control-sm" }}<div class="form-text small">{{ form.new_customer_name.label }}</div></div>
+          <div class="col-md-6">{{ form.new_customer_alternate_number|add_class:"form-control form-control-sm" }}<div class="form-text small">Alternate Number</div></div>
+          <div class="col-md-6">{{ form.new_customer_email|add_class:"form-control form-control-sm" }}<div class="form-text small">Email</div></div>
+          <div class="col-md-6">{{ form.new_customer_type|add_class:"form-select form-select-sm" }}<div class="form-text small">Customer Type</div></div>
+          <div class="col-md-6">{{ form.new_customer_company_name|add_class:"form-control form-control-sm" }}<div class="form-text small">Company Name</div></div>
+          <div class="col-md-6">{{ form.new_customer_contact_person|add_class:"form-control form-control-sm" }}<div class="form-text small">Contact Person</div></div>
+          <div class="col-md-6">{{ form.new_customer_city|add_class:"form-control form-control-sm" }}<div class="form-text small">City</div></div>
+          <div class="col-md-3">{{ form.new_customer_state|add_class:"form-control form-control-sm" }}<div class="form-text small">State</div></div>
+          <div class="col-md-3">{{ form.new_customer_pincode|add_class:"form-control form-control-sm" }}<div class="form-text small">Pincode</div></div>
+          <div class="col-md-6">{{ form.new_customer_address|add_class:"form-control form-control-sm" }}<div class="form-text small">Address</div></div>
+          <div class="col-md-6">{{ form.new_customer_project_address|add_class:"form-control form-control-sm" }}<div class="form-text small">Project Address</div></div>
+        </div>
+      </div>
+
+      <hr class="my-3">
+      <h6 class="fw-bold mb-3"><i class="fa-solid fa-filter me-2 text-primary"></i>Lead Details</h6>
+
+      <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" id="different-site-contact">
+        <label class="form-check-label small" for="different-site-contact">Site contact number/email is different from the customer's own</label>
+      </div>
+      <div class="row g-2 mb-2" id="site-contact-fields" style="display:none">
+        <div class="col-md-6">{{ form.contact_number|add_class:"form-control form-control-sm" }}<div class="form-text small">Site Contact Number</div></div>
+        <div class="col-md-6">{{ form.email|add_class:"form-control form-control-sm" }}<div class="form-text small">Site Contact Email</div></div>
+      </div>
+
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="{{ form.project_name.id_for_label }}">{{ form.project_name.label }}</label>
+          {{ form.project_name|add_class:"form-control form-control-sm" }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="{{ form.project_location.id_for_label }}">{{ form.project_location.label }}</label>
+          {{ form.project_location|add_class:"form-control form-control-sm" }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="{{ form.lead_source.id_for_label }}">{{ form.lead_source.label }}</label>
+          {{ form.lead_source|add_class:"form-select form-select-sm" }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="{{ form.assigned_salesperson.id_for_label }}">{{ form.assigned_salesperson.label }}</label>
+          {{ form.assigned_salesperson|add_class:"form-select form-select-sm" }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold" for="{{ form.approximate_quantity.id_for_label }}">{{ form.approximate_quantity.label }}</label>
+          {{ form.approximate_quantity|add_class:"form-control form-control-sm" }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold" for="{{ form.expected_value.id_for_label }}">{{ form.expected_value.label }}</label>
+          {{ form.expected_value|add_class:"form-control form-control-sm" }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold" for="{{ form.expected_closing_date.id_for_label }}">{{ form.expected_closing_date.label }}</label>
+          {{ form.expected_closing_date|add_class:"form-control form-control-sm" }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold" for="{{ form.priority.id_for_label }}">{{ form.priority.label }}</label>
+          {{ form.priority|add_class:"form-select form-select-sm" }}
+        </div>
+        <div class="col-md-8">
+          <label class="form-label small fw-semibold" for="{{ form.requirement.id_for_label }}">{{ form.requirement.label }}</label>
+          {{ form.requirement|add_class:"form-control form-control-sm" }}
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-semibold" for="{{ form.remarks.id_for_label }}">{{ form.remarks.label }}</label>
+          {{ form.remarks|add_class:"form-control form-control-sm" }}
+        </div>
+      </div>
+      {% else %}
       {% include "core/_form_fields.html" %}
-      <button class="btn btn-primary btn-sm">Save Lead</button>
+      {% endif %}
+
+      <button class="btn btn-primary btn-sm mt-3">Save Lead</button>
     </form>
   </div>
 </div>
+{% endblock %}
+{% block extra_js %}
+{% if not object %}
+<script>
+(function () {
+  var mobileInput = document.getElementById("mobile-lookup");
+  var spinner = document.getElementById("lookup-spinner");
+  var customerHidden = document.getElementById("{{ form.customer.id_for_label }}");
+  var existingBox = document.getElementById("existing-customer-box");
+  var newFields = document.getElementById("new-customer-fields");
+  var newMobileInput = document.getElementById("{{ form.new_customer_mobile.id_for_label }}");
+  var newNameInput = document.getElementById("{{ form.new_customer_name.id_for_label }}");
+  var newEmailInput = document.getElementById("{{ form.new_customer_email.id_for_label }}");
+  var contactNumberInput = document.getElementById("{{ form.contact_number.id_for_label }}");
+  var emailInput = document.getElementById("{{ form.email.id_for_label }}");
+  var diffContactCheck = document.getElementById("different-site-contact");
+  var siteContactFields = document.getElementById("site-contact-fields");
+  var lookupUrl = "{% url 'crm:customer_lookup' %}";
+  var timer = null;
+  var foundCustomerId = null;
+
+  function setSiteContact(name, mobile, email) {
+    if (!diffContactCheck.checked) {
+      contactNumberInput.value = mobile || "";
+      emailInput.value = email || "";
+    }
+  }
+
+  function showExisting(data) {
+    foundCustomerId = data.id;
+    customerHidden.value = data.id;
+    document.getElementById("existing-customer-name").textContent = data.name;
+    document.getElementById("existing-customer-code").textContent = data.code;
+    existingBox.classList.remove("d-none");
+    newFields.style.display = "none";
+    newMobileInput.value = "";
+    newNameInput.required = false;
+    setSiteContact(data.name, data.mobile, data.email);
+  }
+
+  function showNew(mobile) {
+    foundCustomerId = null;
+    customerHidden.value = "";
+    existingBox.classList.add("d-none");
+    newFields.style.display = "";
+    newMobileInput.value = mobile;
+    setSiteContact(null, mobile, "");
+  }
+
+  mobileInput.addEventListener("input", function () {
+    var mobile = mobileInput.value.trim();
+    clearTimeout(timer);
+    if (mobile.length < 6) { showNew(mobile); return; }
+    spinner.style.display = "";
+    timer = setTimeout(function () {
+      fetch(lookupUrl + "?mobile=" + encodeURIComponent(mobile), { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          spinner.style.display = "none";
+          if (data.found) { showExisting(data); } else { showNew(mobile); }
+        })
+        .catch(function () { spinner.style.display = "none"; });
+    }, 400);
+  });
+
+  document.getElementById("use-different-customer").addEventListener("click", function (e) {
+    e.preventDefault();
+    showNew(mobileInput.value.trim());
+  });
+
+  diffContactCheck.addEventListener("change", function () {
+    siteContactFields.style.display = this.checked ? "" : "none";
+    if (!this.checked) {
+      setSiteContact(null, newMobileInput.value || mobileInput.value, newEmailInput.value);
+    }
+  });
+
+  newMobileInput.addEventListener("input", function () { if (!diffContactCheck.checked) contactNumberInput.value = this.value; });
+  newEmailInput.addEventListener("input", function () { if (!diffContactCheck.checked) emailInput.value = this.value; });
+})();
+</script>
+{% endif %}
 {% endblock %}
