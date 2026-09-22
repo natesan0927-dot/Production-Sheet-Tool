@@ -3,7 +3,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 
-from .models import FollowUp, Lead, SalesTarget
+from .models import FollowUp, Lead, SalesTarget, Task
 
 
 class BootstrapMixin:
@@ -45,6 +45,7 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
             "phone",
             "site_location",
             "lead_source",
+            "lead_source_other",
             "assigned_to",
             "approx_quantity",
             "expected_value",
@@ -56,10 +57,19 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["assigned_to"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        self.fields["lead_source_other"].widget.attrs["placeholder"] = "Where did this lead come from?"
         # A salesperson only ever files leads under their own name.
         if user and user.role == Role.SALESPERSON:
             self.fields["assigned_to"].initial = user
             self.fields["assigned_to"].disabled = True
+
+    def clean(self):
+        data = super().clean()
+        if data.get("lead_source") == "other" and not data.get("lead_source_other"):
+            self.add_error("lead_source_other", "Tell us where this lead came from.")
+        elif data.get("lead_source") != "other":
+            data["lead_source_other"] = ""
+        return data
 
 
 class MeasurementBoxForm(forms.Form):
@@ -206,6 +216,27 @@ class FollowUpForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["date"].initial = timezone.localdate()
+
+
+class TaskForm(BootstrapMixin, forms.ModelForm):
+    """Assign a to-do to anyone — including yourself."""
+
+    class Meta:
+        model = Task
+        fields = ["assigned_to", "title", "due_date", "details"]
+        widgets = {
+            "due_date": forms.DateInput(attrs={"type": "date"}),
+            "details": forms.Textarea(attrs={"rows": 2, "placeholder": "Anything else they should know (optional)"}),
+        }
+        labels = {"assigned_to": "Assign to", "title": "What needs doing"}
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        people = User.objects.filter(is_active=True)
+        self.fields["assigned_to"].queryset = people
+        self.fields["assigned_to"].label_from_instance = lambda u: f"{u.get_full_name() or u.username} — {u.get_role_display()}"
+        if user:
+            self.fields["assigned_to"].initial = user
 
 
 class StageAccessForm(forms.Form):

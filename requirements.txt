@@ -1,10 +1,9 @@
 Django>=5.2,<5.3
 django-environ>=0.11
-django-simple-history>=3.7
 django-crispy-forms>=2.3
 crispy-bootstrap5>=2024.10
-openpyxl>=3.1
-xhtml2pdf>=0.2.16
+pypdf>=5.0
+reportlab>=4.0
 Pillow>=10.4
 python-dateutil>=2.9
 whitenoise>=6.7

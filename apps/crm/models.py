@@ -33,10 +33,14 @@ class Lead(models.Model):
         ("walk_in", "Walk-in"),
         ("reference", "Reference"),
         ("website", "Website"),
-        ("social_media", "Social Media"),
-        ("architect", "Architect / Builder"),
-        ("exhibition", "Exhibition"),
-        ("other", "Other"),
+        ("meta", "Meta"),
+        ("mccoymart", "McCoyMart"),
+        ("indiamart", "IndiaMART"),
+        ("tradeindia", "TradeIndia"),
+        ("justdial", "JustDial"),
+        ("google", "Google"),
+        ("bni", "BNI"),
+        ("other", "Others"),
     ]
 
     SITE_STAGES = [
@@ -44,7 +48,6 @@ class Lead(models.Model):
         ("foundation", "Foundation"),
         ("brickwork", "Brick Work"),
         ("plastering", "Plastering"),
-        ("painting", "Painting"),
         ("ready", "Ready for Installation"),
     ]
 
@@ -54,6 +57,7 @@ class Lead(models.Model):
     phone = models.CharField("Customer number", max_length=20)
     site_location = models.CharField(max_length=255)
     lead_source = models.CharField(max_length=20, choices=LEAD_SOURCES, default="walk_in")
+    lead_source_other = models.CharField("If others, please specify", max_length=120, blank=True)
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -66,7 +70,6 @@ class Lead(models.Model):
     remarks = models.TextField(blank=True)
 
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
-    in_negotiation = models.BooleanField(default=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -104,6 +107,8 @@ class Lead(models.Model):
     production_sheet_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     production_approved_at = models.DateTimeField(null=True, blank=True)
     production_approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    production_revision_note = models.TextField(blank=True)
+    production_revision_at = models.DateTimeField(null=True, blank=True)
 
     # --- Stage 7: site fabrication status -----------------------------------
     fabrication_column = models.CharField(max_length=12, choices=Fabrication.choices, default=Fabrication.FUTURE)
@@ -285,9 +290,39 @@ class SalesTarget(models.Model):
         return min(int(self.achieved / self.amount * 100), 100)
 
 
+class Task(models.Model):
+    """A to-do. Anyone can assign one to anyone; it lands on that person's list."""
+
+    title = models.CharField(max_length=200)
+    details = models.TextField(blank=True)
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="todos")
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="assigned_todos"
+    )
+    due_date = models.DateField(null=True, blank=True)
+    done = models.BooleanField(default=False)
+    done_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["done", "due_date", "-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_overdue(self):
+        return not self.done and self.due_date is not None and self.due_date < timezone.localdate()
+
+    @property
+    def is_self_assigned(self):
+        return self.assigned_by_id == self.assigned_to_id
+
+
 class Notification(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
-    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="notifications")
+    # A to-do notification has no lead behind it.
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)
     message = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False)

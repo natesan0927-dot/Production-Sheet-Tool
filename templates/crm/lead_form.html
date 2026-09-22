@@ -3,13 +3,13 @@
 
 {% block content %}
 <h4 class="mb-3">{% if lead %}Edit Lead — {{ lead.lead_number }}{% else %}Add Lead{% endif %}</h4>
-<div class="card">
+<div class="card tw-form-narrow">
   <div class="card-body">
     <form method="post">
       {% csrf_token %}
       <div class="row g-3">
         {% for field in form %}
-        <div class="col-md-6">
+        <div class="col-md-6{% if field.name == 'lead_source_other' %} d-none{% endif %}" id="wrap-{{ field.name }}">
           <label class="form-label">{{ field.label }}</label>
           {{ field }}
           {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
@@ -23,4 +23,17 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // The free-text box only matters when the source is "Others".
+  const source = document.getElementById("{{ form.lead_source.id_for_label }}");
+  const otherWrap = document.getElementById("wrap-lead_source_other");
+  function toggleOther() {
+    otherWrap.classList.toggle("d-none", source.value !== "other");
+  }
+  source.addEventListener("change", toggleOther);
+  toggleOther();
+</script>
 {% endblock %}

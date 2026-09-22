@@ -23,7 +23,6 @@ urlpatterns = [
     path("leads/<int:pk>/quotation/", views.stage_quotation, name="stage_quotation"),
     path("leads/<int:pk>/won/", views.stage_won, name="stage_won"),
     path("leads/<int:pk>/lost/", views.stage_lost, name="stage_lost"),
-    path("leads/<int:pk>/negotiation/", views.toggle_negotiation, name="toggle_negotiation"),
     path("leads/<int:pk>/caf/", views.caf_download, name="caf_download"),
     path("leads/<int:pk>/caf-final/", views.stage_caf_final, name="stage_caf_final"),
     path("leads/<int:pk>/production-sheet/", views.stage_production_sheet, name="stage_production_sheet"),
@@ -47,6 +46,11 @@ urlpatterns = [
     path("queue/fabrication/", views.queue_fabrication, name="queue_fabrication"),
     path("queue/fabrication/<int:pk>/", views.fabrication_detail, name="fabrication_detail"),
     path("queue/warranty/", views.queue_warranty, name="queue_warranty"),
+    # Shared to-do list
+    path("to-do/", views.todo_list, name="todo_list"),
+    path("to-do/<int:pk>/done/", views.todo_done, name="todo_done"),
+    path("to-do/<int:pk>/remove/", views.todo_delete, name="todo_delete"),
+    path("leads/<int:pk>/production-need-revision/", views.production_need_revision, name="production_need_revision"),
     # Super Admin settings
     path("settings/stage-access/", views.stage_access_list, name="stage_access_list"),
     path("settings/stage-access/<int:pk>/", views.stage_access_edit, name="stage_access_edit"),

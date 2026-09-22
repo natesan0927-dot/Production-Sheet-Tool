@@ -1,6 +1,6 @@
 from apps.accounts.models import Role
 
-from .models import Lead
+from .models import Lead, Task
 
 SALES_TABS = [
     ("Dashboard", "crm:dashboard", "fa-gauge-high", None),
@@ -39,6 +39,12 @@ ADMIN_TABS = [
     ("Stage Access", "crm:stage_access_list", "fa-user-shield", None),
 ]
 
+TODO_TABS = [
+    ("To-Do", "crm:todo_list", "fa-list-check", "todo"),
+]
+
+TODO_GROUP = ("My Work", "logistics", TODO_TABS)
+
 # (section heading, sidebar accent colour, tabs)
 SALES_GROUP = ("CRM & Sales", "sales", SALES_TABS)
 MEASUREMENT_GROUP = ("Measurement", "measurement", MEASUREMENT_TABS)
@@ -49,12 +55,12 @@ FIELD_GROUP = ("Handover", "aftersales", FIELD_MANAGER_TABS)
 ADMIN_GROUP = ("Administration", "insights", ADMIN_TABS)
 
 ROLE_GROUPS = {
-    Role.SALESPERSON: [SALES_GROUP],
-    Role.MEASUREMENT: [MEASUREMENT_GROUP],
-    Role.QUOTATION: [QUOTATION_GROUP],
-    Role.ACCOUNTS: [ACCOUNTS_GROUP],
-    Role.PRODUCTION: [PRODUCTION_GROUP],
-    Role.FIELD_MANAGER: [FIELD_GROUP],
+    Role.SALESPERSON: [SALES_GROUP, TODO_GROUP],
+    Role.MEASUREMENT: [MEASUREMENT_GROUP, TODO_GROUP],
+    Role.QUOTATION: [QUOTATION_GROUP, TODO_GROUP],
+    Role.ACCOUNTS: [ACCOUNTS_GROUP, TODO_GROUP],
+    Role.PRODUCTION: [PRODUCTION_GROUP, TODO_GROUP],
+    Role.FIELD_MANAGER: [FIELD_GROUP, TODO_GROUP],
     # The Super Admin works every stage, so they get every tab.
     Role.SUPER_ADMIN: [
         SALES_GROUP,
@@ -63,12 +69,13 @@ ROLE_GROUPS = {
         ACCOUNTS_GROUP,
         PRODUCTION_GROUP,
         FIELD_GROUP,
+        TODO_GROUP,
         ADMIN_GROUP,
     ],
 }
 
 
-def _pending_counts(keys):
+def _pending_counts(keys, user):
     """How many leads are waiting on each queue, for the sidebar badges."""
     counts = {}
     if "rough" in keys:
@@ -99,6 +106,8 @@ def _pending_counts(keys):
         counts["fabrication"] = Lead.objects.filter(
             production_approved_at__isnull=False, dispatched_at__isnull=True
         ).count()
+    if "todo" in keys:
+        counts["todo"] = Task.objects.filter(assigned_to=user, done=False).count()
     if "warranty" in keys:
         counts["warranty"] = Lead.objects.filter(
             dispatched_at__isnull=False, completed_at__isnull=True
@@ -113,7 +122,7 @@ def navigation(request):
 
     groups = ROLE_GROUPS.get(user.role, [])
     wanted = {key for _, _, tabs in groups for *_, key in tabs if key}
-    counts = _pending_counts(wanted)
+    counts = _pending_counts(wanted, user)
 
     nav_groups = [
         (

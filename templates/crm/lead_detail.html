@@ -16,29 +16,66 @@
     {% if user.role == 'salesperson' or user.is_super_admin %}
       <a href="{% url 'crm:lead_edit' lead.pk %}" class="btn btn-sm btn-outline-secondary mb-2"><i class="fa-solid fa-pen me-1"></i>Edit Lead</a><br>
     {% endif %}
-    {% if lead.status == 'won' %}<span class="badge text-bg-success fs-6">Order Confirmed</span>
-    {% elif lead.status == 'lost' %}<span class="badge text-bg-danger fs-6">Lost</span>
-    {% else %}<span class="badge text-bg-secondary fs-6">Open</span>{% endif %}
-    {% if lead.completed_at %}<div class="badge text-bg-primary mt-1">Completed Project</div>{% endif %}
+    {% if lead.status == 'won' %}<span class="badge bg-success fs-6">Order Confirmed</span>
+    {% elif lead.status == 'lost' %}<span class="badge bg-danger fs-6">Lost</span>
+    {% else %}<span class="badge bg-secondary fs-6">Open</span>{% endif %}
+    {% if lead.completed_at %}<div class="badge bg-primary mt-1">Completed Project</div>{% endif %}
   </div>
 </div>
 
+{# The stepper doubles as the navigator — click any step to jump to it. #}
 <div class="tw-journey mt-3">
-  {% for stage in stages %}
-  <div class="tw-journey-step state-{% if stage.state == 'locked' %}upcoming{% elif stage.state == 'lost' %}not_applicable{% else %}{{ stage.state }}{% endif %}">
+  {% for item in stages %}
+  <a href="?stage={{ item.key }}"
+     class="tw-journey-step state-{% if item.state == 'locked' %}upcoming{% elif item.state == 'lost' %}not_applicable{% else %}{{ item.state }}{% endif %}{% if item.key == stage.key %} is-here{% endif %}">
     {% if not forloop.first %}<span class="tw-journey-line"></span>{% endif %}
-    <a href="#stage-{{ stage.key }}" class="tw-journey-node" title="{{ stage.label }}">
-      {% if stage.state == 'done' %}<i class="fa-solid fa-check"></i>
-      {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot"></i>
-      {% elif stage.state == 'lost' %}<i class="fa-solid fa-xmark"></i>
+    <span class="tw-journey-node" title="{{ item.label }}">
+      {% if item.state == 'done' %}<i class="fa-solid fa-check"></i>
+      {% elif item.state == 'current' %}<i class="fa-solid fa-circle-dot"></i>
+      {% elif item.state == 'lost' %}<i class="fa-solid fa-xmark"></i>
       {% else %}<span class="tw-journey-dot"></span>{% endif %}
-    </a>
-    <div class="tw-journey-label">
-      {{ stage.label }}
-      <span class="tw-journey-sublabel">{{ stage.role_names }}</span>
-    </div>
-  </div>
+    </span>
+    <div class="tw-journey-label">{{ item.label }}</div>
+  </a>
   {% endfor %}
+</div>
+
+<div class="card tw-stage-card state-{{ stage.state }} mt-3" id="stage-{{ stage.key }}">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>
+      {% if stage.state == 'done' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
+      {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot text-primary me-2"></i>
+      {% elif stage.state == 'lost' %}<i class="fa-solid fa-circle-xmark text-danger me-2"></i>
+      {% else %}<i class="fa-solid fa-lock text-muted me-2"></i>{% endif %}
+      <strong>Step {{ stage.number }} — {{ stage.label }}</strong>
+    </span>
+    <span class="text-muted small">{{ stage.role_names }}</span>
+  </div>
+  <div class="card-body">
+    {% if stage.state == 'locked' %}
+      <div class="text-center text-muted py-4">
+        <i class="fa-solid fa-lock fs-3 d-block mb-2 opacity-50"></i>
+        This step opens once the earlier ones are complete.
+      </div>
+    {% else %}
+      {% if stage.state == 'current' and not stage.can_act %}
+        <p class="text-muted"><i class="fa-regular fa-hourglass-half me-1"></i>Waiting for {{ stage.role_names }}.</p>
+      {% endif %}
+      {% include "crm/stages/"|add:stage.key|add:".html" %}
+    {% endif %}
+  </div>
+  <div class="card-footer d-flex justify-content-between align-items-center bg-white">
+    {% if previous_stage %}
+      <a href="?stage={{ previous_stage.key }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fa-solid fa-arrow-left me-1"></i>{{ previous_stage.label }}
+      </a>
+    {% else %}<span></span>{% endif %}
+    {% if next_stage %}
+      <a href="?stage={{ next_stage.key }}" class="btn btn-sm btn-outline-secondary">
+        {{ next_stage.label }}<i class="fa-solid fa-arrow-right ms-1"></i>
+      </a>
+    {% else %}<span></span>{% endif %}
+  </div>
 </div>
 
 <div class="row g-3 mt-1">
@@ -48,7 +85,7 @@
       <div class="card-body small">
         <dl class="row mb-0">
           <dt class="col-6">Assigned salesperson</dt><dd class="col-6">{{ lead.assigned_to }}</dd>
-          <dt class="col-6">Lead source</dt><dd class="col-6">{{ lead.get_lead_source_display }}</dd>
+          <dt class="col-6">Lead source</dt><dd class="col-6">{% if lead.lead_source == 'other' and lead.lead_source_other %}{{ lead.lead_source_other }}{% else %}{{ lead.get_lead_source_display }}{% endif %}</dd>
           <dt class="col-6">Approx quantity</dt><dd class="col-6">{{ lead.approx_quantity|default:"—" }}</dd>
           {% if can_see_financials %}<dt class="col-6">Expected value</dt><dd class="col-6">{{ lead.expected_value|rupees }}</dd>{% endif %}
           <dt class="col-6">Site stage</dt><dd class="col-6">{{ lead.get_site_stage_display }}</dd>
@@ -72,6 +109,7 @@
           {% if lead.caf_signed_at %}<li><span>{{ lead.caf_signed_at|date:"d M Y, H:i" }}</span> Signed CAF uploaded</li>{% endif %}
           {% if lead.final_measurement_at %}<li><span>{{ lead.final_measurement_at|date:"d M Y, H:i" }}</span> Final measurement uploaded</li>{% endif %}
           {% if lead.production_sheet_at %}<li><span>{{ lead.production_sheet_at|date:"d M Y, H:i" }}</span> Production sheet uploaded</li>{% endif %}
+          {% if lead.production_revision_at %}<li><span>{{ lead.production_revision_at|date:"d M Y, H:i" }}</span> Production sheet sent back for revision</li>{% endif %}
           {% if lead.production_approved_at %}<li><span>{{ lead.production_approved_at|date:"d M Y, H:i" }}</span> Production sheet approved</li>{% endif %}
           {% if lead.dispatched_at %}<li><span>{{ lead.dispatched_at|date:"d M Y, H:i" }}</span> Dispatched — invoice {{ lead.invoice_number }}</li>{% endif %}
           {% if lead.completed_at %}<li><span>{{ lead.completed_at|date:"d M Y, H:i" }}</span> Project completed</li>{% endif %}
@@ -80,31 +118,4 @@
     </div>
   </div>
 </div>
-
-{% for stage in stages %}
-  {% if stage.state == 'locked' %}
-    <div class="tw-stage-locked" id="stage-{{ stage.key }}">
-      <span><i class="fa-solid fa-lock me-2"></i><strong>{{ stage.number }}. {{ stage.label }}</strong></span>
-      <span>{{ stage.role_names }}</span>
-    </div>
-  {% else %}
-    <div class="card tw-stage-card state-{{ stage.state }}" id="stage-{{ stage.key }}">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>
-          {% if stage.state == 'done' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
-          {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot text-primary me-2"></i>
-          {% elif stage.state == 'lost' %}<i class="fa-solid fa-circle-xmark text-danger me-2"></i>{% endif %}
-          <strong>{{ stage.number }}. {{ stage.label }}</strong>
-        </span>
-        <span class="text-muted small">{{ stage.role_names }}</span>
-      </div>
-      <div class="card-body">
-        {% if stage.state == 'current' and not stage.can_act %}
-          <p class="text-muted mb-0"><i class="fa-regular fa-hourglass-half me-1"></i>Waiting for {{ stage.role_names }}.</p>
-        {% endif %}
-        {% include "crm/stages/"|add:stage.key|add:".html" %}
-      </div>
-    </div>
-  {% endif %}
-{% endfor %}
 {% endblock %}

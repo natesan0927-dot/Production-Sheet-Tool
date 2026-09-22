@@ -1,20 +1,15 @@
 # Open questions on the rebuild
 
 Built from `TITANS-REFURBISHED.pdf` and `Titans Windows Warranty Certificate (1).pdf`.
-Where the spec did not say, I picked the option in **bold** and kept going. Each one is
-a small change if you want it the other way.
+Where the spec did not say, I picked something and kept going. Items marked **Decided**
+have since been settled by you; the rest are still open.
 
 ## 1. Who uploads quotations?
 
-The roles list has six roles and no "quotation staff", but the Quotation stage says it is
-"accessible only by the superadmin and quotation staff". The spec also never lists the tabs
-for the Accounts Department.
+**Decided — Quotation Staff is its own role.** They have their own login and a *Quotation
+Upload* tab listing the customers whose measurements are in. The Accounts Department no longer
+uploads quotations; they keep *Confirmed Orders*, the financial side.
 
-**I made the Accounts Department the quotation team.** Their two tabs are *Quotations*
-(leads whose measurements are in and are waiting for a quotation) and *Confirmed Orders*
-(the financial details, which the spec says to send to accounts once a lead is won).
-
-If quotation staff are meant to be a separate, seventh role, say so and I'll split them.
 
 ## 2. Financial details sent to accounts
 
@@ -25,47 +20,50 @@ order value, advance received, balance, committed delivery date, salesperson.
 
 ## 3. The "Negotiation" column in the Sales Pipeline
 
-The pipeline needs a Negotiation column, but nothing in the stage flow ever sets that state.
-**I added a "Mark as In Negotiation" toggle** on the Follow-up / Won-Lost stage, so the
-salesperson decides. The alternative is to infer it (say, two or more follow-ups logged).
+**Decided — removed.** The Negotiation column and the flag behind it are gone. The pipeline
+now reads Quotation Pending → Quotation Sent → Follow-up → Won → Lost.
 
-Related: I split *Quotation Sent* from *Follow-up* by whether any follow-up has been
-scheduled for the lead yet. Tell me if you meant a different split.
 
 ## 4. Dropdown options I had to invent
 
-- **Site stage:** Not Started, Foundation, Brick Work, Plastering, Painting, Ready for Installation
-- **Lead source:** Walk-in, Reference, Website, Social Media, Architect / Builder, Exhibition, Other
-- **Approx quantity** is a plain number (count of windows/doors). If you want free text like
-  "12 windows + 2 doors", that's a one-line change.
+**Decided.**
 
-Send me your real lists and I'll swap them in.
+- **Site stage:** Not Started, Foundation, Brick Work, Plastering, Ready for Installation
+  (Painting removed).
+- **Lead source:** Walk-in, Reference, Website, Meta, McCoyMart, IndiaMART, TradeIndia,
+  JustDial, Google, BNI, Others. Picking **Others** reveals a text box, and the lead will not
+  save until it is filled in.
+- **Approx quantity** is still a plain number. Say the word if you want free text.
+
 
 ## 5. "To do for the day"
 
-The dashboard's to-do list shows **today's follow-ups plus any lead sitting on a step that
-belongs to the salesperson** (Lead Created, or Won/Lost after the quotation arrives).
-There is no separate task-assignment feature anywhere in the spec, so "assigned tasks" is
-my reading. If you want the Super Admin to be able to hand out ad-hoc to-dos, that's a
-separate feature — tell me and I'll add it.
+**Decided — split into three separate things.**
+
+- **Today's lead follow-up** — salesperson only, on the dashboard: strictly today's follow-ups.
+- **My to-do** — a To-Do tab every role has, showing the tasks assigned to that person and
+  who assigned each one.
+- **Assign a to-do** — on the same tab: pick any person from a dropdown, give it a title and a
+  due date, and it appears on their to-do list. What you assign to others shows under
+  "Waiting on others" until they tick it off.
+
 
 ## 6. The warranty certificate has spelling mistakes
 
-Your certificate reads "HARDWARE **CRETIFICATE** OF GUARANTEE", "IN THE **FEILD**",
-"NON **TRANSFRABLE**", "**EXPRESELY** IN WRITTEN". **I reproduced your file exactly**,
-mistakes included, rather than silently changing a document you issue to customers.
-Say the word and I'll correct them.
+**Resolved a different way.** The system no longer redraws either document. It now opens your
+actual `Order confirmation approval form.pdf` and `Titans Windows Warranty Certificate.pdf`
+and types the lead's details onto the blank lines, so what prints is your own stationery,
+wording and artwork exactly as supplied — spellings included.
+
+That also retires the earlier question about missing artwork: the PROMINANCE logo, the 10-year
+seal and the gold banner are all in your originals, so they come through untouched.
+
 
 ## 7. Artwork I don't have files for
 
-Both documents are rebuilt to match your originals, but three pieces of artwork exist only
-as pictures inside your PDFs, so I approximated them:
+**No longer an issue** — see 6. Both documents are now your original PDFs, so every piece of
+artwork is already in them.
 
-- the **PROMINANCE uPVC Window Systems** logo (on both documents) — drawn as styled text
-- the **10 YEAR GUARANTEE** starburst seal (warranty certificate) — drawn as a plain box
-- the **gold/navy banner** across the bottom of the CAF pages — left out
-
-Send me PNGs of these three and they'll drop straight in.
 
 ## 8. The CAF skips clause 5
 
@@ -84,21 +82,25 @@ another file, it never deletes the old one. Tell me if any of the others need mu
 
 ## 10. Rejecting a production sheet
 
-The spec has the measurement staff approving a production sheet, but says nothing about
-rejecting one. **There is no reject button** — the production staff can simply upload a
-corrected sheet, which replaces the pending one. If measurement staff need to reject with a
-written reason, tell me.
+**Decided — "Need Revision", not reject.** The measurement staff can approve the sheet or send
+it back. Sending it back requires written remarks; the request is refused if the box is empty.
+The remarks then sit at the top of the production stage for the production team, who upload a
+corrected sheet.
+
 
 ## 11. Site Fabrication asks for the order value again
 
-Column 1 asks the production staff to type in the order value, but the Won stage already
-captured it. **I pre-fill it with the confirmed order value and let them change it.**
+**Decided.** The salesperson now enters the window count and total site sq ft when marking the
+order won, and the Future Production column simply displays those along with the confirmed
+order value. The production staff no longer retype anything.
+
 
 ## 12. Who can edit a lead after it is saved?
 
-The spec says the Super Admin "can view and modify the leads" — so **only the Super Admin
-gets an Edit Lead button**, and they can also reassign a lead to a different salesperson.
-A salesperson currently cannot correct their own typo. Tell me if they should be able to.
+**Decided.** Both the salesperson and the Super Admin can edit a lead, from the three-dot menu
+on each row of the Leads tab (which also offers delete, with a confirmation). A salesperson can
+only touch their own leads; the Super Admin can also reassign a lead to a different salesperson.
+
 
 ## 13. Uploaded files are not behind the login
 

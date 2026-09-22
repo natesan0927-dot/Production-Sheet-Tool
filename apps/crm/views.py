@@ -24,9 +24,10 @@ from .forms import (
     SalesTargetForm,
     SingleFileForm,
     StageAccessForm,
+    TaskForm,
     WonForm,
 )
-from .models import FollowUp, Lead, LeadFile, Notification, SalesTarget
+from .models import FollowUp, Lead, LeadFile, Notification, SalesTarget, Task
 from .pdf import render_caf, render_warranty_certificate
 
 # ---------------------------------------------------------------------------
@@ -76,7 +77,7 @@ def notify_user(lead, message, user):
 
 
 def stage_redirect(lead, stage_key):
-    return redirect(f"{lead.get_absolute_url()}#stage-{stage_key}")
+    return redirect(f"{lead.get_absolute_url()}?stage={stage_key}")
 
 
 def guard_stage(request, lead, stage_key, check_role=True):
@@ -125,18 +126,6 @@ def dashboard(request):
     month_start = today.replace(day=1)
     followups = FollowUp.objects.filter(lead__in=leads, done=False).select_related("lead")
 
-    # "To do for the day": today's follow-ups plus leads sitting on this
-    # salesperson's own step of the journey.
-    todo_labels = {
-        stage_flow.LEAD: "Add the measurements to move this forward",
-        stage_flow.DECISION: "Quotation is ready — mark it won or lost",
-    }
-    todo_leads = []
-    for lead in leads.filter(status=Lead.Status.OPEN):
-        label = todo_labels.get(stage_flow.current_stage_key(lead))
-        if label:
-            todo_leads.append({"lead": lead, "label": label})
-
     context = {
         "lead_bank": leads.count(),
         "leads_this_month": leads.filter(created_at__date__gte=month_start).count(),
@@ -145,7 +134,7 @@ def dashboard(request):
         "lost_count": leads.filter(status=Lead.Status.LOST).count(),
         "pending_quotations": leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=True).count(),
         "today_followups": followups.filter(date=today),
-        "todo_leads": todo_leads,
+        "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
         "salespeople": User.objects.filter(role=Role.SALESPERSON, is_active=True),
         "selected_salesperson": selected_salesperson,
     }
@@ -228,9 +217,24 @@ def lead_delete(request, pk):
 def lead_detail(request, pk):
     lead = get_lead(request, pk)
     stage_list = stage_flow.build_stages(lead, request.user)
+    if not stage_list:
+        raise Http404
+
+    # One stage on screen at a time. Default to whichever one needs work now,
+    # falling back to the last stage this person is allowed to see.
+    active_key = request.GET.get("stage")
+    keys = [stage["key"] for stage in stage_list]
+    if active_key not in keys:
+        live = stage_flow.current_stage_key(lead)
+        active_key = live if live in keys else keys[-1]
+
+    position = keys.index(active_key)
     context = {
         "lead": lead,
         "stages": stage_list,
+        "stage": stage_list[position],
+        "previous_stage": stage_list[position - 1] if position > 0 else None,
+        "next_stage": stage_list[position + 1] if position + 1 < len(stage_list) else None,
         "current_stage": stage_flow.current_stage_key(lead),
         # Production is the one stage two roles touch: production uploads, measurement approves.
         "can_validate_production": request.user.has_role(Role.MEASUREMENT),
@@ -370,7 +374,6 @@ def stage_won(request, pk):
             lead = form.save(commit=False)
             lead.status = Lead.Status.WON
             lead.won_at = timezone.now()
-            lead.in_negotiation = False
             lead.save()
             FollowUp.objects.filter(lead=lead, done=False).update(done=True)
             notify(
@@ -399,7 +402,6 @@ def stage_lost(request, pk):
             lead = form.save(commit=False)
             lead.status = Lead.Status.LOST
             lead.lost_at = timezone.now()
-            lead.in_negotiation = False
             lead.save()
             FollowUp.objects.filter(lead=lead, done=False).update(done=True)
             messages.info(request, "Lead marked as lost and moved to Lost Opportunities.")
@@ -407,15 +409,6 @@ def stage_lost(request, pk):
     else:
         form = LostForm(instance=lead)
     return render(request, "crm/lost_form.html", {"lead": lead, "form": form})
-
-
-@role_required(Role.SALESPERSON)
-@require_POST
-def toggle_negotiation(request, pk):
-    lead = get_lead(request, pk)
-    lead.in_negotiation = not lead.in_negotiation
-    lead.save(update_fields=["in_negotiation", "updated_at"])
-    return redirect(lead.get_absolute_url())
 
 
 # ---------------------------------------------------------------------------
@@ -486,6 +479,8 @@ def stage_production_sheet(request, pk):
     lead.production_sheet_by = request.user
     lead.production_approved_at = None
     lead.production_approved_by = None
+    lead.production_revision_note = ""
+    lead.production_revision_at = None
     lead.save()
     notify(lead, f"Production sheet awaiting your approval — {lead.customer_name}", Role.MEASUREMENT)
     messages.success(request, "Production sheet uploaded. Waiting for measurement staff approval.")
@@ -505,9 +500,35 @@ def production_approve(request, pk):
 
     lead.production_approved_at = timezone.now()
     lead.production_approved_by = request.user
+    lead.production_revision_note = ""
+    lead.production_revision_at = None
     lead.save()
     notify(lead, f"Production sheet approved — {lead.customer_name}", Role.PRODUCTION)
     messages.success(request, "Production sheet approved.")
+    return redirect(lead.get_absolute_url())
+
+
+@role_required(Role.MEASUREMENT)
+@require_POST
+def production_need_revision(request, pk):
+    lead = get_lead(request, pk)
+    blocked = guard_stage(request, lead, stage_flow.PRODUCTION, check_role=False)
+    if blocked:
+        return blocked
+    if not lead.production_sheet_at:
+        messages.error(request, "There is no production sheet to send back yet.")
+        return redirect(lead.get_absolute_url())
+
+    remarks = request.POST.get("remarks", "").strip()
+    if not remarks:
+        messages.error(request, "Say what needs changing before sending the sheet back.")
+        return stage_redirect(lead, stage_flow.PRODUCTION)
+
+    lead.production_revision_note = remarks
+    lead.production_revision_at = timezone.now()
+    lead.save()
+    notify(lead, f"Production sheet needs revision — {lead.customer_name}: {remarks}", Role.PRODUCTION)
+    messages.success(request, "Sent back to the production team with your remarks.")
     return redirect(lead.get_absolute_url())
 
 
@@ -698,9 +719,8 @@ def pipeline(request):
     quoted = open_leads.filter(quotation_uploaded_at__isnull=False)
     columns = [
         ("Quotation Pending", open_leads.filter(quotation_uploaded_at__isnull=True)),
-        ("Quotation Sent", quoted.filter(in_negotiation=False, followups__isnull=True).distinct()),
-        ("Follow-up", quoted.filter(in_negotiation=False, followups__isnull=False).distinct()),
-        ("Negotiation", quoted.filter(in_negotiation=True)),
+        ("Quotation Sent", quoted.filter(followups__isnull=True).distinct()),
+        ("Follow-up", quoted.filter(followups__isnull=False).distinct()),
         ("Won", leads.filter(status=Lead.Status.WON)),
         ("Lost", leads.filter(status=Lead.Status.LOST)),
     ]
@@ -860,6 +880,68 @@ def queue_warranty(request):
 # ---------------------------------------------------------------------------
 # notifications
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# to-do list (every role)
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def todo_list(request):
+    mine = Task.objects.filter(assigned_to=request.user).select_related("assigned_by")
+    if request.GET.get("show") != "all":
+        mine = mine.filter(done=False)
+
+    if request.method == "POST":
+        form = TaskForm(request.POST, user=request.user)
+        if form.is_valid():
+            task = form.save(commit=False)
+            task.assigned_by = request.user
+            task.save()
+            if task.assigned_to_id != request.user.id:
+                Notification.objects.create(
+                    user=task.assigned_to,
+                    lead=None,
+                    message=f"{request.user.get_full_name() or request.user.username} assigned you: {task.title}",
+                )
+            messages.success(request, f"To-do assigned to {task.assigned_to}.")
+            return redirect("crm:todo_list")
+    else:
+        form = TaskForm(user=request.user)
+
+    return render(
+        request,
+        "crm/todo_list.html",
+        {
+            "tasks": mine,
+            "form": form,
+            "assigned_by_me": Task.objects.filter(assigned_by=request.user, done=False)
+            .exclude(assigned_to=request.user)
+            .select_related("assigned_to"),
+            "show_all": request.GET.get("show") == "all",
+            "today": timezone.localdate(),
+        },
+    )
+
+
+@login_required
+@require_POST
+def todo_done(request, pk):
+    task = get_object_or_404(Task, pk=pk, assigned_to=request.user)
+    task.done = True
+    task.done_at = timezone.now()
+    task.save(update_fields=["done", "done_at"])
+    return redirect(request.POST.get("next") or "crm:todo_list")
+
+
+@login_required
+@require_POST
+def todo_delete(request, pk):
+    task = get_object_or_404(Task, pk=pk, assigned_by=request.user)
+    task.delete()
+    messages.success(request, "To-do removed.")
+    return redirect("crm:todo_list")
 
 
 @role_required()  # no roles listed means Super Admin only

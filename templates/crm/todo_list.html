@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}To-Do{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h4 class="mb-0">To-Do</h4>
+  <a href="?{% if show_all %}{% else %}show=all{% endif %}" class="btn btn-sm btn-outline-secondary">
+    {% if show_all %}Show open only{% else %}Show completed too{% endif %}
+  </a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-list-check me-2"></i>My to-do</div>
+      <div class="list-group list-group-flush">
+        {% for task in tasks %}
+          <div class="list-group-item d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="{% if task.done %}text-decoration-line-through text-muted{% else %}fw-semibold{% endif %}">
+                {{ task.title }}
+              </div>
+              <div class="text-muted small">
+                {% if task.due_date %}Due {{ task.due_date|date:"d M Y" }}{% else %}No due date{% endif %}
+                {% if task.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+                {% if not task.is_self_assigned %}
+                  <span class="badge bg-secondary ms-1">from {{ task.assigned_by|default:"—" }}</span>
+                {% endif %}
+              </div>
+              {% if task.details %}<div class="text-muted small mt-1">{{ task.details|linebreaksbr }}</div>{% endif %}
+            </div>
+            {% if not task.done %}
+            <form method="post" action="{% url 'crm:todo_done' task.pk %}">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-success">Done</button>
+            </form>
+            {% else %}<span class="badge bg-success">Done</span>{% endif %}
+          </div>
+        {% empty %}
+          <div class="text-center text-muted py-5">
+            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Nothing on your list.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><i class="fa-solid fa-user-plus me-2"></i>Assign a to-do</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-primary w-100">Assign</button>
+        </form>
+      </div>
+    </div>
+
+    {% if assigned_by_me %}
+    <div class="card mt-3">
+      <div class="card-header"><i class="fa-solid fa-paper-plane me-2"></i>Waiting on others</div>
+      <div class="list-group list-group-flush">
+        {% for task in assigned_by_me %}
+          <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-semibold">{{ task.title }}</div>
+              <div class="text-muted small">
+                {{ task.assigned_to }}{% if task.due_date %} · due {{ task.due_date|date:"d M Y" }}{% endif %}
+                {% if task.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+              </div>
+            </div>
+            <form method="post" action="{% url 'crm:todo_delete' task.pk %}">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-link text-danger" title="Withdraw"><i class="fa-solid fa-xmark"></i></button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -73,34 +73,56 @@
   </div>
 </div>
 
-<div class="card mt-4">
-  <div class="card-header"><i class="fa-solid fa-list-check me-2"></i>To do for the day</div>
-  <div class="list-group list-group-flush">
-    {% for followup in today_followups %}
-      <a href="{{ followup.lead.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-        <span>
-          <span class="badge bg-primary me-2">Follow-up</span>
-          <strong>{{ followup.lead.customer_name }}</strong>
-          {% if followup.note %}<span class="text-muted small ms-2">{{ followup.note }}</span>{% endif %}
-        </span>
-        <span class="text-muted small">{{ followup.time|default:"" }}</span>
-      </a>
-    {% endfor %}
-    {% for item in todo_leads %}
-      <a href="{{ item.lead.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-        <span>
-          <span class="badge bg-secondary me-2">Task</span>
-          <strong>{{ item.lead.customer_name }}</strong>
-          <span class="text-muted small ms-2">{{ item.label }}</span>
-        </span>
-        <span class="text-muted small">{{ item.lead.lead_number }}</span>
-      </a>
-    {% endfor %}
-    {% if not today_followups and not todo_leads %}
-      <div class="text-center text-muted py-5">
-        <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Nothing due today.
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-phone-volume me-2"></i>Today's lead follow-up</span>
+        <a href="{% url 'crm:followups' %}" class="small">View all</a>
       </div>
-    {% endif %}
+      <div class="list-group list-group-flush">
+        {% for followup in today_followups %}
+          <a href="{{ followup.lead.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <span>
+              <strong>{{ followup.lead.customer_name }}</strong>
+              {% if followup.note %}<span class="text-muted small ms-2">{{ followup.note }}</span>{% endif %}
+            </span>
+            <span class="text-muted small">{{ followup.time|default:"" }}</span>
+          </a>
+        {% empty %}
+          <div class="text-center text-muted py-5">
+            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>No follow-ups due today.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-list-check me-2"></i>My to-do</span>
+        <a href="{% url 'crm:todo_list' %}" class="small">View all</a>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for task in my_todos %}
+          <a href="{% url 'crm:todo_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <span>
+              <strong>{{ task.title }}</strong>
+              {% if not task.is_self_assigned %}<span class="badge bg-secondary ms-2">from {{ task.assigned_by }}</span>{% endif %}
+            </span>
+            <span class="text-muted small">
+              {% if task.is_overdue %}<span class="badge bg-danger">Overdue</span>
+              {% elif task.due_date %}{{ task.due_date|date:"d M" }}{% endif %}
+            </span>
+          </a>
+        {% empty %}
+          <div class="text-center text-muted py-5">
+            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Nothing on your list.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

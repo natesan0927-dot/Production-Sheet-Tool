@@ -6,12 +6,19 @@
 <div class="card">
   <div class="list-group list-group-flush">
     {% for note in notifications %}
-      <a href="{{ note.lead.get_absolute_url }}" class="list-group-item list-group-item-action {% if not note.read %}fw-semibold{% endif %}">
-        {{ note.message }}
-        <span class="text-muted small d-block">{{ note.created_at|date:"d M Y, H:i" }}</span>
-      </a>
+      {% if note.lead %}
+        <a href="{{ note.lead.get_absolute_url }}" class="list-group-item list-group-item-action {% if not note.read %}fw-semibold{% endif %}">
+          {{ note.message }}
+          <span class="text-muted small d-block fw-normal">{{ note.created_at|date:"d M Y, H:i" }}</span>
+        </a>
+      {% else %}
+        <a href="{% url 'crm:todo_list' %}" class="list-group-item list-group-item-action {% if not note.read %}fw-semibold{% endif %}">
+          {{ note.message }}
+          <span class="text-muted small d-block fw-normal">{{ note.created_at|date:"d M Y, H:i" }}</span>
+        </a>
+      {% endif %}
     {% empty %}
-      <div class="list-group-item text-center text-muted py-4">No notifications.</div>
+      <div class="text-center text-muted py-5">No notifications.</div>
     {% endfor %}
   </div>
 </div>

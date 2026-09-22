@@ -31,12 +31,6 @@
   <div class="d-flex gap-2 flex-wrap">
     <a href="{% url 'crm:stage_won' lead.pk %}" class="btn btn-success"><i class="fa-solid fa-trophy me-1"></i>Proceed to WON</a>
     <a href="{% url 'crm:stage_lost' lead.pk %}" class="btn btn-outline-danger"><i class="fa-solid fa-xmark me-1"></i>Mark as LOST</a>
-    <form method="post" action="{% url 'crm:toggle_negotiation' lead.pk %}">
-      {% csrf_token %}
-      <button class="btn btn-outline-secondary">
-        {% if lead.in_negotiation %}Remove from Negotiation{% else %}Mark as In Negotiation{% endif %}
-      </button>
-    </form>
   </div>
 
   <hr>

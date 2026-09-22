@@ -7,6 +7,14 @@
 </div>
 {% endif %}
 
+{% if lead.production_revision_note %}
+  <div class="alert alert-warning">
+    <strong><i class="fa-solid fa-rotate-left me-1"></i>Revision requested</strong>
+    <div class="small text-muted">{{ lead.production_revision_at|date:"d M Y, H:i" }}</div>
+    <div class="mt-1">{{ lead.production_revision_note|linebreaksbr }}</div>
+  </div>
+{% endif %}
+
 {% if lead.production_sheet_at %}
   <p class="mb-2">
     <strong>Production sheet</strong>
@@ -18,14 +26,30 @@
 
   {% if lead.production_approved_at %}
     <p class="text-success mb-0"><i class="fa-solid fa-check me-1"></i>Approved by {{ lead.production_approved_by|default:"measurement staff" }} on {{ lead.production_approved_at|date:"d M Y" }}</p>
-  {% else %}
-    <p class="mb-2"><span class="badge text-bg-warning">Waiting for measurement staff approval</span></p>
-    {% if can_validate_production and stage.state == 'current' %}
+  {% elif not lead.production_revision_note %}
+    <p class="mb-2"><span class="badge bg-warning">Waiting for measurement staff approval</span></p>
+  {% endif %}
+
+  {% if can_validate_production and stage.state == 'current' and not lead.production_approved_at %}
+    <hr>
+    <div class="d-flex gap-2 flex-wrap">
       <form method="post" action="{% url 'crm:production_approve' lead.pk %}">
         {% csrf_token %}
         <button class="btn btn-success"><i class="fa-solid fa-check me-1"></i>Approve Production Sheet</button>
       </form>
-    {% endif %}
+      <button class="btn btn-outline-warning" type="button" data-bs-toggle="collapse" data-bs-target="#revision-box">
+        <i class="fa-solid fa-rotate-left me-1"></i>Need Revision
+      </button>
+    </div>
+    <div class="collapse mt-3" id="revision-box">
+      <form method="post" action="{% url 'crm:production_need_revision' lead.pk %}">
+        {% csrf_token %}
+        <label class="form-label">What needs changing? (required)</label>
+        <textarea name="remarks" rows="3" class="form-control" required
+                  placeholder="Describe the changes the production team must make"></textarea>
+        <button class="btn btn-warning mt-2">Send back for revision</button>
+      </form>
+    </div>
   {% endif %}
 {% endif %}
 
