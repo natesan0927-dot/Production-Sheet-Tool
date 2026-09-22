@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ lead.customer_name }} — Fabrication{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <a href="{% url 'crm:queue_fabrication' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Site Fabrication Status</a>
+    <h4 class="mb-0 mt-1">{{ lead.customer_name }}</h4>
+    <div class="text-muted small">{{ lead.lead_number }} · {{ lead.site_location }}</div>
+  </div>
+  <a href="{{ lead.get_absolute_url }}" class="btn btn-sm btn-outline-secondary">Open full lead</a>
+</div>
+
+<div class="row g-3 align-items-stretch">
+  {# ---------- Column 1: Future Production ---------- #}
+  <div class="col-lg-4">
+    <div class="card h-100 {% if lead.fabrication_column == 'future' %}border-warning{% endif %}">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-calendar-plus me-2"></i>Future Production</span>
+        {% if lead.fabrication_column != 'future' %}<i class="fa-solid fa-circle-check text-success"></i>{% endif %}
+      </div>
+      <div class="card-body">
+        <dl class="row mb-3">
+          <dt class="col-7">Confirmed quotation</dt><dd class="col-5 text-end">{{ lead.quotation_number|default:"—" }}</dd>
+          <dt class="col-7">Number of windows</dt><dd class="col-5 text-end">{{ lead.window_count|default:"—" }}</dd>
+          <dt class="col-7">Total site sq ft</dt><dd class="col-5 text-end">{{ lead.total_sqft|default:"—" }}</dd>
+          <dt class="col-7">Order value</dt><dd class="col-5 text-end">{{ lead.order_value|rupees }}</dd>
+        </dl>
+        <p class="text-muted small">Entered by the salesperson when the order was confirmed.</p>
+        {% if lead.fabrication_column == 'future' %}
+        <form method="post" action="{% url 'crm:fabrication_start' lead.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button class="btn btn-primary w-100">Move to Under Production</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ---------- Column 2: Under Production ---------- #}
+  <div class="col-lg-4">
+    <div class="card h-100 {% if lead.fabrication_column == 'under' %}border-warning{% endif %}">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-screwdriver-wrench me-2"></i>Under Production</span>
+        <span class="badge bg-dark">{{ lead.checklist_done_count }}/8</span>
+      </div>
+      <div class="card-body">
+        {% if lead.fabrication_column == 'future' %}
+          <p class="text-muted mb-0"><i class="fa-solid fa-lock me-1"></i>Opens once this order moves into production.</p>
+        {% else %}
+          <form method="post" action="{% url 'crm:fabrication_checklist' lead.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            {% for label, checked, field in lead.checklist %}
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" name="{{ field }}" id="chk-{{ field }}"
+                       {% if checked %}checked{% endif %} {% if lead.fabrication_column != 'under' %}disabled{% endif %}>
+                <label class="form-check-label" for="chk-{{ field }}">{{ label }}</label>
+              </div>
+            {% endfor %}
+            {% if lead.fabrication_column == 'under' %}
+              <button class="btn btn-outline-primary btn-sm w-100 mt-3">Save checklist</button>
+            {% endif %}
+          </form>
+          {% if lead.fabrication_column == 'under' %}
+            <form method="post" action="{% url 'crm:fabrication_to_dispatch' lead.pk %}" class="mt-2">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.path }}">
+              <button class="btn btn-primary w-100" {% if lead.checklist_done_count < 8 %}disabled{% endif %}>
+                Move to Dispatch
+              </button>
+            </form>
+            {% if lead.checklist_done_count < 8 %}
+              <p class="text-muted small mt-2 mb-0">Every step must be ticked before this order can move to dispatch.</p>
+            {% endif %}
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ---------- Column 3: Ready for Dispatch ---------- #}
+  <div class="col-lg-4">
+    <div class="card h-100 {% if lead.fabrication_column == 'ready' %}border-warning{% endif %}">
+      <div class="card-header"><i class="fa-solid fa-truck-ramp-box me-2"></i>Ready for Dispatch</div>
+      <div class="card-body">
+        {% if lead.fabrication_column == 'ready' %}
+          <p class="mb-3"><span class="badge bg-info">Ready for dispatch</span></p>
+          <p class="text-muted small">Dispatching asks for the installation person, invoice number and invoice date.</p>
+          <a href="{% url 'crm:dispatch' lead.pk %}" class="btn btn-primary w-100">Dispatch</a>
+        {% else %}
+          <p class="text-muted mb-0"><i class="fa-solid fa-lock me-1"></i>Opens once every production step is complete.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -29,6 +29,16 @@
           {{ form.committed_delivery_date }}
           {% if form.committed_delivery_date.errors %}<div class="text-danger small">{{ form.committed_delivery_date.errors.0 }}</div>{% endif %}
         </div>
+        <div class="col-md-6">
+          <label class="form-label">Number of windows</label>
+          {{ form.window_count }}
+          {% if form.window_count.errors %}<div class="text-danger small">{{ form.window_count.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Total site sq ft</label>
+          {{ form.total_sqft }}
+          {% if form.total_sqft.errors %}<div class="text-danger small">{{ form.total_sqft.errors.0 }}</div>{% endif %}
+        </div>
         <div class="col-12">
           <label class="form-label">Remarks</label>
           {{ form.won_remarks }}

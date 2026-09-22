@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Stage Access{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Stage Access</h4>
+<p class="text-muted small mb-3">
+  Each role only sees the steps of the lead journey it works on. Override that here for any individual employee.
+</p>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Employee</th><th>Role</th><th>Stages they can see</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr onclick="window.location='{% url 'crm:stage_access_edit' row.employee.pk %}'" style="cursor:pointer">
+          <td><strong>{{ row.employee }}</strong><div class="text-muted small">{{ row.employee.username }}</div></td>
+          <td>{{ row.employee.get_role_display }}</td>
+          <td>
+            {% for stage in row.stages %}<span class="badge bg-light me-1">{{ stage }}</span>{% endfor %}
+            {% if row.is_custom %}<span class="badge bg-primary ms-1">Custom</span>{% endif %}
+          </td>
+          <td class="text-end"><i class="fa-solid fa-chevron-right text-muted"></i></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-muted py-4">No employees yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

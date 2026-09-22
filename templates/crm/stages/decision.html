@@ -9,10 +9,13 @@
 {% if lead.status == 'won' %}
   <hr>
   <dl class="row mb-0">
-    <dt class="col-sm-4">Order finalized value</dt><dd class="col-sm-8">{{ lead.order_value|rupees:2 }}</dd>
-    <dt class="col-sm-4">Advance received</dt><dd class="col-sm-8">{{ lead.advance_received|rupees:2 }}</dd>
-    <dt class="col-sm-4">Balance amount</dt><dd class="col-sm-8"><strong>{{ lead.balance_amount|rupees:2 }}</strong></dd>
+    {% if can_see_financials %}
+      <dt class="col-sm-4">Order finalized value</dt><dd class="col-sm-8">{{ lead.order_value|rupees:2 }}</dd>
+      <dt class="col-sm-4">Advance received</dt><dd class="col-sm-8">{{ lead.advance_received|rupees:2 }}</dd>
+      <dt class="col-sm-4">Balance amount</dt><dd class="col-sm-8"><strong>{{ lead.balance_amount|rupees:2 }}</strong></dd>
+    {% endif %}
     <dt class="col-sm-4">Committed delivery date</dt><dd class="col-sm-8">{{ lead.committed_delivery_date|date:"d M Y" }}</dd>
+    <dt class="col-sm-4">Windows / total sq ft</dt><dd class="col-sm-8">{{ lead.window_count|default:"—" }} · {{ lead.total_sqft|default:"—" }} sq ft</dd>
     {% if lead.won_remarks %}<dt class="col-sm-4">Remarks</dt><dd class="col-sm-8">{{ lead.won_remarks }}</dd>{% endif %}
   </dl>
 
@@ -20,7 +23,7 @@
   <hr>
   <dl class="row mb-0">
     <dt class="col-sm-4">Reason</dt><dd class="col-sm-8">{{ lead.lost_reason }}</dd>
-    <dt class="col-sm-4">Finalised price elsewhere</dt><dd class="col-sm-8">{{ lead.lost_price_elsewhere|rupees }}</dd>
+    {% if can_see_financials %}<dt class="col-sm-4">Finalised price elsewhere</dt><dd class="col-sm-8">{{ lead.lost_price_elsewhere|rupees }}</dd>{% endif %}
   </dl>
 
 {% elif stage.state == 'current' and stage.can_act %}

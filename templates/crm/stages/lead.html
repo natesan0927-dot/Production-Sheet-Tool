@@ -1,5 +1,5 @@
 {% if lead.measurement_mode %}
-  <p class="mb-2"><span class="badge text-bg-success">{{ lead.get_measurement_mode_display }}</span></p>
+  <p class="mb-2"><span class="badge bg-success">{{ lead.get_measurement_mode_display }}</span></p>
   {% if lead.measurement_notes %}
     <div class="tw-note"><strong>Measurements:</strong><br>{{ lead.measurement_notes|linebreaksbr }}</div>
   {% endif %}
@@ -9,25 +9,41 @@
 {% endif %}
 
 {% if stage.state == 'current' and stage.can_act %}
-  <form method="post" action="{% url 'crm:stage_measurements' lead.pk %}" enctype="multipart/form-data" class="tw-measure-box">
-    {% csrf_token %}
-    <p class="fw-semibold mb-2">Measurements</p>
-    <div class="form-check">
-      <input class="form-check-input" type="radio" name="mode" value="file" id="m-file" checked>
-      <label class="form-check-label" for="m-file">I have the measurements — upload a file</label>
-    </div>
-    <div class="ms-4 mb-3">{{ measurement_form.file }}</div>
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <form method="post" action="{% url 'crm:stage_measurements' lead.pk %}" enctype="multipart/form-data" class="tw-measure-box h-100">
+        {% csrf_token %}
+        <p class="fw-bold mb-3"><i class="fa-solid fa-ruler-combined me-2"></i>I already have the measurements</p>
 
-    <div class="form-check">
-      <input class="form-check-input" type="radio" name="mode" value="text" id="m-text">
-      <label class="form-check-label" for="m-text">I have the measurements — type them in</label>
-    </div>
-    <div class="ms-4 mb-3">{{ measurement_form.notes }}</div>
+        <div class="form-check mb-1">
+          <input class="form-check-input" type="radio" name="mode" value="file" id="m-file" checked>
+          <label class="form-check-label" for="m-file">Upload a file</label>
+        </div>
+        <div class="ms-4 mb-3">{{ measurement_form.file }}</div>
 
-    <div class="form-check">
-      <input class="form-check-input" type="radio" name="mode" value="requested" id="m-request">
-      <label class="form-check-label" for="m-request">Request a rough measurement from the measurement team</label>
+        <div class="form-check mb-1">
+          <input class="form-check-input" type="radio" name="mode" value="text" id="m-text">
+          <label class="form-check-label" for="m-text">Type them in</label>
+        </div>
+        <div class="ms-4 mb-3">{{ measurement_form.notes }}</div>
+
+        <button class="btn btn-primary">Save &amp; Proceed</button>
+      </form>
     </div>
-    <button class="btn btn-primary mt-3">Save & Proceed</button>
-  </form>
+
+    <div class="col-lg-5">
+      <form method="post" action="{% url 'crm:stage_measurements' lead.pk %}" class="tw-measure-box h-100 d-flex flex-column">
+        {% csrf_token %}
+        <input type="hidden" name="mode" value="requested">
+        <p class="fw-bold mb-2"><i class="fa-solid fa-people-carry-box me-2"></i>I need a measurement</p>
+        <p class="text-muted small flex-grow-1">
+          Sends the measurement team a request for <strong>{{ lead.customer_name }}</strong> at
+          {{ lead.site_location }} (site stage: {{ lead.get_site_stage_display }}).
+        </p>
+        <button class="btn btn-outline-primary w-100">
+          <i class="fa-solid fa-paper-plane me-1"></i>Request Rough Measurement
+        </button>
+      </form>
+    </div>
+  </div>
 {% endif %}

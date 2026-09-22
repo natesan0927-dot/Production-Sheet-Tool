@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Stage Access — {{ employee }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'crm:stage_access_list' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Stage Access</a>
+<h4 class="mb-1 mt-1">{{ employee }}</h4>
+<p class="text-muted small mb-3">{{ employee.get_role_display }}</p>
+
+<div class="card tw-form-narrow">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <p class="fw-semibold mb-2">{{ form.stages.label }}</p>
+      {% for choice in form.stages %}
+        <div class="form-check mb-1">
+          {{ choice.tag }}
+          <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+        </div>
+      {% endfor %}
+
+      <div class="alert alert-secondary small mt-3 mb-0">
+        Leave every box unticked to use the default for a {{ employee.get_role_display }}:
+        {% for stage in defaults %}<strong>{{ stage }}</strong>{% if not forloop.last %}, {% endif %}{% empty %}every stage{% endfor %}.
+      </div>
+
+      <div class="mt-4">
+        <button class="btn btn-primary">Save</button>
+        <a href="{% url 'crm:stage_access_list' %}" class="btn btn-link">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

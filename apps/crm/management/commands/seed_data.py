@@ -13,6 +13,7 @@ DEMO_USERS = [
     ("demo_sales1", "Arun", "Kumar", Role.SALESPERSON),
     ("demo_sales2", "Priya", "Raman", Role.SALESPERSON),
     ("demo_measure", "Vignesh", "S", Role.MEASUREMENT),
+    ("demo_quotation", "Deepa", "R", Role.QUOTATION),
     ("demo_accounts", "Lakshmi", "N", Role.ACCOUNTS),
     ("demo_production", "Karthik", "M", Role.PRODUCTION),
     ("demo_field", "Suresh", "P", Role.FIELD_MANAGER),

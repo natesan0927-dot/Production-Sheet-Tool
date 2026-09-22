@@ -5,6 +5,7 @@ from django.db import models
 class Role(models.TextChoices):
     SALESPERSON = "salesperson", "Salesperson"
     MEASUREMENT = "measurement", "Measurement Staff"
+    QUOTATION = "quotation", "Quotation Staff"
     ACCOUNTS = "accounts", "Accounts Department"
     PRODUCTION = "production", "Production Staff"
     FIELD_MANAGER = "field_manager", "Field Manager"
@@ -14,6 +15,9 @@ class Role(models.TextChoices):
 class User(AbstractUser):
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.SALESPERSON)
     phone = models.CharField(max_length=20, blank=True)
+    # Empty means "use whatever this role sees by default"; the Super Admin can
+    # override it per employee from Settings → Stage Access.
+    visible_stages = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["first_name", "username"]

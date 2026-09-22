@@ -15,7 +15,6 @@ from .forms import (
     CafFinalForm,
     ChecklistForm,
     DispatchForm,
-    FabricationDetailsForm,
     FollowUpForm,
     LeadForm,
     LostForm,
@@ -24,6 +23,7 @@ from .forms import (
     RoughMeasurementForm,
     SalesTargetForm,
     SingleFileForm,
+    StageAccessForm,
     WonForm,
 )
 from .models import FollowUp, Lead, LeadFile, Notification, SalesTarget
@@ -103,7 +103,8 @@ def save_upload(lead, kind, uploaded_file, user):
 
 ROLE_LANDING = {
     Role.MEASUREMENT: "crm:queue_rough",
-    Role.ACCOUNTS: "crm:queue_quotations",
+    Role.QUOTATION: "crm:queue_quotations",
+    Role.ACCOUNTS: "crm:queue_accounts",
     Role.PRODUCTION: "crm:queue_production",
     Role.FIELD_MANAGER: "crm:queue_warranty",
 }
@@ -199,9 +200,9 @@ def lead_create(request):
     return render(request, "crm/lead_form.html", {"form": form})
 
 
-@role_required()  # no roles listed means Super Admin only
+@role_required(Role.SALESPERSON)
 def lead_edit(request, pk):
-    lead = get_object_or_404(Lead, pk=pk)
+    lead = get_lead(request, pk)
     if request.method == "POST":
         form = LeadForm(request.POST, instance=lead, user=request.user)
         if form.is_valid():
@@ -211,6 +212,16 @@ def lead_edit(request, pk):
     else:
         form = LeadForm(instance=lead, user=request.user)
     return render(request, "crm/lead_form.html", {"form": form, "lead": lead})
+
+
+@role_required(Role.SALESPERSON)
+@require_POST
+def lead_delete(request, pk):
+    lead = get_lead(request, pk)
+    name = lead.customer_name
+    lead.delete()
+    messages.success(request, f"Lead for {name} deleted.")
+    return redirect("crm:lead_list")
 
 
 @login_required
@@ -223,12 +234,12 @@ def lead_detail(request, pk):
         "current_stage": stage_flow.current_stage_key(lead),
         # Production is the one stage two roles touch: production uploads, measurement approves.
         "can_validate_production": request.user.has_role(Role.MEASUREMENT),
+        "can_see_financials": stage_flow.can_see_financials(request.user),
         "measurement_form": MeasurementBoxForm(),
         "rough_form": RoughMeasurementForm(),
         "quotation_form": QuotationForm(),
         "caf_form": CafFinalForm(),
         "production_form": SingleFileForm(),
-        "fabrication_form": FabricationDetailsForm(instance=lead),
         "checklist_form": ChecklistForm(instance=lead),
         "dispatch_form": DispatchForm(instance=lead),
         "warranty_form": SingleFileForm(),
@@ -276,7 +287,7 @@ def stage_measurements(request, pk):
         lead.measurement_done_at = now
         lead.measurement_done_by = request.user
         lead.save()
-        notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.ACCOUNTS)
+        notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.QUOTATION)
         messages.success(request, "Measurements saved. The quotation team has been notified.")
     return redirect(lead.get_absolute_url())
 
@@ -306,7 +317,7 @@ def stage_rough(request, pk):
     lead.measurement_done_at = timezone.now()
     lead.measurement_done_by = request.user
     lead.save()
-    notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.ACCOUNTS)
+    notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.QUOTATION)
     notify_user(lead, f"Rough measurement completed for {lead.customer_name}", lead.assigned_to)
     messages.success(request, "Rough measurement submitted.")
     return redirect(lead.get_absolute_url())
@@ -317,7 +328,7 @@ def stage_rough(request, pk):
 # ---------------------------------------------------------------------------
 
 
-@role_required(Role.ACCOUNTS)
+@role_required(Role.QUOTATION)
 @require_POST
 def stage_quotation(request, pk):
     lead = get_lead(request, pk)
@@ -513,12 +524,6 @@ def fabrication_start(request, pk):
     if blocked:
         return blocked
 
-    form = FabricationDetailsForm(request.POST, instance=lead)
-    if not form.is_valid():
-        messages.error(request, "Fill in the window count, total sq ft and order value first.")
-        return stage_redirect(lead, stage_flow.FABRICATION)
-
-    lead = form.save(commit=False)
     lead.fabrication_column = Lead.Fabrication.UNDER
     lead.save()
     messages.success(request, "Moved to Under Production.")
@@ -547,6 +552,15 @@ def fabrication_to_dispatch(request, pk):
     blocked = guard_stage(request, lead, stage_flow.FABRICATION)
     if blocked:
         return blocked
+
+    missing = [
+        lead._meta.get_field(field).verbose_name
+        for field in Lead.CHECKLIST_FIELDS
+        if not getattr(lead, field)
+    ]
+    if missing:
+        messages.error(request, "Finish every step first — still pending: " + ", ".join(missing) + ".")
+        return redirect(request.POST.get("next") or lead.get_absolute_url())
 
     lead.fabrication_column = Lead.Fabrication.READY
     lead.save()
@@ -779,13 +793,17 @@ def queue_production_validation(request):
     )
 
 
-@role_required(Role.ACCOUNTS)
+@role_required(Role.QUOTATION)
 def queue_quotations(request):
     leads = Lead.objects.filter(
         status=Lead.Status.OPEN, measurement_done_at__isnull=False, quotation_uploaded_at__isnull=True
     ).select_related("assigned_to")
     return _queue(
-        request, "crm/queues/simple.html", leads, "Quotations", "Measurements received — waiting for a quotation."
+        request,
+        "crm/queues/simple.html",
+        leads,
+        "Quotation Upload",
+        "Customers whose measurements are in and are waiting for a quotation.",
     )
 
 
@@ -808,13 +826,23 @@ def queue_production(request):
 
 @role_required(Role.PRODUCTION)
 def queue_fabrication(request):
-    leads = Lead.objects.filter(production_approved_at__isnull=False, dispatched_at__isnull=True)
-    columns = [
-        (Lead.Fabrication.FUTURE, "Future Production", leads.filter(fabrication_column=Lead.Fabrication.FUTURE)),
-        (Lead.Fabrication.UNDER, "Under Production", leads.filter(fabrication_column=Lead.Fabrication.UNDER)),
-        (Lead.Fabrication.READY, "Ready for Dispatch", leads.filter(fabrication_column=Lead.Fabrication.READY)),
-    ]
-    return render(request, "crm/queues/fabrication.html", {"columns": columns})
+    leads = Lead.objects.filter(
+        production_approved_at__isnull=False, dispatched_at__isnull=True
+    ).select_related("assigned_to")
+    return render(request, "crm/queues/fabrication_list.html", {"leads": leads})
+
+
+@role_required(Role.PRODUCTION)
+def fabrication_detail(request, pk):
+    lead = get_lead(request, pk)
+    if stage_flow.current_stage_key(lead) != stage_flow.FABRICATION:
+        messages.error(request, "That lead is not at the site fabrication stage.")
+        return redirect("crm:queue_fabrication")
+    return render(
+        request,
+        "crm/queues/fabrication_board.html",
+        {"lead": lead, "checklist_form": ChecklistForm(instance=lead)},
+    )
 
 
 @role_required(Role.FIELD_MANAGER)
@@ -832,6 +860,44 @@ def queue_warranty(request):
 # ---------------------------------------------------------------------------
 # notifications
 # ---------------------------------------------------------------------------
+
+
+@role_required()  # no roles listed means Super Admin only
+def stage_access_list(request):
+    employees = User.objects.exclude(role=Role.SUPER_ADMIN).filter(is_active=True)
+    rows = [
+        {
+            "employee": employee,
+            "stages": [stage_flow.STAGE_LABELS[key] for key in stage_flow.visible_stage_keys(employee)],
+            "is_custom": bool(employee.visible_stages),
+        }
+        for employee in employees
+    ]
+    return render(request, "crm/settings_stage_access.html", {"rows": rows})
+
+
+@role_required()  # no roles listed means Super Admin only
+def stage_access_edit(request, pk):
+    employee = get_object_or_404(User, pk=pk)
+    choices = [(key, stage_flow.STAGE_LABELS[key]) for key in stage_flow.ALL_STAGE_KEYS]
+    if request.method == "POST":
+        form = StageAccessForm(request.POST, stage_choices=choices)
+        if form.is_valid():
+            employee.visible_stages = form.cleaned_data["stages"]
+            employee.save(update_fields=["visible_stages"])
+            messages.success(request, f"Stage access updated for {employee}.")
+            return redirect("crm:stage_access_list")
+    else:
+        form = StageAccessForm(initial={"stages": employee.visible_stages}, stage_choices=choices)
+    return render(
+        request,
+        "crm/settings_stage_access_form.html",
+        {
+            "form": form,
+            "employee": employee,
+            "defaults": [stage_flow.STAGE_LABELS[key] for key in stage_flow.DEFAULT_ROLE_STAGES.get(employee.role, [])],
+        },
+    )
 
 
 @login_required

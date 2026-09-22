@@ -13,7 +13,7 @@
     </div>
   </div>
   <div class="text-end">
-    {% if user.is_super_admin %}
+    {% if user.role == 'salesperson' or user.is_super_admin %}
       <a href="{% url 'crm:lead_edit' lead.pk %}" class="btn btn-sm btn-outline-secondary mb-2"><i class="fa-solid fa-pen me-1"></i>Edit Lead</a><br>
     {% endif %}
     {% if lead.status == 'won' %}<span class="badge text-bg-success fs-6">Order Confirmed</span>
@@ -50,7 +50,7 @@
           <dt class="col-6">Assigned salesperson</dt><dd class="col-6">{{ lead.assigned_to }}</dd>
           <dt class="col-6">Lead source</dt><dd class="col-6">{{ lead.get_lead_source_display }}</dd>
           <dt class="col-6">Approx quantity</dt><dd class="col-6">{{ lead.approx_quantity|default:"—" }}</dd>
-          <dt class="col-6">Expected value</dt><dd class="col-6">{{ lead.expected_value|rupees }}</dd>
+          {% if can_see_financials %}<dt class="col-6">Expected value</dt><dd class="col-6">{{ lead.expected_value|rupees }}</dd>{% endif %}
           <dt class="col-6">Site stage</dt><dd class="col-6">{{ lead.get_site_stage_display }}</dd>
           {% if lead.remarks %}<dt class="col-12 mt-2">Remarks</dt><dd class="col-12 text-muted">{{ lead.remarks }}</dd>{% endif %}
         </dl>
@@ -67,7 +67,7 @@
           {% if lead.measurement_requested_at %}<li><span>{{ lead.measurement_requested_at|date:"d M Y, H:i" }}</span> Rough measurement requested</li>{% endif %}
           {% if lead.measurement_done_at %}<li><span>{{ lead.measurement_done_at|date:"d M Y, H:i" }}</span> Measurements recorded by {{ lead.measurement_done_by|default:"—" }}</li>{% endif %}
           {% if lead.quotation_uploaded_at %}<li><span>{{ lead.quotation_uploaded_at|date:"d M Y, H:i" }}</span> Quotation {{ lead.quotation_number }} uploaded</li>{% endif %}
-          {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed — {{ lead.order_value|rupees }}</li>{% endif %}
+          {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed{% if can_see_financials %} — {{ lead.order_value|rupees }}{% endif %}</li>{% endif %}
           {% if lead.lost_at %}<li><span>{{ lead.lost_at|date:"d M Y, H:i" }}</span> Marked as lost</li>{% endif %}
           {% if lead.caf_signed_at %}<li><span>{{ lead.caf_signed_at|date:"d M Y, H:i" }}</span> Signed CAF uploaded</li>{% endif %}
           {% if lead.final_measurement_at %}<li><span>{{ lead.final_measurement_at|date:"d M Y, H:i" }}</span> Final measurement uploaded</li>{% endif %}
@@ -84,7 +84,7 @@
 {% for stage in stages %}
   {% if stage.state == 'locked' %}
     <div class="tw-stage-locked" id="stage-{{ stage.key }}">
-      <span><i class="fa-solid fa-lock me-2"></i><strong>{{ forloop.counter }}. {{ stage.label }}</strong></span>
+      <span><i class="fa-solid fa-lock me-2"></i><strong>{{ stage.number }}. {{ stage.label }}</strong></span>
       <span>{{ stage.role_names }}</span>
     </div>
   {% else %}
@@ -94,7 +94,7 @@
           {% if stage.state == 'done' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
           {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot text-primary me-2"></i>
           {% elif stage.state == 'lost' %}<i class="fa-solid fa-circle-xmark text-danger me-2"></i>{% endif %}
-          <strong>{{ forloop.counter }}. {{ stage.label }}</strong>
+          <strong>{{ stage.number }}. {{ stage.label }}</strong>
         </span>
         <span class="text-muted small">{{ stage.role_names }}</span>
       </div>

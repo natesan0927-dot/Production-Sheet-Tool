@@ -8,6 +8,7 @@ DEMO_ACCOUNTS = [
     ("demo_sales1", "Salesperson", "Arun Kumar", "fa-user-tie"),
     ("demo_sales2", "Salesperson", "Priya Raman", "fa-user-tie"),
     ("demo_measure", "Measurement", "Vignesh S", "fa-ruler-combined"),
+    ("demo_quotation", "Quotation", "Deepa R", "fa-file-invoice"),
     ("demo_accounts", "Accounts", "Lakshmi N", "fa-file-invoice"),
     ("demo_production", "Production", "Karthik M", "fa-industry"),
     ("demo_field", "Field Manager", "Suresh P", "fa-shield-halved"),

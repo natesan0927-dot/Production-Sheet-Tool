@@ -16,7 +16,7 @@ WARRANTY = "warranty"
 STAGE_DEFS = [
     (LEAD, "Lead Created", (Role.SALESPERSON,)),
     (ROUGH, "Rough Measurement", (Role.MEASUREMENT,)),
-    (QUOTATION, "Quotation", (Role.ACCOUNTS,)),
+    (QUOTATION, "Quotation", (Role.QUOTATION,)),
     (DECISION, "Follow-up / Won-Lost", (Role.SALESPERSON,)),
     (CAF, "CAF & Final Measurement", (Role.MEASUREMENT,)),
     (PRODUCTION, "Production", (Role.PRODUCTION,)),
@@ -24,8 +24,35 @@ STAGE_DEFS = [
     (WARRANTY, "Warranty & Handover", (Role.FIELD_MANAGER,)),
 ]
 
+ALL_STAGE_KEYS = [key for key, _, _ in STAGE_DEFS]
 STAGE_ROLES = {key: roles for key, _, roles in STAGE_DEFS}
 STAGE_LABELS = {key: label for key, label, _ in STAGE_DEFS}
+
+# By default a role only sees the steps it actually works on. The Super Admin
+# can widen or narrow this per employee (accounts.User.visible_stages).
+DEFAULT_ROLE_STAGES = {
+    Role.SALESPERSON: ALL_STAGE_KEYS,
+    Role.SUPER_ADMIN: ALL_STAGE_KEYS,
+    Role.MEASUREMENT: [ROUGH, CAF, PRODUCTION],
+    Role.QUOTATION: [QUOTATION],
+    Role.ACCOUNTS: [DECISION],
+    Role.PRODUCTION: [PRODUCTION, FABRICATION],
+    Role.FIELD_MANAGER: [WARRANTY],
+}
+
+# Order values, advances and balances are only for the people who deal in them.
+FINANCIAL_ROLES = (Role.SALESPERSON, Role.ACCOUNTS, Role.SUPER_ADMIN)
+
+
+def visible_stage_keys(user):
+    chosen = [key for key in (user.visible_stages or []) if key in STAGE_ROLES]
+    if chosen:
+        return chosen
+    return DEFAULT_ROLE_STAGES.get(user.role, ALL_STAGE_KEYS)
+
+
+def can_see_financials(user):
+    return user.role in FINANCIAL_ROLES
 
 
 def _is_done(lead, key):
@@ -62,8 +89,11 @@ def build_stages(lead, user=None):
     """Per-stage state for the stepper and the stacked stage panels."""
     lost = lead.status == Lead.Status.LOST
     current = current_stage_key(lead)
+    allowed = visible_stage_keys(user) if user else ALL_STAGE_KEYS
     stages = []
-    for key, label, roles in STAGE_DEFS:
+    for index, (key, label, roles) in enumerate(STAGE_DEFS, start=1):
+        if key not in allowed:
+            continue
         done = _is_done(lead, key)
         if lost and key == DECISION:
             state = "lost"
@@ -76,6 +106,7 @@ def build_stages(lead, user=None):
         stages.append(
             {
                 "key": key,
+                "number": index,
                 "label": label,
                 "state": state,
                 "roles": roles,

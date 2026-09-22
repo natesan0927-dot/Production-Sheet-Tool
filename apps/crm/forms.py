@@ -108,9 +108,18 @@ class QuotationForm(forms.Form):
 
 
 class WonForm(BootstrapMixin, forms.ModelForm):
+    """Confirming the order also captures what the factory needs later."""
+
     class Meta:
         model = Lead
-        fields = ["order_value", "advance_received", "committed_delivery_date", "won_remarks"]
+        fields = [
+            "order_value",
+            "advance_received",
+            "committed_delivery_date",
+            "window_count",
+            "total_sqft",
+            "won_remarks",
+        ]
         widgets = {
             "committed_delivery_date": forms.DateInput(attrs={"type": "date"}),
             "won_remarks": forms.Textarea(attrs={"rows": 3}),
@@ -119,9 +128,8 @@ class WonForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["order_value"].required = True
-        self.fields["advance_received"].required = True
-        self.fields["committed_delivery_date"].required = True
+        for name in ("order_value", "advance_received", "committed_delivery_date", "window_count", "total_sqft"):
+            self.fields[name].required = True
 
 
 class LostForm(BootstrapMixin, forms.ModelForm):
@@ -137,7 +145,7 @@ class LostForm(BootstrapMixin, forms.ModelForm):
 
 
 class CafFinalForm(forms.Form):
-    """Stage 5 — the signed CAF and the final measurement file."""
+    """Stage 5 — the signed CAF and the final measurement, uploaded together."""
 
     caf_signed = forms.FileField(
         label="Signed CAF", required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"})
@@ -148,24 +156,18 @@ class CafFinalForm(forms.Form):
 
     def clean(self):
         data = super().clean()
-        if not data.get("caf_signed") and not data.get("final_measurement"):
-            raise forms.ValidationError("Choose at least one file to upload.")
+        caf, final = data.get("caf_signed"), data.get("final_measurement")
+        if not caf and not final:
+            raise forms.ValidationError("Upload the signed CAF and the final measurement file.")
+        if not caf:
+            self.add_error("caf_signed", "Upload the signed CAF together with the final measurement.")
+        if not final:
+            self.add_error("final_measurement", "Upload the final measurement together with the signed CAF.")
         return data
 
 
 class SingleFileForm(forms.Form):
     file = forms.FileField(widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
-
-
-class FabricationDetailsForm(BootstrapMixin, forms.ModelForm):
-    class Meta:
-        model = Lead
-        fields = ["window_count", "total_sqft", "fabrication_value"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.required = True
 
 
 class ChecklistForm(forms.ModelForm):
@@ -204,6 +206,20 @@ class FollowUpForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["date"].initial = timezone.localdate()
+
+
+class StageAccessForm(forms.Form):
+    """Super Admin: which stages of the lead journey this employee may see."""
+
+    def __init__(self, *args, stage_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["stages"] = forms.MultipleChoiceField(
+            choices=stage_choices,
+            required=False,
+            widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+            label="Stages this employee can see",
+            help_text="Leave every box unticked to fall back to the default for their role.",
+        )
 
 
 class SalesTargetForm(BootstrapMixin, forms.ModelForm):

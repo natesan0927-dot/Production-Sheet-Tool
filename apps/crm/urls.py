@@ -11,6 +11,7 @@ urlpatterns = [
     path("leads/new/", views.lead_create, name="lead_create"),
     path("leads/<int:pk>/", views.lead_detail, name="lead_detail"),
     path("leads/<int:pk>/edit/", views.lead_edit, name="lead_edit"),
+    path("leads/<int:pk>/delete/", views.lead_delete, name="lead_delete"),
     path("pipeline/", views.pipeline, name="pipeline"),
     path("targets/", views.targets, name="targets"),
     path("follow-ups/", views.followups, name="followups"),
@@ -44,6 +45,10 @@ urlpatterns = [
     path("queue/accounts/", views.queue_accounts, name="queue_accounts"),
     path("queue/production/", views.queue_production, name="queue_production"),
     path("queue/fabrication/", views.queue_fabrication, name="queue_fabrication"),
+    path("queue/fabrication/<int:pk>/", views.fabrication_detail, name="fabrication_detail"),
     path("queue/warranty/", views.queue_warranty, name="queue_warranty"),
+    # Super Admin settings
+    path("settings/stage-access/", views.stage_access_list, name="stage_access_list"),
+    path("settings/stage-access/<int:pk>/", views.stage_access_edit, name="stage_access_edit"),
     path("notifications/", views.notifications, name="notifications"),
 ]

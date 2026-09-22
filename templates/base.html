@@ -35,10 +35,11 @@
     {% for section, accent, tabs in nav_groups %}
       <div class="nav-section">{{ section }}</div>
       <div class="nav-group" data-accent="{{ accent }}">
-        {% for label, urlname, icon in tabs %}
+        {% for label, urlname, icon, pending in tabs %}
           {% url urlname as tab_url %}
           <a class="nav-link {% if request.path == tab_url %}active{% endif %}" href="{{ tab_url }}">
             <i class="fa-solid {{ icon }}"></i>{{ label }}
+            {% if pending %}<span class="nav-count">{{ pending }}</span>{% endif %}
           </a>
         {% endfor %}
       </div>

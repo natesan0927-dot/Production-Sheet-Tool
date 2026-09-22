@@ -589,3 +589,12 @@ a.list-group-item-action:hover, .list-group-item-action:hover { transform: trans
 }
 .tw-pie-hole strong { font-size: 1.5rem; font-weight: 800; color: var(--tw-navy); line-height: 1; }
 .stat-label { white-space: nowrap; }
+
+/* Pending-work count beside a sidebar tab */
+#tw-sidebar .nav-link .nav-count {
+  margin-left: auto; flex: none;
+  background: var(--tw-gold); color: var(--tw-navy);
+  font-size: .7rem; font-weight: 800; line-height: 1;
+  padding: .2rem .45rem; border-radius: 999px; min-width: 20px; text-align: center;
+}
+#tw-sidebar .nav-link.active .nav-count { background: #FCEFC7; }
