@@ -3,19 +3,9 @@
 {% block title %}Site Fabrication Status{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-  <div>
-    <h4 class="mb-0">Site Fabrication Status</h4>
-    <p class="text-muted small mb-0">Move orders through the factory yourself, one step at a time.</p>
-  </div>
-  <form method="get" class="d-flex align-items-center gap-2">
-    <label for="column" class="form-label mb-0 text-nowrap">Show</label>
-    <select name="column" id="column" class="form-select" onchange="this.form.submit()" style="min-width:230px">
-      {% for key, label, count in columns %}
-        <option value="{{ key }}" {% if key == column %}selected{% endif %}>{{ label }} ({{ count }})</option>
-      {% endfor %}
-    </select>
-  </form>
+<div class="mb-3">
+  <h4 class="mb-0">Site Fabrication Status <span class="text-muted fw-semibold">· {{ column_label }}</span></h4>
+  <p class="text-muted small mb-0">Switch between Future Production, Under Production and Ready for Dispatch from the sidebar.</p>
 </div>
 
 <div class="card">

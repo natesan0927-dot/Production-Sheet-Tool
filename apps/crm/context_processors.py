@@ -1,3 +1,6 @@
+from django.conf import settings
+from django.urls import reverse
+
 from apps.accounts.models import Role
 
 from .models import Lead, Task
@@ -121,25 +124,77 @@ def _pending_counts(keys, user):
     return counts
 
 
+FABRICATION_COLUMNS = [
+    (Lead.Fabrication.FUTURE, "Future Production"),
+    (Lead.Fabrication.UNDER, "Under Production"),
+    (Lead.Fabrication.READY, "Ready for Dispatch"),
+]
+
+
+def _fabrication_children(request, url):
+    """The Super Admin's Site Fabrication tab opens into its three columns."""
+    on_floor = Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=True)
+    here = request.path == url
+    selected = request.GET.get("column") or Lead.Fabrication.FUTURE
+    return [
+        {
+            "label": label,
+            "url": f"{url}?column={key}",
+            "count": on_floor.filter(fabrication_column=key).count(),
+            "active": here and selected == key,
+        }
+        for key, label in FABRICATION_COLUMNS
+    ]
+
+
+STYLESHEET = settings.BASE_DIR / "static" / "css" / "app.css"
+
+
+def _stylesheet_version():
+    """Changes whenever app.css does, so browsers never keep a stale copy."""
+    try:
+        return int(STYLESHEET.stat().st_mtime)
+    except OSError:
+        return 0
+
+
 def navigation(request):
+    context = {"css_version": _stylesheet_version()}
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
-        return {}
+        return context
 
     groups = ROLE_GROUPS.get(user.role, [])
     wanted = {key for _, _, tabs in groups for *_, key in tabs if key}
     counts = _pending_counts(wanted, user)
 
-    nav_groups = [
-        (
-            section,
-            accent,
-            [(label, urlname, icon, counts.get(key)) for label, urlname, icon, key in tabs],
-        )
-        for section, accent, tabs in groups
-    ]
-    return {
-        "nav_groups": nav_groups,
-        "role_label": user.get_role_display(),
-        "unread_notifications": user.notifications.filter(read=False).count(),
-    }
+    nav_groups = []
+    for section, accent, tabs in groups:
+        items = []
+        for label, urlname, icon, key in tabs:
+            url = reverse(urlname)
+            item = {
+                "label": label,
+                "url": url,
+                "icon": icon,
+                "pending": counts.get(key),
+                "active": request.path == url,
+                "children": [],
+            }
+            if urlname == "crm:queue_fabrication" and user.is_super_admin:
+                item["children"] = _fabrication_children(request, url)
+                # Each sub-item counts its own table's rows, so the parent needn't.
+                item["pending"] = None
+                # Stay open anywhere inside the fabrication screens.
+                item["active"] = request.path.startswith(url)
+            items.append(item)
+        nav_groups.append((section, accent, items))
+
+    context.update(
+        {
+            "nav_groups": nav_groups,
+            "role_label": user.get_role_display(),
+            "unread_notifications": user.notifications.filter(read=False).count(),
+        }
+    )
+    return context

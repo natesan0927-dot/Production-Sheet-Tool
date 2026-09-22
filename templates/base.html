@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link href="{% static 'css/app.css' %}" rel="stylesheet">
+  <link href="{% static 'css/app.css' %}?v={{ css_version }}" rel="stylesheet">
   {% block extra_head %}{% endblock %}
 </head>
 <body class="{% if user.is_authenticated %}has-sidebar{% endif %} {% block body_class %}{% endblock %}">
@@ -35,12 +35,31 @@
     {% for section, accent, tabs in nav_groups %}
       <div class="nav-section">{{ section }}</div>
       <div class="nav-group" data-accent="{{ accent }}">
-        {% for label, urlname, icon, pending in tabs %}
-          {% url urlname as tab_url %}
-          <a class="nav-link {% if request.path == tab_url %}active{% endif %}" href="{{ tab_url }}">
-            <i class="fa-solid {{ icon }}"></i>{{ label }}
-            {% if pending %}<span class="nav-count">({{ pending }})</span>{% endif %}
-          </a>
+        {% for item in tabs %}
+          {% if item.children %}
+            {# Opens in place to show the three factory columns. #}
+            <a class="nav-link nav-parent {% if item.active %}active{% else %}collapsed{% endif %}"
+               href="#nav-{{ forloop.parentloop.counter }}-{{ forloop.counter }}"
+               data-bs-toggle="collapse" role="button"
+               aria-expanded="{% if item.active %}true{% else %}false{% endif %}">
+              <i class="fa-solid {{ item.icon }}"></i><span class="flex-grow-1">{{ item.label }}</span>
+              {% if item.pending %}<span class="nav-count">({{ item.pending }})</span>{% endif %}
+              <i class="fa-solid fa-chevron-down nav-caret"></i>
+            </a>
+            <div class="collapse nav-children {% if item.active %}show{% endif %}" id="nav-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+              {% for child in item.children %}
+                <a class="nav-link nav-child {% if child.active %}active{% endif %}" href="{{ child.url }}">
+                  {{ child.label }}
+                  {% if child.count %}<span class="nav-count">({{ child.count }})</span>{% endif %}
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <a class="nav-link {% if item.active %}active{% endif %}" href="{{ item.url }}">
+              <i class="fa-solid {{ item.icon }}"></i>{{ item.label }}
+              {% if item.pending %}<span class="nav-count">({{ item.pending }})</span>{% endif %}
+            </a>
+          {% endif %}
         {% endfor %}
       </div>
     {% endfor %}

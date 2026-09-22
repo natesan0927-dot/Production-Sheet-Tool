@@ -267,13 +267,20 @@ def lead_detail(request, pk):
     if not stage_list:
         raise Http404
 
-    # One stage on screen at a time. Default to whichever one needs work now,
-    # falling back to the last stage this person is allowed to see.
+    # One stage on screen at a time. Default to whichever one needs work now;
+    # if that is hidden from this person, show the latest step they can see
+    # that has already been reached — usually the one they just finished.
     active_key = request.GET.get("stage")
     keys = [stage["key"] for stage in stage_list]
     if active_key not in keys:
         live = stage_flow.current_stage_key(lead)
-        active_key = live if live in keys else keys[-1]
+        if live in keys:
+            active_key = live
+        else:
+            order = stage_flow.ALL_STAGE_KEYS
+            reached = order.index(live) if live else len(order)
+            earlier = [key for key in keys if order.index(key) <= reached]
+            active_key = earlier[-1] if earlier else keys[0]
 
     position = keys.index(active_key)
     context = {
