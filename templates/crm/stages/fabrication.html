@@ -1,8 +1,9 @@
+{% load money %}
 {% if lead.dispatched_at %}
   <dl class="row mb-0">
     <dt class="col-sm-4">Windows</dt><dd class="col-sm-8">{{ lead.window_count|default:"—" }}</dd>
     <dt class="col-sm-4">Total site sq ft</dt><dd class="col-sm-8">{{ lead.total_sqft|default:"—" }}</dd>
-    <dt class="col-sm-4">Order value</dt><dd class="col-sm-8">{% if lead.fabrication_value %}₹{{ lead.fabrication_value|floatformat:2 }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-4">Order value</dt><dd class="col-sm-8">{{ lead.fabrication_value|rupees }}</dd>
     <dt class="col-sm-4">Installation person</dt><dd class="col-sm-8">{{ lead.installation_person }}</dd>
     <dt class="col-sm-4">Invoice</dt><dd class="col-sm-8">{{ lead.invoice_number }} · {{ lead.invoice_date|date:"d M Y" }}</dd>
   </dl>

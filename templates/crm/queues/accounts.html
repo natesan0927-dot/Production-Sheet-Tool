@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Confirmed Orders{% endblock %}
 
 {% block content %}
@@ -7,11 +8,11 @@
 
 <div class="tw-stats mb-3">
   <div class="tw-stat">
-    <span class="tw-stat-value">₹{{ totals.value|default:0|floatformat:0 }}</span>
+    <span class="tw-stat-value">{{ totals.value|default:0|rupees }}</span>
     <span class="tw-stat-label">Total Order Value</span>
   </div>
   <div class="tw-stat tw-stat-success">
-    <span class="tw-stat-value">₹{{ totals.advance|default:0|floatformat:0 }}</span>
+    <span class="tw-stat-value">{{ totals.advance|default:0|rupees }}</span>
     <span class="tw-stat-label">Advance Received</span>
   </div>
 </div>
@@ -27,9 +28,9 @@
         <tr onclick="window.location='{{ lead.get_absolute_url }}'" style="cursor:pointer">
           <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.site_location }}</div></td>
           <td>{{ lead.quotation_number|default:"—" }}</td>
-          <td>₹{{ lead.order_value|floatformat:2 }}</td>
-          <td>₹{{ lead.advance_received|floatformat:2 }}</td>
-          <td><strong>₹{{ lead.balance_amount|floatformat:2 }}</strong></td>
+          <td>{{ lead.order_value|rupees:2 }}</td>
+          <td>{{ lead.advance_received|rupees:2 }}</td>
+          <td><strong>{{ lead.balance_amount|rupees:2 }}</strong></td>
           <td>{{ lead.committed_delivery_date|date:"d M Y" }}</td>
           <td>{{ lead.assigned_to }}</td>
         </tr>

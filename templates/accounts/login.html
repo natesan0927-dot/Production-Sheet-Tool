@@ -1,37 +1,85 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Sign in{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-visual">
+    <div class="d-flex align-items-center gap-3">
+      <div class="auth-logo-ring">
+        <img src="{% static 'branding/titans_logo.png' %}" alt="Titans Windows">
+      </div>
+      <div>
+        <div class="fw-bold fs-4" style="font-family:'Playfair Display', serif">Titans Windows</div>
+        <div class="small" style="color:#B9C7E4">uPVC Windows &amp; Doors</div>
+      </div>
+    </div>
+    <div>
+      <h1 class="fw-bold mb-3" style="max-width:480px; font-family:'Playfair Display', serif; font-size:2.4rem; line-height:1.2">Every window.<br>Every order.<br><span style="color:#F0DA96">One system.</span></h1>
+      <p class="mb-0" style="max-width:440px; color:#C6D4E8; font-size:1.02rem">
+        From the first rough measurement to the final handover — leads, quotations,
+        production, dispatch and warranty, all connected.
+      </p>
+    </div>
+    <div class="d-flex flex-wrap gap-4" style="color:#CBB25C; font-size:.92rem">
+      <div><i class="fa-solid fa-circle-check me-2"></i>Role-based access</div>
+      <div><i class="fa-solid fa-circle-check me-2"></i>Automatic documents</div>
+      <div><i class="fa-solid fa-circle-check me-2"></i>One journey per lead</div>
+    </div>
+  </div>
 
-{% block anon_content %}
-<div class="tw-login">
-  <div class="tw-login-card">
-    <img src="{% static 'branding/titans_logo.png' %}" alt="Titans Windows" class="tw-login-logo">
-    <h1>TITANS WINDOWS</h1>
-    <p class="text-muted">Sign in to continue</p>
+  <div class="auth-form-side">
+    <div style="width:420px; max-width:100%">
+      <h4 class="fw-bold mb-1">Welcome back</h4>
+      <p class="text-muted mb-4">Sign in to your Titans Windows account.</p>
 
-    {% if form.errors %}
-      <div class="alert alert-danger py-2">Incorrect username or password.</div>
-    {% endif %}
+      {% if form.errors %}
+      <div class="alert alert-danger py-2 small">Incorrect username or password, or your account is inactive.</div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          <div class="input-group">
+            <span class="input-group-text bg-white"><i class="fa-regular fa-user text-muted"></i></span>
+            <input type="text" name="username" class="form-control" required autofocus>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <div class="input-group">
+            <span class="input-group-text bg-white"><i class="fa-solid fa-lock text-muted"></i></span>
+            <input type="password" name="password" class="form-control" required>
+          </div>
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="btn btn-primary w-100 py-2" type="submit">Sign in</button>
+      </form>
 
-    <form method="post">
-      {% csrf_token %}
-      <input type="text" name="username" class="form-control mb-2" placeholder="Username" autofocus required>
-      <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
-      <button class="btn btn-primary w-100">Sign in</button>
-    </form>
+      <div class="d-flex align-items-center gap-2 my-4">
+        <hr class="flex-grow-1"><span class="text-muted small">or try a demo account</span><hr class="flex-grow-1">
+      </div>
 
-    <details class="tw-demo">
-      <summary>Demo accounts</summary>
-      <table>
-        <tr><td>demo_sales1 / demo_sales2</td><td>Salesperson</td></tr>
-        <tr><td>demo_measure</td><td>Measurement Staff</td></tr>
-        <tr><td>demo_accounts</td><td>Accounts Department</td></tr>
-        <tr><td>demo_production</td><td>Production Staff</td></tr>
-        <tr><td>demo_field</td><td>Field Manager</td></tr>
-        <tr><td>demo_admin</td><td>Super Admin</td></tr>
-      </table>
-      <p class="mb-0">Password for all: <strong>Demo@123</strong></p>
-    </details>
+      <div class="row g-2">
+        {% for username, label, name, icon in demo_accounts %}
+        <div class="col-6">
+          <form method="post" action="{% url 'accounts:login' %}">
+            {% csrf_token %}
+            <input type="hidden" name="username" value="{{ username }}">
+            <input type="hidden" name="password" value="Demo@123">
+            <button type="submit" class="demo-tile">
+              <span class="demo-ico"><i class="fa-solid {{ icon }}"></i></span>
+              <span>
+                <span class="d-block demo-label">{{ label }}</span>
+                <span class="d-block demo-sub">{{ name }}</span>
+              </span>
+            </button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="text-muted small mt-4 mb-0 text-center">All demo accounts use the password <code>Demo@123</code></p>
+    </div>
   </div>
 </div>
 {% endblock %}

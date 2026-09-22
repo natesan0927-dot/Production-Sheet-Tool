@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Completed Projects{% endblock %}
 
 {% block content %}
@@ -13,7 +14,7 @@
           <td class="text-muted small"><a href="{{ lead.get_absolute_url }}">{{ lead.lead_number }}</a></td>
           <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.site_location }}</div></td>
           <td>{{ lead.quotation_number|default:"—" }}</td>
-          <td>{% if lead.order_value %}₹{{ lead.order_value|floatformat:0 }}{% else %}—{% endif %}</td>
+          <td>{{ lead.order_value|rupees }}</td>
           <td>{{ lead.invoice_number|default:"—" }}<div class="text-muted small">{{ lead.invoice_date|date:"d M Y" }}</div></td>
           <td class="text-muted small">{{ lead.completed_at|date:"d M Y" }}</td>
           <td>

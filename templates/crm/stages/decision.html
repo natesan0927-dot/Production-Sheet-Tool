@@ -1,3 +1,4 @@
+{% load money %}
 {% if lead.quotation_uploaded_at %}
   <p class="mb-2"><strong>Quotation {{ lead.quotation_number }}</strong></p>
   {% for upload in lead.quotation_files %}
@@ -8,9 +9,9 @@
 {% if lead.status == 'won' %}
   <hr>
   <dl class="row mb-0">
-    <dt class="col-sm-4">Order finalized value</dt><dd class="col-sm-8">₹{{ lead.order_value|floatformat:2 }}</dd>
-    <dt class="col-sm-4">Advance received</dt><dd class="col-sm-8">₹{{ lead.advance_received|floatformat:2 }}</dd>
-    <dt class="col-sm-4">Balance amount</dt><dd class="col-sm-8"><strong>₹{{ lead.balance_amount|floatformat:2 }}</strong></dd>
+    <dt class="col-sm-4">Order finalized value</dt><dd class="col-sm-8">{{ lead.order_value|rupees:2 }}</dd>
+    <dt class="col-sm-4">Advance received</dt><dd class="col-sm-8">{{ lead.advance_received|rupees:2 }}</dd>
+    <dt class="col-sm-4">Balance amount</dt><dd class="col-sm-8"><strong>{{ lead.balance_amount|rupees:2 }}</strong></dd>
     <dt class="col-sm-4">Committed delivery date</dt><dd class="col-sm-8">{{ lead.committed_delivery_date|date:"d M Y" }}</dd>
     {% if lead.won_remarks %}<dt class="col-sm-4">Remarks</dt><dd class="col-sm-8">{{ lead.won_remarks }}</dd>{% endif %}
   </dl>
@@ -19,7 +20,7 @@
   <hr>
   <dl class="row mb-0">
     <dt class="col-sm-4">Reason</dt><dd class="col-sm-8">{{ lead.lost_reason }}</dd>
-    <dt class="col-sm-4">Finalised price elsewhere</dt><dd class="col-sm-8">{% if lead.lost_price_elsewhere %}₹{{ lead.lost_price_elsewhere|floatformat:2 }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-4">Finalised price elsewhere</dt><dd class="col-sm-8">{{ lead.lost_price_elsewhere|rupees }}</dd>
   </dl>
 
 {% elif stage.state == 'current' and stage.can_act %}

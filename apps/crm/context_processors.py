@@ -30,14 +30,21 @@ FIELD_MANAGER_TABS = [
     ("Warranty & Handover", "crm:queue_warranty", "fa-shield-halved"),
 ]
 
-ROLE_TABS = {
-    Role.SALESPERSON: SALES_TABS,
-    Role.MEASUREMENT: MEASUREMENT_TABS,
-    Role.ACCOUNTS: ACCOUNTS_TABS,
-    Role.PRODUCTION: PRODUCTION_TABS,
-    Role.FIELD_MANAGER: FIELD_MANAGER_TABS,
+# (section heading, sidebar accent colour, tabs)
+SALES_GROUP = ("CRM & Sales", "sales", SALES_TABS)
+MEASUREMENT_GROUP = ("Measurement", "measurement", MEASUREMENT_TABS)
+ACCOUNTS_GROUP = ("Accounts", "payments", ACCOUNTS_TABS)
+PRODUCTION_GROUP = ("Production", "production", PRODUCTION_TABS)
+FIELD_GROUP = ("Handover", "aftersales", FIELD_MANAGER_TABS)
+
+ROLE_GROUPS = {
+    Role.SALESPERSON: [SALES_GROUP],
+    Role.MEASUREMENT: [MEASUREMENT_GROUP],
+    Role.ACCOUNTS: [ACCOUNTS_GROUP],
+    Role.PRODUCTION: [PRODUCTION_GROUP],
+    Role.FIELD_MANAGER: [FIELD_GROUP],
     # The Super Admin works every stage, so they get every tab.
-    Role.SUPER_ADMIN: SALES_TABS + MEASUREMENT_TABS + ACCOUNTS_TABS + PRODUCTION_TABS + FIELD_MANAGER_TABS,
+    Role.SUPER_ADMIN: [SALES_GROUP, MEASUREMENT_GROUP, ACCOUNTS_GROUP, PRODUCTION_GROUP, FIELD_GROUP],
 }
 
 
@@ -46,7 +53,7 @@ def navigation(request):
     if not user or not user.is_authenticated:
         return {}
     return {
-        "nav_tabs": ROLE_TABS.get(user.role, []),
+        "nav_groups": ROLE_GROUPS.get(user.role, []),
         "role_label": user.get_role_display(),
         "unread_notifications": user.notifications.filter(read=False).count(),
     }

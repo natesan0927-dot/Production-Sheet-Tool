@@ -126,7 +126,15 @@ def dashboard(request):
 
     # "To do for the day": today's follow-ups plus leads sitting on this
     # salesperson's own step of the journey.
-    todo_leads = [lead for lead in leads.filter(status=Lead.Status.OPEN) if stage_flow.current_stage_key(lead) in (stage_flow.LEAD, stage_flow.DECISION)]
+    todo_labels = {
+        stage_flow.LEAD: "Add the measurements to move this forward",
+        stage_flow.DECISION: "Quotation is ready — mark it won or lost",
+    }
+    todo_leads = []
+    for lead in leads.filter(status=Lead.Status.OPEN):
+        label = todo_labels.get(stage_flow.current_stage_key(lead))
+        if label:
+            todo_leads.append({"lead": lead, "label": label})
 
     context = {
         "lead_bank": leads.count(),

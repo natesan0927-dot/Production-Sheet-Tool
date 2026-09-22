@@ -1,66 +1,99 @@
 {% load static %}
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Titans Windows{% endblock %} — Titans Windows</title>
-  <link rel="icon" href="{% static 'branding/favicon.png' %}">
+  <title>{% block title %}Dashboard{% endblock %} · Titans Windows</title>
+  <link rel="icon" type="image/png" href="{% static 'branding/favicon.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="{% static 'css/app.css' %}" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body class="{% if user.is_authenticated %}has-sidebar{% endif %} {% block body_class %}{% endblock %}">
+
 {% if user.is_authenticated %}
-<div class="tw-shell">
-  <aside class="tw-sidebar">
-    <a class="tw-brand" href="{% url 'crm:dashboard' %}">
+<button class="btn btn-dark d-lg-none position-fixed top-0 start-0 m-2" style="z-index:1040" onclick="document.getElementById('tw-sidebar').classList.toggle('show')">
+  <i class="fa-solid fa-bars"></i>
+</button>
+
+<nav id="tw-sidebar">
+  <div class="brand">
+    <div class="brand-mark">
       <img src="{% static 'branding/titans_logo.png' %}" alt="Titans Windows">
-      <span>TITANS<br><small>WINDOWS</small></span>
-    </a>
-    <nav class="tw-nav">
-      {% for label, urlname, icon in nav_tabs %}
-        {% url urlname as tab_url %}
-        <a href="{{ tab_url }}" class="{% if request.path == tab_url %}active{% endif %}">
-          <i class="fa-solid {{ icon }}"></i>{{ label }}
-        </a>
-      {% endfor %}
-    </nav>
-  </aside>
+    </div>
+    <div>
+      <div class="brand-name">Titans Windows</div>
+      <div class="brand-tag">uPVC Windows &amp; Doors</div>
+    </div>
+  </div>
 
-  <div class="tw-main">
-    <header class="tw-topbar">
-      <div>
-        <div class="tw-role">{{ role_label }}</div>
-        <div class="tw-user">{{ user.get_full_name|default:user.username }}</div>
-      </div>
-      <div class="d-flex align-items-center gap-3">
-        <a href="{% url 'crm:notifications' %}" class="tw-bell" title="Notifications">
-          <i class="fa-regular fa-bell"></i>
-          {% if unread_notifications %}<span class="tw-badge">{{ unread_notifications }}</span>{% endif %}
-        </a>
-        <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
-          <button class="btn btn-sm btn-outline-light">Log out</button>
-        </form>
-      </div>
-    </header>
-
-    <main class="tw-content">
-      {% if messages %}
-        {% for message in messages %}
-          <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
+  <div class="nav flex-column">
+    {% for section, accent, tabs in nav_groups %}
+      <div class="nav-section">{{ section }}</div>
+      <div class="nav-group" data-accent="{{ accent }}">
+        {% for label, urlname, icon in tabs %}
+          {% url urlname as tab_url %}
+          <a class="nav-link {% if request.path == tab_url %}active{% endif %}" href="{{ tab_url }}">
+            <i class="fa-solid {{ icon }}"></i>{{ label }}
+          </a>
         {% endfor %}
-      {% endif %}
-      {% block content %}{% endblock %}
-    </main>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-avatar">{{ user.get_full_name|default:user.username|slice:":1"|upper }}</div>
+    <div class="flex-grow-1 overflow-hidden">
+      <div class="sidebar-name text-truncate">{{ user.get_full_name|default:user.username }}</div>
+      <div class="sidebar-role">{{ role_label }}</div>
+    </div>
+  </div>
+</nav>
+{% endif %}
+
+<div id="tw-content-wrap">
+  {% if user.is_authenticated %}
+  <div class="tw-topbar d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-2 ms-auto">
+      <span class="tw-role-chip d-none d-sm-inline-block">{{ role_label }}</span>
+      <a href="{% url 'crm:notifications' %}" class="tw-icon-btn position-relative border-0 d-inline-flex align-items-center justify-content-center" title="Notifications">
+        <i class="fa-regular fa-bell"></i>
+        {% if unread_notifications %}
+          <span id="tw-bell-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.6rem">{{ unread_notifications }}</span>
+        {% endif %}
+      </a>
+      <div class="dropdown">
+        <button class="btn btn-light border-0 d-flex align-items-center gap-2 px-2" data-bs-toggle="dropdown">
+          <span class="tw-avatar">{{ user.get_full_name|default:user.username|slice:":1"|upper }}</span>
+          <span class="d-none d-md-inline small fw-semibold">{{ user.get_full_name|default:user.username }}</span>
+          <i class="fa-solid fa-chevron-down small text-muted"></i>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end">
+          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+            <button class="dropdown-item text-danger">Logout</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="tw-page">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+
+    {% block content %}{% endblock %}
   </div>
 </div>
-{% else %}
-  {% block anon_content %}{% endblock %}
-{% endif %}
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% block extra_js %}{% endblock %}
 </body>

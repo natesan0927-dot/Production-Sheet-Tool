@@ -1,3 +1,4 @@
+{% load money %}
 {% comment %}Shared by the lead's stage panel and the Site Fabrication Status board.{% endcomment %}
 <div class="tw-fab-card">
   <div class="tw-fab-head">
@@ -30,7 +31,7 @@
     <ul class="list-unstyled small mb-2">
       <li>Windows: <strong>{{ lead.window_count|default:"—" }}</strong></li>
       <li>Total sq ft: <strong>{{ lead.total_sqft|default:"—" }}</strong></li>
-      <li>Order value: <strong>{% if lead.fabrication_value %}₹{{ lead.fabrication_value|floatformat:0 }}{% else %}—{% endif %}</strong></li>
+      <li>Order value: <strong>{{ lead.fabrication_value|rupees }}</strong></li>
     </ul>
     <form method="post" action="{% url 'crm:fabrication_checklist' lead.pk %}">
       {% csrf_token %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}{{ lead.customer_name }}{% endblock %}
 
 {% block content %}
@@ -22,17 +23,21 @@
   </div>
 </div>
 
-<div class="tw-stepper">
+<div class="tw-journey mt-3">
   {% for stage in stages %}
-  <a href="#stage-{{ stage.key }}" class="tw-step state-{{ stage.state }}">
-    <span class="tw-step-node">
+  <div class="tw-journey-step state-{% if stage.state == 'locked' %}upcoming{% elif stage.state == 'lost' %}not_applicable{% else %}{{ stage.state }}{% endif %}">
+    {% if not forloop.first %}<span class="tw-journey-line"></span>{% endif %}
+    <a href="#stage-{{ stage.key }}" class="tw-journey-node" title="{{ stage.label }}">
       {% if stage.state == 'done' %}<i class="fa-solid fa-check"></i>
       {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot"></i>
       {% elif stage.state == 'lost' %}<i class="fa-solid fa-xmark"></i>
-      {% else %}{{ forloop.counter }}{% endif %}
-    </span>
-    <span class="tw-step-label">{{ stage.label }}</span>
-  </a>
+      {% else %}<span class="tw-journey-dot"></span>{% endif %}
+    </a>
+    <div class="tw-journey-label">
+      {{ stage.label }}
+      <span class="tw-journey-sublabel">{{ stage.role_names }}</span>
+    </div>
+  </div>
   {% endfor %}
 </div>
 
@@ -45,7 +50,7 @@
           <dt class="col-6">Assigned salesperson</dt><dd class="col-6">{{ lead.assigned_to }}</dd>
           <dt class="col-6">Lead source</dt><dd class="col-6">{{ lead.get_lead_source_display }}</dd>
           <dt class="col-6">Approx quantity</dt><dd class="col-6">{{ lead.approx_quantity|default:"—" }}</dd>
-          <dt class="col-6">Expected value</dt><dd class="col-6">{% if lead.expected_value %}₹{{ lead.expected_value|floatformat:0 }}{% else %}—{% endif %}</dd>
+          <dt class="col-6">Expected value</dt><dd class="col-6">{{ lead.expected_value|rupees }}</dd>
           <dt class="col-6">Site stage</dt><dd class="col-6">{{ lead.get_site_stage_display }}</dd>
           {% if lead.remarks %}<dt class="col-12 mt-2">Remarks</dt><dd class="col-12 text-muted">{{ lead.remarks }}</dd>{% endif %}
         </dl>
@@ -57,12 +62,12 @@
     <div class="card h-100">
       <div class="card-header"><i class="fa-regular fa-clock me-2"></i>Timeline</div>
       <div class="card-body">
-        <ul class="tw-timeline">
+        <ul class="timeline">
           <li><span>{{ lead.created_at|date:"d M Y, H:i" }}</span> Lead created by {{ lead.created_by|default:"—" }}</li>
           {% if lead.measurement_requested_at %}<li><span>{{ lead.measurement_requested_at|date:"d M Y, H:i" }}</span> Rough measurement requested</li>{% endif %}
           {% if lead.measurement_done_at %}<li><span>{{ lead.measurement_done_at|date:"d M Y, H:i" }}</span> Measurements recorded by {{ lead.measurement_done_by|default:"—" }}</li>{% endif %}
           {% if lead.quotation_uploaded_at %}<li><span>{{ lead.quotation_uploaded_at|date:"d M Y, H:i" }}</span> Quotation {{ lead.quotation_number }} uploaded</li>{% endif %}
-          {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed — ₹{{ lead.order_value|floatformat:0 }}</li>{% endif %}
+          {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed — {{ lead.order_value|rupees }}</li>{% endif %}
           {% if lead.lost_at %}<li><span>{{ lead.lost_at|date:"d M Y, H:i" }}</span> Marked as lost</li>{% endif %}
           {% if lead.caf_signed_at %}<li><span>{{ lead.caf_signed_at|date:"d M Y, H:i" }}</span> Signed CAF uploaded</li>{% endif %}
           {% if lead.final_measurement_at %}<li><span>{{ lead.final_measurement_at|date:"d M Y, H:i" }}</span> Final measurement uploaded</li>{% endif %}
@@ -77,27 +82,29 @@
 </div>
 
 {% for stage in stages %}
-<div class="card tw-stage-card state-{{ stage.state }}" id="stage-{{ stage.key }}">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <span>
-      {% if stage.state == 'done' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
-      {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot text-primary me-2"></i>
-      {% elif stage.state == 'lost' %}<i class="fa-solid fa-circle-xmark text-danger me-2"></i>
-      {% else %}<i class="fa-solid fa-lock text-muted me-2"></i>{% endif %}
-      <strong>{{ forloop.counter }}. {{ stage.label }}</strong>
-    </span>
-    <span class="text-muted small">{{ stage.role_names }}</span>
-  </div>
-  <div class="card-body">
-    {% if stage.state == 'locked' %}
-      <p class="text-muted mb-0"><i class="fa-solid fa-lock me-1"></i>This stage opens once the previous stages are complete.</p>
-    {% else %}
-      {% if stage.state == 'current' and not stage.can_act %}
-        <p class="text-muted"><i class="fa-regular fa-hourglass-half me-1"></i>Waiting for {{ stage.role_names }}.</p>
-      {% endif %}
-      {% include "crm/stages/"|add:stage.key|add:".html" %}
-    {% endif %}
-  </div>
-</div>
+  {% if stage.state == 'locked' %}
+    <div class="tw-stage-locked" id="stage-{{ stage.key }}">
+      <span><i class="fa-solid fa-lock me-2"></i><strong>{{ forloop.counter }}. {{ stage.label }}</strong></span>
+      <span>{{ stage.role_names }}</span>
+    </div>
+  {% else %}
+    <div class="card tw-stage-card state-{{ stage.state }}" id="stage-{{ stage.key }}">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+          {% if stage.state == 'done' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
+          {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot text-primary me-2"></i>
+          {% elif stage.state == 'lost' %}<i class="fa-solid fa-circle-xmark text-danger me-2"></i>{% endif %}
+          <strong>{{ forloop.counter }}. {{ stage.label }}</strong>
+        </span>
+        <span class="text-muted small">{{ stage.role_names }}</span>
+      </div>
+      <div class="card-body">
+        {% if stage.state == 'current' and not stage.can_act %}
+          <p class="text-muted mb-0"><i class="fa-regular fa-hourglass-half me-1"></i>Waiting for {{ stage.role_names }}.</p>
+        {% endif %}
+        {% include "crm/stages/"|add:stage.key|add:".html" %}
+      </div>
+    </div>
+  {% endif %}
 {% endfor %}
 {% endblock %}

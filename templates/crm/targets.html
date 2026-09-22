@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Sales Target{% endblock %}
 
 {% block content %}
@@ -17,9 +18,9 @@
             </div>
           </div>
           <div class="row text-center mt-3">
-            <div class="col"><div class="text-muted small">Target</div><strong>₹{{ current.amount|floatformat:0 }}</strong></div>
-            <div class="col"><div class="text-muted small">Achieved</div><strong class="text-success">₹{{ current.achieved|floatformat:0 }}</strong></div>
-            <div class="col"><div class="text-muted small">Pending</div><strong class="text-danger">₹{{ current.pending|floatformat:0 }}</strong></div>
+            <div class="col"><div class="text-muted small">Target</div><strong>{{ current.amount|rupees }}</strong></div>
+            <div class="col"><div class="text-muted small">Achieved</div><strong class="text-success">{{ current.achieved|rupees }}</strong></div>
+            <div class="col"><div class="text-muted small">Pending</div><strong class="text-danger">{{ current.pending|rupees }}</strong></div>
           </div>
         {% else %}
           <p class="text-muted my-5">No target set for {{ this_month|date:"F Y" }}.</p>
@@ -65,9 +66,9 @@
         <tr>
           <td>{{ target.month|date:"F Y" }}</td>
           <td>{{ target.salesperson }}</td>
-          <td>₹{{ target.amount|floatformat:0 }}</td>
-          <td class="text-success">₹{{ target.achieved|floatformat:0 }}</td>
-          <td class="text-danger">₹{{ target.pending|floatformat:0 }}</td>
+          <td>{{ target.amount|rupees }}</td>
+          <td class="text-success">{{ target.achieved|rupees }}</td>
+          <td class="text-danger">{{ target.pending|rupees }}</td>
           <td>
             <div class="progress" style="height:8px">
               <div class="progress-bar" style="width: {{ target.percent }}%"></div>

@@ -2,72 +2,104 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-  <h4 class="mb-0">Dashboard</h4>
-  {% if user.is_super_admin %}
-  <form method="get" class="d-flex gap-2">
-    <select name="salesperson" class="form-select form-select-sm" onchange="this.form.submit()">
-      <option value="">All salespeople</option>
-      {% for person in salespeople %}
-        <option value="{{ person.pk }}" {% if selected_salesperson == person.pk|stringformat:'s' %}selected{% endif %}>{{ person }}</option>
-      {% endfor %}
-    </select>
-  </form>
-  {% endif %}
+<div class="hero-banner mb-4">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <div class="hero-eyebrow small fw-bold text-uppercase mb-1">{{ role_label }}</div>
+      <h4 class="mb-1">Welcome back, {{ user.get_full_name|default:user.username }}</h4>
+      <div class="text-muted">Here is where your leads stand today.</div>
+    </div>
+    {% if user.is_super_admin %}
+    <form method="get">
+      <select name="salesperson" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="">All salespeople</option>
+        {% for person in salespeople %}
+          <option value="{{ person.pk }}" {% if selected_salesperson == person.pk|stringformat:'s' %}selected{% endif %}>{{ person }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+  </div>
 </div>
 
-<div class="tw-stats">
-  <a class="tw-stat" href="{% url 'crm:lead_list' %}">
-    <span class="tw-stat-value">{{ lead_bank }}</span>
-    <span class="tw-stat-label">Lead Bank</span>
-  </a>
-  <a class="tw-stat" href="{% url 'crm:lead_list' %}">
-    <span class="tw-stat-value">{{ leads_this_month }}</span>
-    <span class="tw-stat-label">Leads This Month</span>
-  </a>
-  <a class="tw-stat tw-stat-danger" href="{% url 'crm:followups' %}">
-    <span class="tw-stat-value">{{ overdue_followups }}</span>
-    <span class="tw-stat-label">Overdue Follow-ups</span>
-  </a>
-  <a class="tw-stat tw-stat-success" href="{% url 'crm:pipeline' %}">
-    <span class="tw-stat-value">{{ won_count }}</span>
-    <span class="tw-stat-label">Won</span>
-  </a>
-  <a class="tw-stat" href="{% url 'crm:lost_opportunities' %}">
-    <span class="tw-stat-value">{{ lost_count }}</span>
-    <span class="tw-stat-label">Lost</span>
-  </a>
-  <a class="tw-stat tw-stat-warning" href="{% url 'crm:pipeline' %}">
-    <span class="tw-stat-value">{{ pending_quotations }}</span>
-    <span class="tw-stat-label">Pending Quotations</span>
-  </a>
+<div class="row g-3">
+  <div class="col-6 col-md-4 col-xl-2">
+    <a class="card stat-card tone-navy h-100" href="{% url 'crm:lead_list' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-database"></i></div>
+        <div><div class="stat-value">{{ lead_bank }}</div><div class="stat-label">Leads</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-2">
+    <a class="card stat-card tone-violet h-100" href="{% url 'crm:lead_list' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-calendar-day"></i></div>
+        <div><div class="stat-value">{{ leads_this_month }}</div><div class="stat-label">This Month</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-2">
+    <a class="card stat-card tone-rose h-100" href="{% url 'crm:followups' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div><div class="stat-value">{{ overdue_followups }}</div><div class="stat-label">Overdue</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-2">
+    <a class="card stat-card tone-emerald h-100" href="{% url 'crm:pipeline' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
+        <div><div class="stat-value">{{ won_count }}</div><div class="stat-label">Won</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-2">
+    <a class="card stat-card h-100" href="{% url 'crm:lost_opportunities' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+        <div><div class="stat-value">{{ lost_count }}</div><div class="stat-label">Lost</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-xl-2">
+    <a class="card stat-card tone-amber h-100" href="{% url 'crm:pipeline' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-file-invoice"></i></div>
+        <div><div class="stat-value">{{ pending_quotations }}</div><div class="stat-label">Quotations</div></div>
+      </div>
+    </a>
+  </div>
 </div>
 
 <div class="card mt-4">
   <div class="card-header"><i class="fa-solid fa-list-check me-2"></i>To do for the day</div>
   <div class="list-group list-group-flush">
     {% for followup in today_followups %}
-      <div class="list-group-item d-flex justify-content-between align-items-center">
-        <div>
-          <span class="badge text-bg-primary me-2">Follow-up</span>
-          <a href="{{ followup.lead.get_absolute_url }}">{{ followup.lead.customer_name }}</a>
+      <a href="{{ followup.lead.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+        <span>
+          <span class="badge bg-primary me-2">Follow-up</span>
+          <strong>{{ followup.lead.customer_name }}</strong>
           {% if followup.note %}<span class="text-muted small ms-2">{{ followup.note }}</span>{% endif %}
-        </div>
+        </span>
         <span class="text-muted small">{{ followup.time|default:"" }}</span>
-      </div>
+      </a>
     {% endfor %}
-    {% for lead in todo_leads %}
-      <div class="list-group-item d-flex justify-content-between align-items-center">
-        <div>
-          <span class="badge text-bg-secondary me-2">Task</span>
-          <a href="{{ lead.get_absolute_url }}">{{ lead.customer_name }}</a>
-          <span class="text-muted small ms-2">needs your action</span>
-        </div>
-        <span class="text-muted small">{{ lead.lead_number }}</span>
-      </div>
+    {% for item in todo_leads %}
+      <a href="{{ item.lead.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+        <span>
+          <span class="badge bg-secondary me-2">Task</span>
+          <strong>{{ item.lead.customer_name }}</strong>
+          <span class="text-muted small ms-2">{{ item.label }}</span>
+        </span>
+        <span class="text-muted small">{{ item.lead.lead_number }}</span>
+      </a>
     {% endfor %}
     {% if not today_followups and not todo_leads %}
-      <div class="list-group-item text-center text-muted py-4">Nothing due today.</div>
+      <div class="text-center text-muted py-5">
+        <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Nothing due today.
+      </div>
     {% endif %}
   </div>
 </div>

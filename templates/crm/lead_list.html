@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Leads{% endblock %}
 
 {% block content %}
@@ -37,7 +38,7 @@
             {% else %}<span class="badge text-bg-secondary">Open</span>{% endif %}
           </td>
           <td>{{ lead.assigned_to }}</td>
-          <td>{% if lead.expected_value %}₹{{ lead.expected_value|floatformat:0 }}{% else %}—{% endif %}</td>
+          <td>{{ lead.expected_value|rupees }}</td>
           <td class="text-muted small">{{ lead.updated_at|date:"d M Y" }}</td>
         </tr>
         {% empty %}
