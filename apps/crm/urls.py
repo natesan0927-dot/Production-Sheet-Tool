@@ -47,6 +47,7 @@ urlpatterns = [
     path("queue/production/", views.queue_production, name="queue_production"),
     path("queue/fabrication/", views.queue_fabrication, name="queue_fabrication"),
     path("queue/fabrication/<int:pk>/", views.fabrication_detail, name="fabrication_detail"),
+    path("queue/fabrication/<int:pk>/checklist/", views.fabrication_checklist_page, name="fabrication_checklist_page"),
     path("queue/warranty/", views.queue_warranty, name="queue_warranty"),
     # Shared to-do list
     path("to-do/", views.todo_list, name="todo_list"),
@@ -57,4 +58,5 @@ urlpatterns = [
     path("settings/stage-access/", views.stage_access_list, name="stage_access_list"),
     path("settings/stage-access/<int:pk>/", views.stage_access_edit, name="stage_access_edit"),
     path("notifications/", views.notifications, name="notifications"),
+    path("updates/<int:pk>/done/", views.update_dismiss, name="update_dismiss"),
 ]

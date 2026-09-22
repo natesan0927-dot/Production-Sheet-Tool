@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Site Fabrication Status{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+  <div>
+    <h4 class="mb-0">Site Fabrication Status</h4>
+    <p class="text-muted small mb-0">Move orders through the factory yourself, one step at a time.</p>
+  </div>
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label for="column" class="form-label mb-0 text-nowrap">Show</label>
+    <select name="column" id="column" class="form-select" onchange="this.form.submit()" style="min-width:230px">
+      {% for key, label, count in columns %}
+        <option value="{{ key }}" {% if key == column %}selected{% endif %}>{{ label }} ({{ count }})</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header">{{ column_label }}</div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0 {% if column == 'under' %}table-hover{% endif %}">
+      <thead class="table-light">
+        <tr>
+          <th>Customer Name</th><th>Quotation No.</th><th>No. of Windows</th>
+          <th>Sq Ft</th><th>Order Value</th><th class="text-end"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+        <tr {% if column == 'under' %}onclick="window.location='{% url 'crm:fabrication_checklist_page' lead.pk %}'" style="cursor:pointer"{% endif %}>
+          <td>
+            <strong>{{ lead.customer_name }}</strong>
+            <div class="text-muted small">{{ lead.lead_number }}</div>
+          </td>
+          <td>{{ lead.quotation_number|default:"—" }}</td>
+          <td>{{ lead.window_count|default:"—" }}</td>
+          <td>{{ lead.total_sqft|default:"—" }}</td>
+          <td>{{ lead.order_value|rupees }}</td>
+          <td class="text-end">
+            {% if column == 'future' %}
+              <form method="post" action="{% url 'crm:fabrication_start' lead.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-sm btn-primary text-nowrap" {% if not lead.production_approved_at %}disabled title="Waiting for the measurement and production steps to finish"{% endif %}>
+                  Move to Under Production
+                </button>
+              </form>
+              {% if not lead.production_approved_at %}
+                <div class="text-muted small mt-1">Earlier stages not finished</div>
+              {% endif %}
+            {% elif column == 'under' %}
+              <span class="badge bg-dark">{{ lead.checklist_done_count }}/8 steps</span>
+              <i class="fa-solid fa-chevron-right text-muted ms-2"></i>
+            {% else %}
+              <a href="{% url 'crm:dispatch' lead.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-truck me-1"></i>Dispatch
+              </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-5">Nothing in {{ column_label }} right now.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

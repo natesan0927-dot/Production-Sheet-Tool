@@ -1,3 +1,4 @@
+import re
 from datetime import time
 
 from django import forms
@@ -6,6 +7,58 @@ from django.utils import timezone
 from apps.accounts.models import Role, User
 
 from .models import FollowUp, Lead, Payment, SalesTarget, Task
+
+# ---------------------------------------------------------------------------
+# Sanity checks shared by every form. Each adds an error against the field
+# rather than raising, so all the problems on a form are reported at once.
+# ---------------------------------------------------------------------------
+
+
+def _today():
+    return timezone.localdate()
+
+
+def reject_future(form, name, label):
+    value = form.cleaned_data.get(name)
+    if value and value > _today():
+        form.add_error(name, f"{label} can't be in the future.")
+
+
+def reject_past(form, name, label):
+    value = form.cleaned_data.get(name)
+    if value and value < _today():
+        form.add_error(name, f"{label} can't be in the past.")
+
+
+def reject_before_order(form, name, label, lead):
+    value = form.cleaned_data.get(name)
+    if value and lead is not None and lead.won_at and value < timezone.localdate(lead.won_at):
+        form.add_error(name, f"{label} can't be before the order was confirmed ({lead.won_at:%d %b %Y}).")
+
+
+def require_positive(form, name, label):
+    value = form.cleaned_data.get(name)
+    if value is not None and value <= 0:
+        form.add_error(name, f"{label} must be more than zero.")
+
+
+def reject_negative(form, name, label):
+    value = form.cleaned_data.get(name)
+    if value is not None and value < 0:
+        form.add_error(name, f"{label} can't be negative.")
+
+
+def limit_picker(field, *, not_before_today=False, not_after_today=False):
+    """Mirror the rule in the browser's date picker so bad dates can't be chosen."""
+    today = _today().isoformat()
+    if not_before_today:
+        field.widget.attrs["min"] = today
+    if not_after_today:
+        field.widget.attrs["max"] = today
+
+
+def limit_number(field, minimum):
+    field.widget.attrs["min"] = str(minimum)
 
 
 class BootstrapMixin:
@@ -60,10 +113,23 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["assigned_to"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
         self.fields["lead_source_other"].widget.attrs["placeholder"] = "Where did this lead come from?"
+        self.fields["phone"].widget.attrs.update({"inputmode": "tel", "placeholder": "10-digit mobile number"})
+        limit_number(self.fields["approx_quantity"], 1)
+        limit_number(self.fields["expected_value"], 1)
         # A salesperson only ever files leads under their own name.
         if user and user.role == Role.SALESPERSON:
             self.fields["assigned_to"].initial = user
             self.fields["assigned_to"].disabled = True
+
+    def clean_phone(self):
+        digits = re.sub(r"\D", "", self.cleaned_data["phone"])
+        if len(digits) == 12 and digits.startswith("91"):
+            digits = digits[2:]
+        elif len(digits) == 11 and digits.startswith("0"):
+            digits = digits[1:]
+        if len(digits) != 10:
+            raise forms.ValidationError("Enter a valid 10-digit phone number.")
+        return digits
 
     def clean(self):
         data = super().clean()
@@ -71,6 +137,9 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
             self.add_error("lead_source_other", "Tell us where this lead came from.")
         elif data.get("lead_source") != "other":
             data["lead_source_other"] = ""
+        if data.get("approx_quantity") == 0:
+            self.add_error("approx_quantity", "Approx quantity must be at least 1.")
+        require_positive(self, "expected_value", "Expected closing value")
         return data
 
 
@@ -142,6 +211,23 @@ class WonForm(BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ("order_value", "advance_received", "committed_delivery_date", "window_count", "total_sqft"):
             self.fields[name].required = True
+        limit_picker(self.fields["committed_delivery_date"], not_before_today=True)
+        limit_number(self.fields["order_value"], 1)
+        limit_number(self.fields["advance_received"], 0)
+        limit_number(self.fields["window_count"], 1)
+        limit_number(self.fields["total_sqft"], 1)
+
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "order_value", "Order value")
+        reject_negative(self, "advance_received", "Advance received")
+        require_positive(self, "window_count", "Number of windows")
+        require_positive(self, "total_sqft", "Total site sq ft")
+        reject_past(self, "committed_delivery_date", "Committed delivery date")
+        order, advance = data.get("order_value"), data.get("advance_received")
+        if order and advance and advance > order:
+            self.add_error("advance_received", "Advance can't be more than the order value.")
+        return data
 
 
 class LostForm(BootstrapMixin, forms.ModelForm):
@@ -154,6 +240,12 @@ class LostForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["lost_reason"].required = True
+        limit_number(self.fields["lost_price_elsewhere"], 1)
+
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "lost_price_elsewhere", "Finalised price elsewhere")
+        return data
 
 
 class CafFinalForm(forms.Form):
@@ -204,6 +296,13 @@ class DispatchForm(BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.required = True
+        limit_picker(self.fields["invoice_date"], not_after_today=True)
+
+    def clean(self):
+        data = super().clean()
+        reject_future(self, "invoice_date", "Invoice date")
+        reject_before_order(self, "invoice_date", "Invoice date", self.instance)
+        return data
 
 
 class FollowUpForm(BootstrapMixin, forms.ModelForm):
@@ -219,6 +318,12 @@ class FollowUpForm(BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["date"].initial = timezone.localdate()
         self.fields["time"].initial = time(9, 0)
+        limit_picker(self.fields["date"], not_before_today=True)
+
+    def clean(self):
+        data = super().clean()
+        reject_past(self, "date", "A follow-up")
+        return data
 
 
 class PaymentForm(BootstrapMixin, forms.ModelForm):
@@ -228,6 +333,26 @@ class PaymentForm(BootstrapMixin, forms.ModelForm):
         widgets = {"paid_on": forms.DateInput(attrs={"type": "date"})}
         labels = {"paid_on": "Payment date"}
 
+    def __init__(self, *args, lead=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lead = lead
+        limit_picker(self.fields["paid_on"], not_after_today=True)
+        limit_number(self.fields["amount"], 1)
+
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "amount", "Amount")
+        reject_future(self, "paid_on", "Payment date")
+        reject_before_order(self, "paid_on", "Payment date", self.lead)
+        amount = data.get("amount")
+        if self.lead is not None and amount and self.lead.balance_amount is not None:
+            if amount > self.lead.balance_amount:
+                self.add_error(
+                    "amount",
+                    f"That is more than the balance still due (₹{self.lead.balance_amount:,.2f}).",
+                )
+        return data
+
 
 class LedgerForm(BootstrapMixin, forms.ModelForm):
     """Lets accounts correct the headline figures on a confirmed order."""
@@ -236,6 +361,30 @@ class LedgerForm(BootstrapMixin, forms.ModelForm):
         model = Lead
         fields = ["order_value", "advance_received", "invoice_number", "invoice_date"]
         widgets = {"invoice_date": forms.DateInput(attrs={"type": "date"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["order_value"].required = True
+        self.fields["advance_received"].required = True
+        limit_picker(self.fields["invoice_date"], not_after_today=True)
+        limit_number(self.fields["order_value"], 1)
+        limit_number(self.fields["advance_received"], 0)
+
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "order_value", "Order value")
+        reject_negative(self, "advance_received", "Advance received")
+        reject_future(self, "invoice_date", "Invoice date")
+        reject_before_order(self, "invoice_date", "Invoice date", self.instance)
+        order, advance = data.get("order_value"), data.get("advance_received")
+        if order and advance is not None and self.instance.pk:
+            posted = sum((p.amount for p in self.instance.payments.all()), 0)
+            if advance + posted > order:
+                self.add_error(
+                    "order_value",
+                    f"Order value can't be less than what has already been received (₹{advance + posted:,.2f}).",
+                )
+        return data
 
 
 class TaskForm(BootstrapMixin, forms.ModelForm):
@@ -255,8 +404,14 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         people = User.objects.filter(is_active=True)
         self.fields["assigned_to"].queryset = people
         self.fields["assigned_to"].label_from_instance = lambda u: f"{u.get_full_name() or u.username} — {u.get_role_display()}"
+        limit_picker(self.fields["due_date"], not_before_today=True)
         if user:
             self.fields["assigned_to"].initial = user
+
+    def clean(self):
+        data = super().clean()
+        reject_past(self, "due_date", "Due date")
+        return data
 
 
 class StageAccessForm(forms.Form):
@@ -287,6 +442,12 @@ class SalesTargetForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["salesperson"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        limit_number(self.fields["amount"], 1)
         if user and user.role == Role.SALESPERSON:
             self.fields["salesperson"].initial = user
             self.fields["salesperson"].disabled = True
+
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "amount", "Target")
+        return data

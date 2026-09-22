@@ -374,6 +374,8 @@ class Notification(models.Model):
     message = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False)
+    # Ticked off from "Updates for the day" — separate from read, which the bell sets.
+    dismissed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

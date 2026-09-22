@@ -3,14 +3,22 @@
   <div class="card-header"><i class="fa-solid fa-bolt me-2"></i>Updates for the day</div>
   <div class="list-group list-group-flush">
     {% for update in updates %}
-      <a href="{% if update.lead %}{{ update.lead.get_absolute_url }}{% else %}{% url 'crm:todo_list' %}{% endif %}"
-         class="list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-2">
-        <span>
+      <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+        <a href="{% if update.lead %}{{ update.lead.get_absolute_url }}{% else %}{% url 'crm:todo_list' %}{% endif %}"
+           class="flex-grow-1 text-reset">
           {{ update.message }}
-          {% if update.lead %}<span class="text-muted small d-block">{{ update.lead.lead_number }}</span>{% endif %}
-        </span>
-        <span class="text-muted small text-nowrap">{{ update.created_at|time:"H:i" }}</span>
-      </a>
+          <span class="text-muted small d-block">
+            {% if update.lead %}{{ update.lead.lead_number }} · {% endif %}{{ update.created_at|time:"H:i" }}
+          </span>
+        </a>
+        <form method="post" action="{% url 'crm:update_dismiss' update.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button class="btn btn-sm btn-outline-success text-nowrap" title="Mark as done">
+            <i class="fa-solid fa-check me-1"></i>Mark as done
+          </button>
+        </form>
+      </div>
     {% empty %}
       <div class="text-center text-muted py-5">
         <i class="fa-regular fa-bell-slash fs-3 d-block mb-2 opacity-50"></i>No updates today.

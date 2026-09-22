@@ -9,6 +9,7 @@
   <div class="card-body">
     <form method="post">
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
       <div class="row g-3">
         {% for field in form %}
         <div class="col-md-4">
@@ -20,7 +21,7 @@
       </div>
       <div class="mt-4">
         <button class="btn btn-primary">Confirm Dispatch</button>
-        <a href="{% url 'crm:queue_fabrication' %}" class="btn btn-link">Cancel</a>
+        <a href="{{ next|default:lead.get_absolute_url }}" class="btn btn-link">Cancel</a>
       </div>
     </form>
   </div>

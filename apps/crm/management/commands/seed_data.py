@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from decimal import Decimal
 
@@ -74,4 +75,29 @@ class Command(BaseCommand):
                 salesperson=person, month=month, defaults={"amount": Decimal("1500000")}
             )
 
+        self._owner_from_environment()
         self.stdout.write(self.style.SUCCESS(f"Demo data ready. Password for every demo account: {PASSWORD}"))
+
+    def _owner_from_environment(self):
+        """The real owner's Super Admin login, taken from the host's settings.
+
+        Created once and then left alone, so a password changed in the app is
+        not overwritten on the next deploy.
+        """
+        username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
+        password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
+        if not username or not password:
+            return
+        user, created = User.objects.get_or_create(
+            username=username,
+            defaults={
+                "email": os.environ.get("DJANGO_SUPERUSER_EMAIL", ""),
+                "role": Role.SUPER_ADMIN,
+                "is_staff": True,
+                "is_superuser": True,
+            },
+        )
+        if created:
+            user.set_password(password)
+            user.save()
+            self.stdout.write(self.style.SUCCESS(f"Super Admin '{username}' created from environment variables."))

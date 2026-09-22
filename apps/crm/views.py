@@ -7,6 +7,7 @@ from django.db.models import Q, Sum
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -81,6 +82,13 @@ def notify_user(lead, message, user):
         Notification.objects.create(user=user, lead=lead, message=message)
 
 
+def safe_next(request, fallback):
+    target = request.POST.get("next") or request.GET.get("next")
+    if target and url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}):
+        return redirect(target)
+    return redirect(fallback)
+
+
 def stage_redirect(lead, stage_key):
     return redirect(f"{lead.get_absolute_url()}?stage={stage_key}")
 
@@ -136,7 +144,7 @@ def _queue_cards(user, counts):
 def dashboard(request):
     today = timezone.localdate()
     # "Updates for the day" — only what was routed to this person's role.
-    updates = request.user.notifications.filter(created_at__date=today).select_related("lead")[:25]
+    updates = request.user.notifications.filter(created_at__date=today, dismissed=False).select_related("lead")[:25]
 
     if request.user.role in (Role.SALESPERSON, Role.SUPER_ADMIN):
         return _sales_dashboard(request, updates)
@@ -591,7 +599,7 @@ def fabrication_start(request, pk):
     lead.fabrication_column = Lead.Fabrication.UNDER
     lead.save()
     messages.success(request, "Moved to Under Production.")
-    return redirect(request.POST.get("next") or lead.get_absolute_url())
+    return safe_next(request, lead.get_absolute_url())
 
 
 @role_required(Role.PRODUCTION)
@@ -603,10 +611,31 @@ def fabrication_checklist(request, pk):
         return blocked
 
     form = ChecklistForm(request.POST, instance=lead)
-    if form.is_valid():
-        form.save()
-        messages.success(request, "Checklist updated.")
-    return redirect(request.POST.get("next") or lead.get_absolute_url())
+    if not form.is_valid():
+        return safe_next(request, lead.get_absolute_url())
+    lead = form.save()
+
+    # "Save checklist & move to dispatch" does both in one go — but only if
+    # every step really is ticked; otherwise it saves and stays put.
+    if request.POST.get("then_dispatch"):
+        missing = _unfinished_steps(lead)
+        if missing:
+            messages.error(request, "Checklist saved, but these steps are still pending: " + ", ".join(missing) + ".")
+            back = request.POST.get("back")
+            if back and url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
+                return redirect(back)
+            return redirect(lead.get_absolute_url())
+        lead.fabrication_column = Lead.Fabrication.READY
+        lead.save()
+        messages.success(request, f"Checklist saved and {lead.customer_name} moved to Ready for Dispatch.")
+        return safe_next(request, lead.get_absolute_url())
+
+    messages.success(request, "Checklist updated.")
+    return safe_next(request, lead.get_absolute_url())
+
+
+def _unfinished_steps(lead):
+    return [lead._meta.get_field(field).verbose_name for field in Lead.CHECKLIST_FIELDS if not getattr(lead, field)]
 
 
 @role_required(Role.PRODUCTION)
@@ -617,19 +646,15 @@ def fabrication_to_dispatch(request, pk):
     if blocked:
         return blocked
 
-    missing = [
-        lead._meta.get_field(field).verbose_name
-        for field in Lead.CHECKLIST_FIELDS
-        if not getattr(lead, field)
-    ]
+    missing = _unfinished_steps(lead)
     if missing:
         messages.error(request, "Finish every step first — still pending: " + ", ".join(missing) + ".")
-        return redirect(request.POST.get("next") or lead.get_absolute_url())
+        return safe_next(request, lead.get_absolute_url())
 
     lead.fabrication_column = Lead.Fabrication.READY
     lead.save()
     messages.success(request, "Moved to Ready for Dispatch.")
-    return redirect(request.POST.get("next") or lead.get_absolute_url())
+    return safe_next(request, lead.get_absolute_url())
 
 
 @role_required(Role.PRODUCTION)
@@ -648,10 +673,14 @@ def dispatch(request, pk):
             lead.save()
             notify(lead, f"Dispatched — warranty & handover pending for {lead.customer_name}", Role.FIELD_MANAGER)
             messages.success(request, "Dispatched. Warranty & handover is now open for the field manager.")
-            return redirect(lead.get_absolute_url())
+            return safe_next(request, lead.get_absolute_url())
     else:
         form = DispatchForm(instance=lead)
-    return render(request, "crm/dispatch_form.html", {"lead": lead, "form": form})
+    return render(
+        request,
+        "crm/dispatch_form.html",
+        {"lead": lead, "form": form, "next": request.GET.get("next") or request.POST.get("next", "")},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -743,7 +772,7 @@ def followup_add(request, pk):
             messages.success(request, "Follow-up scheduled.")
     else:
         messages.error(request, form.errors.as_text())
-    return redirect(request.POST.get("next") or lead.get_absolute_url())
+    return safe_next(request, lead.get_absolute_url())
 
 
 @role_required(Role.SALESPERSON)
@@ -754,11 +783,11 @@ def followup_done(request, pk):
         raise Http404
     if not followup.can_be_completed:
         messages.error(request, "This lead is already closed, so its follow-ups are closed with it.")
-        return redirect(request.POST.get("next") or "crm:followups")
+        return safe_next(request, reverse("crm:followups"))
     followup.done = True
     followup.done_at = timezone.now()
     followup.save(update_fields=["done", "done_at"])
-    return redirect(request.POST.get("next") or "crm:followups")
+    return safe_next(request, reverse("crm:followups"))
 
 
 # ---------------------------------------------------------------------------
@@ -900,7 +929,7 @@ def queue_accounts(request):
 def ledger(request, pk):
     """A confirmed order's payment ledger — post entries and correct the figures."""
     lead = get_object_or_404(Lead.objects.prefetch_related("payments"), pk=pk, status=Lead.Status.WON)
-    payment_form = PaymentForm()
+    payment_form = PaymentForm(lead=lead)
     ledger_form = LedgerForm(instance=lead)
 
     if request.method == "POST":
@@ -911,7 +940,7 @@ def ledger(request, pk):
                 messages.success(request, "Order figures updated.")
                 return redirect("crm:ledger", pk=lead.pk)
         else:
-            payment_form = PaymentForm(request.POST, request.FILES)
+            payment_form = PaymentForm(request.POST, request.FILES, lead=lead)
             if payment_form.is_valid():
                 payment = payment_form.save(commit=False)
                 payment.lead = lead
@@ -970,10 +999,45 @@ def queue_production(request):
     )
 
 
+FABRICATION_COLUMNS = [
+    (Lead.Fabrication.FUTURE, "Future Production"),
+    (Lead.Fabrication.UNDER, "Under Production"),
+    (Lead.Fabrication.READY, "Ready for Dispatch"),
+]
+
+
 @role_required(Role.PRODUCTION)
 def queue_fabrication(request):
-    leads = Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=True).select_related("assigned_to")
-    return render(request, "crm/queues/fabrication_list.html", {"leads": leads})
+    on_floor = Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=True).select_related("assigned_to")
+    if request.user.is_super_admin:
+        return _fabrication_admin(request, on_floor)
+    return render(request, "crm/queues/fabrication_list.html", {"leads": on_floor})
+
+
+def _fabrication_admin(request, on_floor):
+    """The Super Admin's own way to push orders through, one column at a time."""
+    keys = [key for key, _ in FABRICATION_COLUMNS]
+    column = request.GET.get("column")
+    if column not in keys:
+        column = Lead.Fabrication.FUTURE
+    return render(
+        request,
+        "crm/queues/fabrication_admin.html",
+        {
+            "column": column,
+            "column_label": dict(FABRICATION_COLUMNS)[column],
+            "columns": [
+                (key, label, on_floor.filter(fabrication_column=key).count()) for key, label in FABRICATION_COLUMNS
+            ],
+            "leads": on_floor.filter(fabrication_column=column),
+        },
+    )
+
+
+@role_required(Role.PRODUCTION)
+def fabrication_checklist_page(request, pk):
+    lead = get_object_or_404(Lead, pk=pk, status=Lead.Status.WON, fabrication_column=Lead.Fabrication.UNDER)
+    return render(request, "crm/queues/fabrication_checklist.html", {"lead": lead})
 
 
 @role_required(Role.PRODUCTION)
@@ -1070,7 +1134,7 @@ def todo_done(request, pk):
     task.done = True
     task.done_at = timezone.now()
     task.save(update_fields=["done", "done_at"])
-    return redirect(request.POST.get("next") or "crm:todo_list")
+    return safe_next(request, reverse("crm:todo_list"))
 
 
 @login_required
@@ -1118,6 +1182,16 @@ def stage_access_edit(request, pk):
             "defaults": [stage_flow.STAGE_LABELS[key] for key in stage_flow.DEFAULT_ROLE_STAGES.get(employee.role, [])],
         },
     )
+
+
+@login_required
+@require_POST
+def update_dismiss(request, pk):
+    note = get_object_or_404(Notification, pk=pk, user=request.user)
+    note.dismissed = True
+    note.read = True
+    note.save(update_fields=["dismissed", "read"])
+    return safe_next(request, reverse("crm:dashboard"))
 
 
 @login_required

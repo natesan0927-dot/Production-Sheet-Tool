@@ -102,7 +102,13 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Django 5.1 dropped the old STATICFILES_STORAGE setting, so storages are
+# declared here. Compressed (not manifest) storage: whitenoise serves gzip/brotli
+# without every page 500ing if collectstatic ever missed a file.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -120,6 +126,9 @@ SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 10)  # 10 h
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # Security hardening (relaxed automatically when DEBUG=True for local dev)
+# Render (like most hosts) ends HTTPS at its proxy and forwards plain HTTP, so
+# trust its X-Forwarded-Proto header or SECURE_SSL_REDIRECT would loop forever.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=not DEBUG)
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
