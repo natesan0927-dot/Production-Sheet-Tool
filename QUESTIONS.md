@@ -100,7 +100,15 @@ The spec says the Super Admin "can view and modify the leads" — so **only the 
 gets an Edit Lead button**, and they can also reassign a lead to a different salesperson.
 A salesperson currently cannot correct their own typo. Tell me if they should be able to.
 
-## 13. Things to know about the rebuild
+## 13. Uploaded files are not behind the login
+
+Anything uploaded (quotations, signed CAFs, measurements, warranty certificates) is served
+straight from `/media/...`, so **anyone who has the link can open it without signing in** —
+they just can't discover the link without access. That is how the old build worked too, and
+it keeps things simple. If you'd rather every download went through a login check, it's a
+contained change; tell me and I'll do it.
+
+## 14. Things to know about the rebuild
 
 - **The database was reset.** This is a fresh schema; the old data is not carried over. Your
   old dev database file was moved aside rather than deleted, and all the old code is still in
