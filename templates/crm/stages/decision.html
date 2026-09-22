@@ -1,0 +1,69 @@
+{% if lead.quotation_uploaded_at %}
+  <p class="mb-2"><strong>Quotation {{ lead.quotation_number }}</strong></p>
+  {% for upload in lead.quotation_files %}
+    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+  {% endfor %}
+{% endif %}
+
+{% if lead.status == 'won' %}
+  <hr>
+  <dl class="row mb-0">
+    <dt class="col-sm-4">Order finalized value</dt><dd class="col-sm-8">₹{{ lead.order_value|floatformat:2 }}</dd>
+    <dt class="col-sm-4">Advance received</dt><dd class="col-sm-8">₹{{ lead.advance_received|floatformat:2 }}</dd>
+    <dt class="col-sm-4">Balance amount</dt><dd class="col-sm-8"><strong>₹{{ lead.balance_amount|floatformat:2 }}</strong></dd>
+    <dt class="col-sm-4">Committed delivery date</dt><dd class="col-sm-8">{{ lead.committed_delivery_date|date:"d M Y" }}</dd>
+    {% if lead.won_remarks %}<dt class="col-sm-4">Remarks</dt><dd class="col-sm-8">{{ lead.won_remarks }}</dd>{% endif %}
+  </dl>
+
+{% elif lead.status == 'lost' %}
+  <hr>
+  <dl class="row mb-0">
+    <dt class="col-sm-4">Reason</dt><dd class="col-sm-8">{{ lead.lost_reason }}</dd>
+    <dt class="col-sm-4">Finalised price elsewhere</dt><dd class="col-sm-8">{% if lead.lost_price_elsewhere %}₹{{ lead.lost_price_elsewhere|floatformat:2 }}{% else %}—{% endif %}</dd>
+  </dl>
+
+{% elif stage.state == 'current' and stage.can_act %}
+  <hr>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'crm:stage_won' lead.pk %}" class="btn btn-success"><i class="fa-solid fa-trophy me-1"></i>Proceed to WON</a>
+    <a href="{% url 'crm:stage_lost' lead.pk %}" class="btn btn-outline-danger"><i class="fa-solid fa-xmark me-1"></i>Mark as LOST</a>
+    <form method="post" action="{% url 'crm:toggle_negotiation' lead.pk %}">
+      {% csrf_token %}
+      <button class="btn btn-outline-secondary">
+        {% if lead.in_negotiation %}Remove from Negotiation{% else %}Mark as In Negotiation{% endif %}
+      </button>
+    </form>
+  </div>
+
+  <hr>
+  <p class="fw-semibold mb-2">Follow-ups</p>
+  <ul class="list-unstyled mb-3">
+    {% for followup in lead.followups.all %}
+      <li class="d-flex justify-content-between align-items-center border-bottom py-1">
+        <span>
+          {% if followup.done %}<i class="fa-solid fa-check text-success me-1"></i>{% endif %}
+          {{ followup.date|date:"d M Y" }}{% if followup.time %} at {{ followup.time }}{% endif %}
+          {% if followup.note %}<span class="text-muted small ms-2">{{ followup.note }}</span>{% endif %}
+          {% if followup.is_overdue %}<span class="badge text-bg-danger ms-2">Overdue</span>{% endif %}
+        </span>
+        {% if not followup.done %}
+        <form method="post" action="{% url 'crm:followup_done' followup.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ lead.get_absolute_url }}">
+          <button class="btn btn-sm btn-link">Mark done</button>
+        </form>
+        {% endif %}
+      </li>
+    {% empty %}
+      <li class="text-muted small">No follow-ups scheduled.</li>
+    {% endfor %}
+  </ul>
+
+  <form method="post" action="{% url 'crm:followup_add' lead.pk %}" class="row g-2 align-items-end">
+    {% csrf_token %}
+    <div class="col-sm-3"><label class="form-label small mb-0">Date</label>{{ followup_form.date }}</div>
+    <div class="col-sm-3"><label class="form-label small mb-0">Time</label>{{ followup_form.time }}</div>
+    <div class="col-sm-4"><label class="form-label small mb-0">Note</label>{{ followup_form.note }}</div>
+    <div class="col-sm-2"><button class="btn btn-outline-primary w-100">Add</button></div>
+  </form>
+{% endif %}

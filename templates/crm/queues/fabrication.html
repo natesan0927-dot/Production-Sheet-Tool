@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Site Fabrication Status{% endblock %}
+
+{% block content %}
+<h4 class="mb-3">Site Fabrication Status</h4>
+
+<div class="tw-board tw-board-3">
+  {% for key, title, leads in columns %}
+  <div class="tw-board-col">
+    <div class="tw-board-head">{{ title }} <span class="badge text-bg-light">{{ leads|length }}</span></div>
+    <div class="tw-board-body">
+      {% for lead in leads %}
+        {% include "crm/_fabrication_controls.html" with next_url=request.path %}
+      {% empty %}
+        <p class="text-muted small text-center py-3 mb-0">Empty</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

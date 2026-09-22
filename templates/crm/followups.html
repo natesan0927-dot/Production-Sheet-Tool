@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Follow-up{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Follow-up</h4>
+  <a href="?{% if show_all %}{% else %}show=all{% endif %}" class="btn btn-sm btn-outline-secondary">
+    {% if show_all %}Show pending only{% else %}Show all{% endif %}
+  </a>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light"><tr><th>Date</th><th>Customer</th><th>Note</th><th>Salesperson</th><th></th></tr></thead>
+      <tbody>
+        {% for followup in followups %}
+        <tr class="{% if followup.is_overdue %}table-danger{% elif followup.date == today %}table-warning{% endif %}">
+          <td>
+            {{ followup.date|date:"d M Y" }}{% if followup.time %} <span class="text-muted small">{{ followup.time }}</span>{% endif %}
+            {% if followup.is_overdue %}<span class="badge text-bg-danger ms-1">Overdue</span>
+            {% elif followup.date == today %}<span class="badge text-bg-warning ms-1">Today</span>{% endif %}
+          </td>
+          <td><a href="{{ followup.lead.get_absolute_url }}">{{ followup.lead.customer_name }}</a></td>
+          <td class="text-muted small">{{ followup.note|default:"—" }}</td>
+          <td>{{ followup.lead.assigned_to }}</td>
+          <td class="text-end">
+            {% if not followup.done %}
+            <form method="post" action="{% url 'crm:followup_done' followup.pk %}">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-success">Mark done</button>
+            </form>
+            {% else %}<span class="badge text-bg-success">Done</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No follow-ups.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

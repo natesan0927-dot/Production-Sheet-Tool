@@ -1,0 +1,29 @@
+{% if lead.measurement_mode == 'requested' %}
+  {% if lead.measurement_done_at %}
+    <p class="mb-2 text-success"><i class="fa-solid fa-check me-1"></i>Completed by {{ lead.measurement_done_by|default:"measurement staff" }} on {{ lead.measurement_done_at|date:"d M Y" }}</p>
+  {% else %}
+    <p class="mb-2"><span class="badge text-bg-warning">Rough measurement requested</span>
+      <span class="text-muted small ms-2">{{ lead.customer_name }} · {{ lead.site_location }} · Site stage: {{ lead.get_site_stage_display }}</span>
+    </p>
+  {% endif %}
+{% else %}
+  <p class="mb-2 text-success"><i class="fa-solid fa-check me-1"></i>Measurements were provided by the salesperson, so this stage was skipped.</p>
+{% endif %}
+
+{% if lead.measurement_notes %}
+  <div class="tw-note"><strong>Measurements:</strong><br>{{ lead.measurement_notes|linebreaksbr }}</div>
+{% endif %}
+{% for upload in lead.rough_measurement_files %}
+  <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+{% endfor %}
+
+{% if stage.state == 'current' and stage.can_act %}
+  <form method="post" action="{% url 'crm:stage_rough' lead.pk %}" enctype="multipart/form-data" class="mt-3">
+    {% csrf_token %}
+    <label class="form-label">Upload the rough measurement file</label>
+    {{ rough_form.file }}
+    <label class="form-label mt-3">Or type the measurements</label>
+    {{ rough_form.notes }}
+    <button class="btn btn-primary mt-3">Submit Rough Measurement</button>
+  </form>
+{% endif %}

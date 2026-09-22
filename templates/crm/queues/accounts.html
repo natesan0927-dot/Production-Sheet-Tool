@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Confirmed Orders{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Confirmed Orders</h4>
+<p class="text-muted small mb-3">Financial details sent to accounts when an order is confirmed.</p>
+
+<div class="tw-stats mb-3">
+  <div class="tw-stat">
+    <span class="tw-stat-value">₹{{ totals.value|default:0|floatformat:0 }}</span>
+    <span class="tw-stat-label">Total Order Value</span>
+  </div>
+  <div class="tw-stat tw-stat-success">
+    <span class="tw-stat-value">₹{{ totals.advance|default:0|floatformat:0 }}</span>
+    <span class="tw-stat-label">Advance Received</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Customer</th><th>Quotation</th><th>Order Value</th><th>Advance</th><th>Balance</th><th>Delivery Date</th><th>Salesperson</th></tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+        <tr onclick="window.location='{{ lead.get_absolute_url }}'" style="cursor:pointer">
+          <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.site_location }}</div></td>
+          <td>{{ lead.quotation_number|default:"—" }}</td>
+          <td>₹{{ lead.order_value|floatformat:2 }}</td>
+          <td>₹{{ lead.advance_received|floatformat:2 }}</td>
+          <td><strong>₹{{ lead.balance_amount|floatformat:2 }}</strong></td>
+          <td>{{ lead.committed_delivery_date|date:"d M Y" }}</td>
+          <td>{{ lead.assigned_to }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No confirmed orders yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

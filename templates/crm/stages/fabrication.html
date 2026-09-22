@@ -1,0 +1,31 @@
+{% if lead.dispatched_at %}
+  <dl class="row mb-0">
+    <dt class="col-sm-4">Windows</dt><dd class="col-sm-8">{{ lead.window_count|default:"—" }}</dd>
+    <dt class="col-sm-4">Total site sq ft</dt><dd class="col-sm-8">{{ lead.total_sqft|default:"—" }}</dd>
+    <dt class="col-sm-4">Order value</dt><dd class="col-sm-8">{% if lead.fabrication_value %}₹{{ lead.fabrication_value|floatformat:2 }}{% else %}—{% endif %}</dd>
+    <dt class="col-sm-4">Installation person</dt><dd class="col-sm-8">{{ lead.installation_person }}</dd>
+    <dt class="col-sm-4">Invoice</dt><dd class="col-sm-8">{{ lead.invoice_number }} · {{ lead.invoice_date|date:"d M Y" }}</dd>
+  </dl>
+{% else %}
+  <p class="mb-2">
+    Current column:
+    <span class="badge text-bg-primary">{{ lead.get_fabrication_column_display }}</span>
+    {% if lead.fabrication_column == 'under' %}
+      <span class="text-muted small ms-2">{{ lead.checklist_done_count }} of 8 steps complete</span>
+    {% endif %}
+  </p>
+
+  {% if lead.fabrication_column == 'under' and not stage.can_act %}
+    <div class="tw-checklist tw-checklist-readonly">
+      {% for label, checked, field in lead.checklist %}
+        <span>{% if checked %}<i class="fa-solid fa-square-check text-success"></i>{% else %}<i class="fa-regular fa-square text-muted"></i>{% endif %} {{ label }}</span>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if stage.state == 'current' and stage.can_act %}
+    <div class="tw-fab-single">
+      {% include "crm/_fabrication_controls.html" with next_url=lead.get_absolute_url %}
+    </div>
+  {% endif %}
+{% endif %}

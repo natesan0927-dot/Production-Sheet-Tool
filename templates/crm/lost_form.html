@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Mark as Lost{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Mark as LOST</h4>
+<p class="text-muted">{{ lead.lead_number }} — {{ lead.customer_name }}</p>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Reason</label>
+        {{ form.lost_reason }}
+        {% if form.lost_reason.errors %}<div class="text-danger small">{{ form.lost_reason.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Finalised price elsewhere</label>
+        {{ form.lost_price_elsewhere }}
+      </div>
+      <button class="btn btn-danger">Mark as Lost</button>
+      <a href="{{ lead.get_absolute_url }}" class="btn btn-link">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

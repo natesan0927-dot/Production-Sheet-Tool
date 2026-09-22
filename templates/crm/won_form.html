@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Confirm Order{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Proceed to WON</h4>
+<p class="text-muted">{{ lead.lead_number }} — {{ lead.customer_name }}</p>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Order finalized value</label>
+          {{ form.order_value }}
+          {% if form.order_value.errors %}<div class="text-danger small">{{ form.order_value.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Advance received</label>
+          {{ form.advance_received }}
+          {% if form.advance_received.errors %}<div class="text-danger small">{{ form.advance_received.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Balance amount</label>
+          <input type="text" id="balance" class="form-control" readonly>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Committed delivery date</label>
+          {{ form.committed_delivery_date }}
+          {% if form.committed_delivery_date.errors %}<div class="text-danger small">{{ form.committed_delivery_date.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Remarks</label>
+          {{ form.won_remarks }}
+        </div>
+      </div>
+      <div class="mt-4">
+        <button class="btn btn-success">Confirm Order</button>
+        <a href="{{ lead.get_absolute_url }}" class="btn btn-link">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const total = document.getElementById("{{ form.order_value.id_for_label }}");
+  const advance = document.getElementById("{{ form.advance_received.id_for_label }}");
+  const balance = document.getElementById("balance");
+  function recalc() {
+    const value = parseFloat(total.value || 0) - parseFloat(advance.value || 0);
+    balance.value = isNaN(value) ? "" : value.toFixed(2);
+  }
+  total.addEventListener("input", recalc);
+  advance.addEventListener("input", recalc);
+  recalc();
+</script>
+{% endblock %}

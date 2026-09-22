@@ -1,0 +1,40 @@
+<div class="tw-subsection">
+  <p class="fw-semibold mb-1">Measurements received</p>
+  {% for upload in lead.rough_measurement_files %}
+    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+  {% empty %}
+    <p class="text-muted mb-1">No file uploaded.</p>
+  {% endfor %}
+  {% if lead.measurement_notes %}
+    <div class="tw-note">{{ lead.measurement_notes|linebreaksbr }}</div>
+  {% endif %}
+</div>
+
+{% if lead.quotation_uploaded_at %}
+  <hr>
+  <p class="mb-2">
+    <strong>Quotation {{ lead.quotation_number }}</strong>
+    <span class="text-muted small ms-2">uploaded by {{ lead.quotation_uploaded_by|default:"—" }} on {{ lead.quotation_uploaded_at|date:"d M Y" }}</span>
+  </p>
+  {% for upload in lead.quotation_files %}
+    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+  {% endfor %}
+{% endif %}
+
+{% if stage.state == 'current' and stage.can_act %}
+  <hr>
+  <form method="post" action="{% url 'crm:stage_quotation' lead.pk %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-3">
+      <div class="col-md-5">
+        <label class="form-label">Quotation number</label>
+        {{ quotation_form.quotation_number }}
+      </div>
+      <div class="col-md-7">
+        <label class="form-label">Quotation file(s)</label>
+        {{ quotation_form.files }}
+      </div>
+    </div>
+    <button class="btn btn-primary mt-3">Upload Quotation</button>
+  </form>
+{% endif %}

@@ -1,0 +1,36 @@
+{% if lead.caf_signed_at or lead.final_measurement_at %}
+  <ul class="list-unstyled mb-3">
+    <li>
+      {% if lead.caf_signed_at %}<i class="fa-solid fa-check text-success me-1"></i>Signed CAF uploaded
+      {% else %}<i class="fa-regular fa-square me-1 text-muted"></i>Signed CAF pending{% endif %}
+    </li>
+    <li>
+      {% if lead.final_measurement_at %}<i class="fa-solid fa-check text-success me-1"></i>Final measurement uploaded
+      {% else %}<i class="fa-regular fa-square me-1 text-muted"></i>Final measurement pending{% endif %}
+    </li>
+  </ul>
+  {% for upload in lead.measurement_documents %}
+    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.get_kind_display }}</a>
+  {% endfor %}
+{% endif %}
+
+{% if stage.state == 'current' and stage.can_act %}
+  <a href="{% url 'crm:caf_download' lead.pk %}" class="btn btn-outline-primary mb-3">
+    <i class="fa-solid fa-file-pdf me-1"></i>Download CAF
+  </a>
+  <p class="text-muted small">Get the CAF signed by the client, then upload it back along with the final measurement.</p>
+  <form method="post" action="{% url 'crm:stage_caf_final' lead.pk %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Signed CAF</label>
+        {{ caf_form.caf_signed }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Final measurement file</label>
+        {{ caf_form.final_measurement }}
+      </div>
+    </div>
+    <button class="btn btn-primary mt-3">Upload</button>
+  </form>
+{% endif %}

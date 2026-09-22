@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Sales Target{% endblock %}
+
+{% block content %}
+<h4 class="mb-3">Sales Target</h4>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">This month</div>
+      <div class="card-body text-center">
+        {% if current %}
+          <div class="tw-pie" style="--pct: {{ current.percent }}">
+            <div class="tw-pie-hole">
+              <strong>{{ current.percent }}%</strong>
+              <span class="text-muted small">achieved</span>
+            </div>
+          </div>
+          <div class="row text-center mt-3">
+            <div class="col"><div class="text-muted small">Target</div><strong>₹{{ current.amount|floatformat:0 }}</strong></div>
+            <div class="col"><div class="text-muted small">Achieved</div><strong class="text-success">₹{{ current.achieved|floatformat:0 }}</strong></div>
+            <div class="col"><div class="text-muted small">Pending</div><strong class="text-danger">₹{{ current.pending|floatformat:0 }}</strong></div>
+          </div>
+        {% else %}
+          <p class="text-muted my-5">No target set for {{ this_month|date:"F Y" }}.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Set target</div>
+      <div class="card-body">
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          {% if not user.role == 'salesperson' %}
+          <div class="col-md-4">
+            <label class="form-label">Salesperson</label>
+            {{ form.salesperson }}
+          </div>
+          {% endif %}
+          <div class="col-md-4">
+            <label class="form-label">Select month</label>
+            {{ form.month }}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Target for the month</label>
+            {{ form.amount }}
+          </div>
+          <div class="col-12"><button class="btn btn-primary">Save Target</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">Targets</div>
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle">
+      <thead class="table-light"><tr><th>Month</th><th>Salesperson</th><th>Target</th><th>Achieved</th><th>Pending</th><th style="width:25%">Progress</th></tr></thead>
+      <tbody>
+        {% for target in targets %}
+        <tr>
+          <td>{{ target.month|date:"F Y" }}</td>
+          <td>{{ target.salesperson }}</td>
+          <td>₹{{ target.amount|floatformat:0 }}</td>
+          <td class="text-success">₹{{ target.achieved|floatformat:0 }}</td>
+          <td class="text-danger">₹{{ target.pending|floatformat:0 }}</td>
+          <td>
+            <div class="progress" style="height:8px">
+              <div class="progress-bar" style="width: {{ target.percent }}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No targets set yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

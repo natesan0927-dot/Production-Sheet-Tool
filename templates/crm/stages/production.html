@@ -1,0 +1,40 @@
+{% if lead.caf_signed_at %}
+<div class="tw-subsection">
+  <p class="fw-semibold mb-1">Documents from the measurement team</p>
+  {% for upload in lead.measurement_documents %}
+    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.get_kind_display }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if lead.production_sheet_at %}
+  <p class="mb-2">
+    <strong>Production sheet</strong>
+    <span class="text-muted small ms-2">uploaded by {{ lead.production_sheet_by|default:"—" }} on {{ lead.production_sheet_at|date:"d M Y" }}</span>
+  </p>
+  {% for upload in lead.production_sheet_files %}
+    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+  {% endfor %}
+
+  {% if lead.production_approved_at %}
+    <p class="text-success mb-0"><i class="fa-solid fa-check me-1"></i>Approved by {{ lead.production_approved_by|default:"measurement staff" }} on {{ lead.production_approved_at|date:"d M Y" }}</p>
+  {% else %}
+    <p class="mb-2"><span class="badge text-bg-warning">Waiting for measurement staff approval</span></p>
+    {% if can_validate_production and stage.state == 'current' %}
+      <form method="post" action="{% url 'crm:production_approve' lead.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-success"><i class="fa-solid fa-check me-1"></i>Approve Production Sheet</button>
+      </form>
+    {% endif %}
+  {% endif %}
+{% endif %}
+
+{% if stage.state == 'current' and stage.can_act and not lead.production_approved_at %}
+  <hr>
+  <form method="post" action="{% url 'crm:stage_production_sheet' lead.pk %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label class="form-label">{% if lead.production_sheet_at %}Re-upload production sheet{% else %}Upload production sheet{% endif %}</label>
+    {{ production_form.file }}
+    <button class="btn btn-primary mt-3">Upload Production Sheet</button>
+  </form>
+{% endif %}

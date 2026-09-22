@@ -1,151 +1,225 @@
 from django import forms
+from django.utils import timezone
 
-from apps.core.models import LeadSource
-from apps.crm.models import Customer, FollowUp, Lead, LostLeadDetail
+from apps.accounts.models import Role, User
+
+from .models import FollowUp, Lead, SalesTarget
 
 
-class CustomerForm(forms.ModelForm):
+class BootstrapMixin:
+    """Gives every widget the right Bootstrap class without per-field noise."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            widget = field.widget
+            if isinstance(widget, (forms.CheckboxInput, forms.RadioSelect, forms.CheckboxSelectMultiple)):
+                continue
+            if isinstance(widget, forms.Select):
+                widget.attrs.setdefault("class", "form-select")
+            else:
+                widget.attrs.setdefault("class", "form-control")
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single(item, initial) for item in data]
+        return [single(data, initial)]
+
+
+class LeadForm(BootstrapMixin, forms.ModelForm):
     class Meta:
-        model = Customer
-        exclude = ["customer_code", "created_date"]
+        model = Lead
+        fields = [
+            "customer_name",
+            "phone",
+            "site_location",
+            "lead_source",
+            "assigned_to",
+            "approx_quantity",
+            "expected_value",
+            "site_stage",
+            "remarks",
+        ]
+        widgets = {"remarks": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["assigned_to"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        # A salesperson only ever files leads under their own name.
+        if user and user.role == Role.SALESPERSON:
+            self.fields["assigned_to"].initial = user
+            self.fields["assigned_to"].disabled = True
+
+
+class MeasurementBoxForm(forms.Form):
+    """Stage 1's measurements box: upload, type it out, or ask the measurement team."""
+
+    mode = forms.ChoiceField(choices=Lead.MeasurementMode.choices, widget=forms.RadioSelect)
+    file = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4, "class": "form-control", "placeholder": "Type the measurements here"}),
+    )
+
+    def clean(self):
+        data = super().clean()
+        mode = data.get("mode")
+        if mode == Lead.MeasurementMode.FILE and not data.get("file"):
+            self.add_error("file", "Choose the measurement file to upload.")
+        if mode == Lead.MeasurementMode.TEXT and not data.get("notes"):
+            self.add_error("notes", "Type the measurements, or pick another option.")
+        return data
+
+
+class RoughMeasurementForm(forms.Form):
+    """What the measurement staff submits for a requested rough measurement."""
+
+    file = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
+    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 4, "class": "form-control"}))
+
+    def clean(self):
+        data = super().clean()
+        if not data.get("file") and not data.get("notes"):
+            raise forms.ValidationError("Upload the measurement file or type the measurements.")
+        return data
+
+
+class QuotationForm(forms.Form):
+    quotation_number = forms.CharField(
+        max_length=60,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter the quotation number"}),
+    )
+    files = MultipleFileField(label="Quotation file(s)")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["files"].widget.attrs.setdefault("class", "form-control")
+
+
+class WonForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = ["order_value", "advance_received", "committed_delivery_date", "won_remarks"]
         widgets = {
-            "address": forms.Textarea(attrs={"rows": 2}),
-            "project_address": forms.Textarea(attrs={"rows": 2}),
-            "notes": forms.Textarea(attrs={"rows": 2}),
+            "committed_delivery_date": forms.DateInput(attrs={"type": "date"}),
+            "won_remarks": forms.Textarea(attrs={"rows": 3}),
+        }
+        labels = {"won_remarks": "Remarks"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["order_value"].required = True
+        self.fields["advance_received"].required = True
+        self.fields["committed_delivery_date"].required = True
+
+
+class LostForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = ["lost_reason", "lost_price_elsewhere"]
+        widgets = {"lost_reason": forms.Textarea(attrs={"rows": 3})}
+        labels = {"lost_reason": "Reason"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["lost_reason"].required = True
+
+
+class CafFinalForm(forms.Form):
+    """Stage 5 — the signed CAF and the final measurement file."""
+
+    caf_signed = forms.FileField(
+        label="Signed CAF", required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"})
+    )
+    final_measurement = forms.FileField(
+        label="Final measurement file", required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"})
+    )
+
+    def clean(self):
+        data = super().clean()
+        if not data.get("caf_signed") and not data.get("final_measurement"):
+            raise forms.ValidationError("Choose at least one file to upload.")
+        return data
+
+
+class SingleFileForm(forms.Form):
+    file = forms.FileField(widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
+
+
+class FabricationDetailsForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = ["window_count", "total_sqft", "fabrication_value"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.required = True
+
+
+class ChecklistForm(forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = Lead.CHECKLIST_FIELDS
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-check-input")
+
+
+class DispatchForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = ["installation_person", "invoice_number", "invoice_date"]
+        widgets = {"invoice_date": forms.DateInput(attrs={"type": "date"})}
+        labels = {"installation_person": "Installation person name"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.required = True
+
+
+class FollowUpForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = FollowUp
+        fields = ["date", "time", "note"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "time": forms.TimeInput(attrs={"type": "time"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["date"].initial = timezone.localdate()
 
-class LeadCreateForm(forms.ModelForm):
-    """
-    A lead can be created either against an existing customer, or by
-    capturing a brand-new customer's details in the same form -- once saved,
-    that information automatically flows into every later stage (measurement,
-    quotation, order, CAF...) without ever being retyped.
-    """
 
-    customer = forms.ModelChoiceField(queryset=Customer.objects.all(), required=False, label="Existing Customer")
-    new_customer_name = forms.CharField(max_length=150, required=False, label="Customer Name")
-    new_customer_mobile = forms.CharField(max_length=20, required=False, label="Mobile Number")
-    new_customer_alternate_number = forms.CharField(max_length=20, required=False, label="Alternate Number")
-    new_customer_email = forms.EmailField(required=False, label="Email")
-    new_customer_type = forms.ChoiceField(choices=Customer.CUSTOMER_TYPE_CHOICES, required=False, initial="individual")
-    new_customer_company_name = forms.CharField(max_length=150, required=False, label="Company Name")
-    new_customer_contact_person = forms.CharField(max_length=150, required=False, label="Contact Person")
-    new_customer_address = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}), required=False, label="Address")
-    new_customer_city = forms.CharField(max_length=100, required=False, label="City")
-    new_customer_state = forms.CharField(max_length=100, required=False, label="State")
-    new_customer_pincode = forms.CharField(max_length=10, required=False, label="Pincode")
-    new_customer_project_address = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 2}), required=False, label="Project Address"
+class SalesTargetForm(BootstrapMixin, forms.ModelForm):
+    month = forms.DateField(
+        label="Select month",
+        input_formats=["%Y-%m", "%Y-%m-%d"],
+        widget=forms.DateInput(attrs={"type": "month"}),
     )
 
     class Meta:
-        model = Lead
-        fields = [
-            "customer", "contact_number", "email", "project_name", "project_location",
-            "lead_source", "requirement", "approximate_quantity", "expected_value",
-            "expected_closing_date", "assigned_salesperson", "priority", "remarks",
-        ]
-        widgets = {
-            "requirement": forms.Textarea(attrs={"rows": 2}),
-            "remarks": forms.Textarea(attrs={"rows": 2}),
-            "expected_closing_date": forms.DateInput(attrs={"type": "date"}),
-        }
+        model = SalesTarget
+        fields = ["salesperson", "month", "amount"]
 
-    def clean(self):
-        cleaned = super().clean()
-        if not cleaned.get("customer") and not cleaned.get("new_customer_name"):
-            raise forms.ValidationError("Select an existing customer or enter a new customer's name.")
-        if not cleaned.get("customer") and not cleaned.get("new_customer_mobile"):
-            raise forms.ValidationError("Mobile number is required for a new customer.")
-        return cleaned
-
-    def save(self, commit=True):
-        lead = super().save(commit=False)
-        if not self.cleaned_data.get("customer"):
-            customer = Customer.objects.create(
-                customer_name=self.cleaned_data["new_customer_name"],
-                mobile_number=self.cleaned_data["new_customer_mobile"],
-                alternate_number=self.cleaned_data.get("new_customer_alternate_number", ""),
-                email=self.cleaned_data.get("new_customer_email", ""),
-                customer_type=self.cleaned_data.get("new_customer_type") or "individual",
-                company_name=self.cleaned_data.get("new_customer_company_name", ""),
-                contact_person=self.cleaned_data.get("new_customer_contact_person", ""),
-                address=self.cleaned_data.get("new_customer_address", ""),
-                city=self.cleaned_data.get("new_customer_city", ""),
-                state=self.cleaned_data.get("new_customer_state", ""),
-                pincode=self.cleaned_data.get("new_customer_pincode", ""),
-                project_name=self.cleaned_data.get("project_name", ""),
-                project_address=self.cleaned_data.get("new_customer_project_address", ""),
-                lead_source=self.cleaned_data.get("lead_source"),
-                assigned_salesperson=self.cleaned_data.get("assigned_salesperson"),
-            )
-            lead.customer = customer
-        else:
-            lead.customer = self.cleaned_data["customer"]
-        if commit:
-            lead.save()
-        return lead
-
-
-class LeadUpdateForm(forms.ModelForm):
-    class Meta:
-        model = Lead
-        fields = [
-            "contact_number", "email", "project_name", "project_location", "lead_source",
-            "requirement", "approximate_quantity", "expected_value", "expected_closing_date",
-            "assigned_salesperson", "priority", "status", "remarks",
-        ]
-        widgets = {
-            "requirement": forms.Textarea(attrs={"rows": 2}),
-            "remarks": forms.Textarea(attrs={"rows": 2}),
-            "expected_closing_date": forms.DateInput(attrs={"type": "date"}),
-        }
-
-
-class LeadAssignForm(forms.Form):
-    assigned_to = forms.ModelChoiceField(queryset=None, label="Assign to")
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        from apps.accounts.models import User
-
-        self.fields["assigned_to"].queryset = User.objects.filter(is_active=True).order_by("first_name")
-
-
-class FollowUpForm(forms.ModelForm):
-    """
-    Only one date is collected -- the next follow-up reminder date. `date`
-    (when this interaction happened) is set to today automatically in the
-    view, and `time` defaults to 9am, so reps don't have to set either by
-    hand every time.
-    """
-
-    class Meta:
-        model = FollowUp
-        fields = ["type", "time", "discussion", "customer_response", "next_followup_date", "next_action", "remarks"]
-        widgets = {
-            "time": forms.TimeInput(attrs={"type": "time"}),
-            "next_followup_date": forms.DateInput(attrs={"type": "date"}),
-            "discussion": forms.Textarea(attrs={"rows": 2}),
-            "customer_response": forms.Textarea(attrs={"rows": 2}),
-            "remarks": forms.Textarea(attrs={"rows": 2}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["next_followup_date"].required = True
-        self.fields["next_followup_date"].label = "Next Follow-up Reminder Date"
-
-
-class LostLeadForm(forms.ModelForm):
-    class Meta:
-        model = LostLeadDetail
-        fields = [
-            "lost_date", "reason", "reason_category", "competitor", "competitor_product",
-            "competitor_price", "customer_quoted_price", "detailed_narration",
-        ]
-        widgets = {
-            "lost_date": forms.DateInput(attrs={"type": "date"}),
-            "detailed_narration": forms.Textarea(attrs={"rows": 3}),
-        }
+        self.fields["salesperson"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        if user and user.role == Role.SALESPERSON:
+            self.fields["salesperson"].initial = user
+            self.fields["salesperson"].disabled = True

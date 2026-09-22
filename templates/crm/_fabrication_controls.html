@@ -1,0 +1,58 @@
+{% comment %}Shared by the lead's stage panel and the Site Fabrication Status board.{% endcomment %}
+<div class="tw-fab-card">
+  <div class="tw-fab-head">
+    <strong>{{ lead.customer_name }}</strong>
+    <span class="text-muted small d-block">Quotation {{ lead.quotation_number|default:"—" }}</span>
+  </div>
+
+  {% if lead.fabrication_column == 'future' %}
+    <form method="post" action="{% url 'crm:fabrication_start' lead.pk %}" class="row g-2">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <div class="col-12">
+        <label class="form-label small mb-0">Number of windows</label>
+        <input type="number" name="window_count" min="0" value="{{ lead.window_count|default_if_none:'' }}" class="form-control form-control-sm" required>
+      </div>
+      <div class="col-12">
+        <label class="form-label small mb-0">Total site sq ft</label>
+        <input type="number" step="0.01" name="total_sqft" value="{{ lead.total_sqft|default_if_none:'' }}" class="form-control form-control-sm" required>
+      </div>
+      <div class="col-12">
+        <label class="form-label small mb-0">Order value</label>
+        <input type="number" step="0.01" name="fabrication_value" value="{{ lead.fabrication_value|default_if_none:lead.order_value|default_if_none:'' }}" class="form-control form-control-sm" required>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-sm btn-primary w-100">Move to Under Production</button>
+      </div>
+    </form>
+
+  {% elif lead.fabrication_column == 'under' %}
+    <ul class="list-unstyled small mb-2">
+      <li>Windows: <strong>{{ lead.window_count|default:"—" }}</strong></li>
+      <li>Total sq ft: <strong>{{ lead.total_sqft|default:"—" }}</strong></li>
+      <li>Order value: <strong>{% if lead.fabrication_value %}₹{{ lead.fabrication_value|floatformat:0 }}{% else %}—{% endif %}</strong></li>
+    </ul>
+    <form method="post" action="{% url 'crm:fabrication_checklist' lead.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <div class="tw-checklist">
+        {% for label, checked, field in lead.checklist %}
+          <label class="form-check">
+            <input class="form-check-input" type="checkbox" name="{{ field }}" {% if checked %}checked{% endif %}>
+            <span class="form-check-label">{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <button class="btn btn-sm btn-outline-primary w-100 mt-2">Save checklist</button>
+    </form>
+    <form method="post" action="{% url 'crm:fabrication_to_dispatch' lead.pk %}" class="mt-2">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <button class="btn btn-sm btn-primary w-100">Move to Dispatch</button>
+    </form>
+
+  {% elif lead.fabrication_column == 'ready' %}
+    <p class="mb-2"><span class="badge text-bg-warning">Ready for dispatch</span></p>
+    <a href="{% url 'crm:dispatch' lead.pk %}" class="btn btn-sm btn-primary w-100">Dispatch</a>
+  {% endif %}
+</div>

@@ -31,21 +31,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     # Third-party
-    "simple_history",
     "crispy_forms",
     "crispy_bootstrap5",
     "widget_tweaks",
-    # Titans CRM apps (order matters for migrations: accounts/core first)
+    # Titans CRM apps
     "apps.accounts",
-    "apps.core",
     "apps.crm",
-    "apps.measurement",
-    "apps.sales",
-    "apps.production",
-    "apps.logistics",
-    "apps.aftersales",
-    "apps.dashboard",
-    "apps.reports",
 ]
 
 MIDDLEWARE = [
@@ -55,7 +46,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "simple_history.middleware.HistoryRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -73,7 +63,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "apps.core.context_processors.company_and_notifications",
+                "apps.crm.context_processors.navigation",
             ],
         },
     },
@@ -101,7 +91,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LOGIN_URL = "accounts:login"
-LOGIN_REDIRECT_URL = "dashboard:home"
+LOGIN_REDIRECT_URL = "crm:dashboard"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
 LANGUAGE_CODE = "en-us"
@@ -116,14 +106,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
-
-# Server-side backup copy of generated documents (Customer Acquisition Forms,
-# quotations, certificates, exports). This is IN ADDITION to the database
-# record and to the auto-download the employee's own browser triggers.
-# Point this at a mapped network drive / external disk in production so a
-# second copy of every generated document survives even if the server disk
-# is lost. See DEPLOYMENT.md.
-DOCUMENT_BACKUP_ROOT = Path(env("DOCUMENT_BACKUP_ROOT", default="") or (BASE_DIR / "backups" / "documents"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
