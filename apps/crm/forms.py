@@ -439,13 +439,16 @@ class SalesTargetForm(BootstrapMixin, forms.ModelForm):
         model = SalesTarget
         fields = ["salesperson", "month", "amount"]
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["salesperson"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        self.fields["salesperson"].empty_label = "Choose a salesperson"
         limit_number(self.fields["amount"], 1)
-        if user and user.role == Role.SALESPERSON:
-            self.fields["salesperson"].initial = user
-            self.fields["salesperson"].disabled = True
+
+    def validate_unique(self):
+        # Saving a month that already has a target replaces it (the view
+        # upserts), so the one-per-month rule must not reject the form.
+        pass
 
     def clean(self):
         data = super().clean()

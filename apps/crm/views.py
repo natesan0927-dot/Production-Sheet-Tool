@@ -819,19 +819,23 @@ def pipeline(request):
 
 @role_required(Role.SALESPERSON)
 def targets(request):
-    if request.method == "POST":
-        form = SalesTargetForm(request.POST, user=request.user)
-        if form.is_valid():
-            salesperson = request.user if request.user.role == Role.SALESPERSON else form.cleaned_data["salesperson"]
-            SalesTarget.objects.update_or_create(
-                salesperson=salesperson,
-                month=form.cleaned_data["month"].replace(day=1),
-                defaults={"amount": form.cleaned_data["amount"]},
-            )
-            messages.success(request, "Target saved.")
-            return redirect("crm:targets")
-    else:
-        form = SalesTargetForm(user=request.user)
+    # Only the Super Admin sets targets; salespeople just see theirs.
+    form = None
+    if request.user.is_super_admin:
+        if request.method == "POST":
+            form = SalesTargetForm(request.POST)
+            if form.is_valid():
+                SalesTarget.objects.update_or_create(
+                    salesperson=form.cleaned_data["salesperson"],
+                    month=form.cleaned_data["month"].replace(day=1),
+                    defaults={"amount": form.cleaned_data["amount"]},
+                )
+                messages.success(request, f"Target saved for {form.cleaned_data['salesperson']}.")
+                return redirect("crm:targets")
+        else:
+            form = SalesTargetForm()
+    elif request.method == "POST":
+        return HttpResponseForbidden("Only the Super Admin can set sales targets.")
 
     target_qs = SalesTarget.objects.select_related("salesperson")
     if request.user.role == Role.SALESPERSON:

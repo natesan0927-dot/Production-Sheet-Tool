@@ -6,9 +6,9 @@
 <h4 class="mb-3">Sales Target</h4>
 
 <div class="row g-3">
-  <div class="col-lg-5">
+  <div class="{% if form %}col-lg-5{% else %}col-12{% endif %}">
     <div class="card h-100">
-      <div class="card-header">This month</div>
+      <div class="card-header">This month{% if user.is_super_admin and current %} — {{ current.salesperson }}{% endif %}</div>
       <div class="card-body text-center">
         {% if current %}
           <div class="tw-pie" style="--pct: {{ current.percent }}">
@@ -29,19 +29,21 @@
     </div>
   </div>
 
+  {% if form %}
   <div class="col-lg-7">
     <div class="card h-100">
       <div class="card-header">Set target</div>
       <div class="card-body">
         <form method="post" class="row g-3">
           {% csrf_token %}
-          {% if not user.role == 'salesperson' %}
+          {% if form.non_field_errors %}
+            <div class="col-12"><div class="alert alert-danger py-2 small mb-0">{{ form.non_field_errors.0 }}</div></div>
+          {% endif %}
           <div class="col-md-4">
             <label class="form-label">Salesperson</label>
             {{ form.salesperson }}
             {% if form.salesperson.errors %}<div class="text-danger small">{{ form.salesperson.errors.0 }}</div>{% endif %}
           </div>
-          {% endif %}
           <div class="col-md-4">
             <label class="form-label">Select month</label>
             {{ form.month }}
@@ -57,6 +59,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 
 <div class="card mt-3">
