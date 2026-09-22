@@ -337,9 +337,25 @@ tr[onclick]:hover td { background-color: #FBF6E7; }
 .table-sticky thead th { position: sticky; top: 0; background: #F6F7FC; z-index: 1; }
 
 /* Forms */
-.form-control, .form-select { border-color: var(--tw-border); font-size: .93rem; padding: .5rem .8rem; }
+/* Form controls get their own, darker outline: the general --tw-border is a
+   card divider colour and all but disappears around an input or checkbox.
+   #7D879E clears the 3:1 contrast minimum on both white and the page grey. */
+:root { --tw-input-border: #7D879E; --tw-input-border-hover: #5B6580; }
+
+.form-control, .form-select { border-color: var(--tw-input-border); font-size: .93rem; padding: .5rem .8rem; }
+.form-control:hover, .form-select:hover { border-color: var(--tw-input-border-hover); }
 .form-control-sm, .form-select-sm { font-size: .88rem; padding: .42rem .7rem; }
 .form-control:focus, .form-select:focus { border-color: var(--tw-gold); }
+.input-group-text { border-color: var(--tw-input-border); }
+
+.form-check-input {
+  border: 1.5px solid var(--tw-input-border);
+  width: 1.1em; height: 1.1em;
+}
+.form-check-input:hover { border-color: var(--tw-input-border-hover); }
+.form-check-input:checked { background-color: var(--tw-gold-600); border-color: var(--tw-gold-600); }
+.form-check-input:focus { border-color: var(--tw-gold); box-shadow: 0 0 0 .2rem rgba(217, 175, 62, .3); }
+.form-check-input:disabled { opacity: .55; }
 .form-label { font-weight: 700; color: var(--tw-ink-soft); font-size: .87rem; }
 
 /* Timeline */
