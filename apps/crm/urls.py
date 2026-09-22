@@ -10,6 +10,7 @@ urlpatterns = [
     path("leads/", views.lead_list, name="lead_list"),
     path("leads/new/", views.lead_create, name="lead_create"),
     path("leads/<int:pk>/", views.lead_detail, name="lead_detail"),
+    path("leads/<int:pk>/edit/", views.lead_edit, name="lead_edit"),
     path("pipeline/", views.pipeline, name="pipeline"),
     path("targets/", views.targets, name="targets"),
     path("follow-ups/", views.followups, name="followups"),

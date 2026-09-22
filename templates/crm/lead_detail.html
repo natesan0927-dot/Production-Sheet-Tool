@@ -12,6 +12,9 @@
     </div>
   </div>
   <div class="text-end">
+    {% if user.is_super_admin %}
+      <a href="{% url 'crm:lead_edit' lead.pk %}" class="btn btn-sm btn-outline-secondary mb-2"><i class="fa-solid fa-pen me-1"></i>Edit Lead</a><br>
+    {% endif %}
     {% if lead.status == 'won' %}<span class="badge text-bg-success fs-6">Order Confirmed</span>
     {% elif lead.status == 'lost' %}<span class="badge text-bg-danger fs-6">Lost</span>
     {% else %}<span class="badge text-bg-secondary fs-6">Open</span>{% endif %}

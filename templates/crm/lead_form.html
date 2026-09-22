@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Add Lead{% endblock %}
+{% block title %}{% if lead %}Edit Lead{% else %}Add Lead{% endif %}{% endblock %}
 
 {% block content %}
-<h4 class="mb-3">Add Lead</h4>
+<h4 class="mb-3">{% if lead %}Edit Lead — {{ lead.lead_number }}{% else %}Add Lead{% endif %}</h4>
 <div class="card">
   <div class="card-body">
     <form method="post">
@@ -18,7 +18,7 @@
       </div>
       <div class="mt-4">
         <button class="btn btn-primary">Save Lead</button>
-        <a href="{% url 'crm:lead_list' %}" class="btn btn-link">Cancel</a>
+        <a href="{% if lead %}{{ lead.get_absolute_url }}{% else %}{% url 'crm:lead_list' %}{% endif %}" class="btn btn-link">Cancel</a>
       </div>
     </form>
   </div>

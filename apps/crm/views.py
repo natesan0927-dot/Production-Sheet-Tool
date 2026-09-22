@@ -191,6 +191,20 @@ def lead_create(request):
     return render(request, "crm/lead_form.html", {"form": form})
 
 
+@role_required()  # no roles listed means Super Admin only
+def lead_edit(request, pk):
+    lead = get_object_or_404(Lead, pk=pk)
+    if request.method == "POST":
+        form = LeadForm(request.POST, instance=lead, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Lead updated.")
+            return redirect(lead.get_absolute_url())
+    else:
+        form = LeadForm(instance=lead, user=request.user)
+    return render(request, "crm/lead_form.html", {"form": form, "lead": lead})
+
+
 @login_required
 def lead_detail(request, pk):
     lead = get_lead(request, pk)
