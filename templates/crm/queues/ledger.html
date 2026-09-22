@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ lead.customer_name }} — Ledger{% endblock %}
+
+{% block content %}
+<a href="{% url 'crm:queue_accounts' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Accounts</a>
+<h4 class="mb-1 mt-1">{{ lead.customer_name }}</h4>
+<p class="text-muted small mb-3">
+  {{ lead.lead_number }} · {{ lead.site_location }}
+  {% if lead.quotation_number %} · Quotation {{ lead.quotation_number }}{% endif %}
+</p>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="card stat-card tone-navy"><div class="card-body">
+      <div><div class="stat-value">{{ lead.order_value|rupees }}</div><div class="stat-label">Order Value</div></div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card tone-emerald"><div class="card-body">
+      <div><div class="stat-value">{{ lead.collected|rupees }}</div><div class="stat-label">Received</div></div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card tone-rose"><div class="card-body">
+      <div><div class="stat-value">{{ lead.balance_amount|rupees }}</div><div class="stat-label">Balance</div></div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card tone-amber"><div class="card-body">
+      <div>
+        <div class="stat-value" style="font-size:1.1rem">{{ lead.invoice_date|date:"d M Y"|default:"Not invoiced" }}</div>
+        <div class="stat-label">Invoice {{ lead.invoice_number|default:"—" }}</div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-book me-2"></i>Ledger</div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Date</th><th>Particulars</th><th class="text-end">Received</th><th class="text-end">Balance</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td class="text-nowrap">{{ row.date|date:"d M Y"|default:"—" }}</td>
+              <td>
+                {{ row.label }}
+                {% if row.entry.file %}
+                  <a href="{{ row.entry.file.url }}" target="_blank" rel="noopener" class="badge bg-light text-decoration-none ms-1">
+                    <i class="fa-solid fa-paperclip me-1"></i>Proof
+                  </a>
+                {% endif %}
+                {% if row.entry.recorded_by %}<span class="text-muted small d-block">posted by {{ row.entry.recorded_by }}</span>{% endif %}
+              </td>
+              <td class="text-end">{{ row.amount|rupees:2 }}</td>
+              <td class="text-end fw-semibold">{{ row.balance|rupees:2 }}</td>
+              <td class="text-end">
+                {% if row.entry %}
+                <form method="post" action="{% url 'crm:payment_delete' row.entry.pk %}"
+                      onsubmit="return confirm('Remove this payment entry?')">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-link text-danger" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr>
+              <th colspan="2">Outstanding</th>
+              <th></th>
+              <th class="text-end">{{ lead.balance_amount|rupees:2 }}</th>
+              <th></th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="fa-solid fa-plus me-2"></i>Post a payment</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% for field in payment_form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-primary w-100">Post entry</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><i class="fa-solid fa-pen me-2"></i>Correct the figures</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {% for field in ledger_form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-outline-primary w-100" name="save_figures" value="1">Save changes</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

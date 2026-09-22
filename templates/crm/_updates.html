@@ -1,0 +1,20 @@
+{% comment %}Today's updates, already filtered to whoever is signed in.{% endcomment %}
+<div class="card h-100">
+  <div class="card-header"><i class="fa-solid fa-bolt me-2"></i>Updates for the day</div>
+  <div class="list-group list-group-flush">
+    {% for update in updates %}
+      <a href="{% if update.lead %}{{ update.lead.get_absolute_url }}{% else %}{% url 'crm:todo_list' %}{% endif %}"
+         class="list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-2">
+        <span>
+          {{ update.message }}
+          {% if update.lead %}<span class="text-muted small d-block">{{ update.lead.lead_number }}</span>{% endif %}
+        </span>
+        <span class="text-muted small text-nowrap">{{ update.created_at|time:"H:i" }}</span>
+      </a>
+    {% empty %}
+      <div class="text-center text-muted py-5">
+        <i class="fa-regular fa-bell-slash fs-3 d-block mb-2 opacity-50"></i>No updates today.
+      </div>
+    {% endfor %}
+  </div>
+</div>

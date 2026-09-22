@@ -10,12 +10,12 @@
     </li>
   </ul>
   {% for upload in lead.measurement_documents %}
-    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.get_kind_display }}</a>
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.get_kind_display }}</a>
   {% endfor %}
 {% endif %}
 
 {% if stage.state == 'current' and stage.can_act %}
-  <a href="{% url 'crm:caf_download' lead.pk %}" class="btn btn-outline-primary mb-3">
+  <a href="{% url 'crm:caf_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-outline-primary mb-3">
     <i class="fa-solid fa-file-pdf me-1"></i>Download CAF
   </a>
   <p class="text-muted small">Get the CAF signed by the client, then upload it back along with the final measurement.</p>

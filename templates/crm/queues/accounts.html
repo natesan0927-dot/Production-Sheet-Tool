@@ -1,19 +1,35 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Confirmed Orders{% endblock %}
+{% block title %}Accounts{% endblock %}
 
 {% block content %}
-<h4 class="mb-1">Confirmed Orders</h4>
-<p class="text-muted small mb-3">Financial details sent to accounts when an order is confirmed.</p>
+<h4 class="mb-1">Accounts</h4>
+<p class="text-muted small mb-3">Confirmed orders. Open one to post payments against its ledger.</p>
 
-<div class="tw-stats mb-3">
-  <div class="tw-stat">
-    <span class="tw-stat-value">{{ totals.value|default:0|rupees }}</span>
-    <span class="tw-stat-label">Total Order Value</span>
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card stat-card tone-navy">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+        <div><div class="stat-value">{{ totals.value|default:0|rupees }}</div><div class="stat-label">Total Order Value</div></div>
+      </div>
+    </div>
   </div>
-  <div class="tw-stat tw-stat-success">
-    <span class="tw-stat-value">{{ totals.advance|default:0|rupees }}</span>
-    <span class="tw-stat-label">Advance Received</span>
+  <div class="col-md-4">
+    <div class="card stat-card tone-emerald">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+        <div><div class="stat-value">{{ totals.advance|default:0|rupees }}</div><div class="stat-label">Total Advance Received</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card tone-rose">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+        <div><div class="stat-value">{{ totals.outstanding|default:0|rupees }}</div><div class="stat-label">Total Outstanding</div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -21,21 +37,28 @@
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
-        <tr><th>Customer</th><th>Quotation</th><th>Order Value</th><th>Advance</th><th>Balance</th><th>Delivery Date</th><th>Salesperson</th></tr>
+        <tr>
+          <th>#</th><th>Name</th><th>Quotation No.</th><th>Order Value</th>
+          <th>Advance</th><th>Balance</th><th>Invoice Date</th><th>Salesperson</th>
+        </tr>
       </thead>
       <tbody>
         {% for lead in leads %}
-        <tr onclick="window.location='{{ lead.get_absolute_url }}'" style="cursor:pointer">
-          <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.site_location }}</div></td>
+        <tr onclick="window.location='{% url 'crm:ledger' lead.pk %}'" style="cursor:pointer">
+          <td class="text-muted">{{ forloop.counter }}</td>
+          <td><strong>{{ lead.customer_name }}</strong></td>
           <td>{{ lead.quotation_number|default:"—" }}</td>
-          <td>{{ lead.order_value|rupees:2 }}</td>
-          <td>{{ lead.advance_received|rupees:2 }}</td>
-          <td><strong>{{ lead.balance_amount|rupees:2 }}</strong></td>
-          <td>{{ lead.committed_delivery_date|date:"d M Y" }}</td>
+          <td>{{ lead.order_value|rupees }}</td>
+          <td>{{ lead.advance_received|rupees }}</td>
+          <td>
+            <strong>{{ lead.balance_amount|rupees }}</strong>
+            {% if lead.is_outstanding %}<span class="badge bg-danger ms-1">Outstanding</span>{% endif %}
+          </td>
+          <td>{{ lead.invoice_date|date:"d M Y"|default:"—" }}</td>
           <td>{{ lead.assigned_to }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No confirmed orders yet.</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">No confirmed orders yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

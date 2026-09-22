@@ -1,14 +1,14 @@
 {% if lead.warranty_signed_at %}
   <p class="mb-2 text-success"><i class="fa-solid fa-check me-1"></i>Signed warranty certificate uploaded on {{ lead.warranty_signed_at|date:"d M Y" }}</p>
   {% for upload in lead.warranty_files %}
-    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% endfor %}
 {% endif %}
 
 {% if lead.completed_at %}
   <p class="mb-0"><span class="badge text-bg-primary">Project saved as completed on {{ lead.completed_at|date:"d M Y" }}</span></p>
 {% elif stage.state == 'current' and stage.can_act %}
-  <a href="{% url 'crm:warranty_download' lead.pk %}" class="btn btn-outline-primary mb-3">
+  <a href="{% url 'crm:warranty_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-outline-primary mb-3">
     <i class="fa-solid fa-file-pdf me-1"></i>Download Warranty Certificate
   </a>
   <p class="text-muted small">Get the certificate signed, upload it back, then save the project.</p>

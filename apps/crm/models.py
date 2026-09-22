@@ -1,3 +1,4 @@
+from datetime import time
 from decimal import Decimal
 
 from django.conf import settings
@@ -163,10 +164,21 @@ class Lead(models.Model):
 
     # --- derived values -----------------------------------------------------
     @property
+    def collected(self):
+        """Advance plus everything posted to the ledger since."""
+        posted = self.payments.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+        return (self.advance_received or Decimal("0")) + posted
+
+    @property
     def balance_amount(self):
         if self.order_value is None:
             return None
-        return self.order_value - (self.advance_received or Decimal("0"))
+        return self.order_value - self.collected
+
+    @property
+    def is_outstanding(self):
+        """Money only counts as outstanding once the customer has been invoiced."""
+        return bool(self.invoice_date) and (self.balance_amount or Decimal("0")) > 0
 
     @property
     def checklist(self):
@@ -232,12 +244,20 @@ class LeadFile(models.Model):
         return self.file.name.rsplit("/", 1)[-1]
 
 
+def nine_am():
+    return time(9, 0)
+
+
 class FollowUp(models.Model):
+    # A follow-up left untouched by the end of the working day is overdue.
+    CUTOFF_HOUR = 18
+
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="followups")
     date = models.DateField(default=timezone.localdate)
-    time = models.TimeField(null=True, blank=True)
+    time = models.TimeField(default=nine_am)
     note = models.CharField(max_length=255, blank=True)
     done = models.BooleanField(default=False)
+    done_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -249,7 +269,17 @@ class FollowUp(models.Model):
 
     @property
     def is_overdue(self):
-        return not self.done and self.date < timezone.localdate()
+        if self.done:
+            return False
+        now = timezone.localtime()
+        if self.date < now.date():
+            return True
+        return self.date == now.date() and now.hour >= self.CUTOFF_HOUR
+
+    @property
+    def can_be_completed(self):
+        """Closed leads have their follow-ups closed out with them."""
+        return self.lead.status == Lead.Status.OPEN
 
 
 class SalesTarget(models.Model):
@@ -288,6 +318,24 @@ class SalesTarget(models.Model):
         if not self.amount:
             return 0
         return min(int(self.achieved / self.amount * 100), 100)
+
+
+class Payment(models.Model):
+    """A line in a lead's payment ledger, posted by the accounts team."""
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="payments")
+    paid_on = models.DateField(default=timezone.localdate)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    remarks = models.CharField(max_length=255, blank=True)
+    file = models.FileField("Proof / receipt", upload_to="payments/%Y/%m/", blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["paid_on", "id"]
+
+    def __str__(self):
+        return f"{self.lead.customer_name} — {self.amount}"
 
 
 class Task(models.Model):

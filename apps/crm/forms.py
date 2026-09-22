@@ -1,9 +1,11 @@
+from datetime import time
+
 from django import forms
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
 
-from .models import FollowUp, Lead, SalesTarget, Task
+from .models import FollowUp, Lead, Payment, SalesTarget, Task
 
 
 class BootstrapMixin:
@@ -210,12 +212,30 @@ class FollowUpForm(BootstrapMixin, forms.ModelForm):
         fields = ["date", "time", "note"]
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
-            "time": forms.TimeInput(attrs={"type": "time"}),
+            "time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["date"].initial = timezone.localdate()
+        self.fields["time"].initial = time(9, 0)
+
+
+class PaymentForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ["paid_on", "amount", "remarks", "file"]
+        widgets = {"paid_on": forms.DateInput(attrs={"type": "date"})}
+        labels = {"paid_on": "Payment date"}
+
+
+class LedgerForm(BootstrapMixin, forms.ModelForm):
+    """Lets accounts correct the headline figures on a confirmed order."""
+
+    class Meta:
+        model = Lead
+        fields = ["order_value", "advance_received", "invoice_number", "invoice_date"]
+        widgets = {"invoice_date": forms.DateInput(attrs={"type": "date"})}
 
 
 class TaskForm(BootstrapMixin, forms.ModelForm):

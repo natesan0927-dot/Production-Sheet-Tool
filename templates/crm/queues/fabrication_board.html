@@ -32,8 +32,11 @@
         <form method="post" action="{% url 'crm:fabrication_start' lead.pk %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.path }}">
-          <button class="btn btn-primary w-100">Move to Under Production</button>
+          <button class="btn btn-primary w-100" {% if not unlocked %}disabled{% endif %}>Move to Under Production</button>
         </form>
+        {% if waiting_on %}
+          <p class="text-muted small mt-2 mb-0"><i class="fa-regular fa-hourglass-half me-1"></i>Waiting on {{ waiting_on }}.</p>
+        {% endif %}
         {% endif %}
       </div>
     </div>
@@ -49,6 +52,8 @@
       <div class="card-body">
         {% if lead.fabrication_column == 'future' %}
           <p class="text-muted mb-0"><i class="fa-solid fa-lock me-1"></i>Opens once this order moves into production.</p>
+        {% elif not unlocked %}
+          <p class="text-muted mb-0"><i class="fa-solid fa-lock me-1"></i>Waiting on {{ waiting_on }}.</p>
         {% else %}
           <form method="post" action="{% url 'crm:fabrication_checklist' lead.pk %}">
             {% csrf_token %}

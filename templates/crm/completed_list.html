@@ -19,7 +19,7 @@
           <td class="text-muted small">{{ lead.completed_at|date:"d M Y" }}</td>
           <td>
             {% for upload in lead.uploads.all %}
-              <a href="{{ upload.file.url }}" class="badge text-bg-light text-decoration-none" title="{{ upload.filename }}">{{ upload.get_kind_display }}</a>
+              <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="badge text-bg-light text-decoration-none" title="{{ upload.filename }}">{{ upload.get_kind_display }}</a>
             {% endfor %}
           </td>
         </tr>

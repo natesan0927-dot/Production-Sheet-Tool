@@ -2,7 +2,7 @@
 <div class="tw-subsection">
   <p class="fw-semibold mb-1">Documents from the measurement team</p>
   {% for upload in lead.measurement_documents %}
-    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.get_kind_display }}</a>
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.get_kind_display }}</a>
   {% endfor %}
 </div>
 {% endif %}
@@ -21,7 +21,7 @@
     <span class="text-muted small ms-2">uploaded by {{ lead.production_sheet_by|default:"—" }} on {{ lead.production_sheet_at|date:"d M Y" }}</span>
   </p>
   {% for upload in lead.production_sheet_files %}
-    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% endfor %}
 
   {% if lead.production_approved_at %}

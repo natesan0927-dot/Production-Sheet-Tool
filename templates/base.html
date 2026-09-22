@@ -39,7 +39,7 @@
           {% url urlname as tab_url %}
           <a class="nav-link {% if request.path == tab_url %}active{% endif %}" href="{{ tab_url }}">
             <i class="fa-solid {{ icon }}"></i>{{ label }}
-            {% if pending %}<span class="nav-count">{{ pending }}</span>{% endif %}
+            {% if pending %}<span class="nav-count">({{ pending }})</span>{% endif %}
           </a>
         {% endfor %}
       </div>

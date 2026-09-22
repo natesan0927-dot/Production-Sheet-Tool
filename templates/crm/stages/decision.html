@@ -2,7 +2,7 @@
 {% if lead.quotation_uploaded_at %}
   <p class="mb-2"><strong>Quotation {{ lead.quotation_number }}</strong></p>
   {% for upload in lead.quotation_files %}
-    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% endfor %}
 {% endif %}
 
@@ -44,7 +44,7 @@
           {% if followup.note %}<span class="text-muted small ms-2">{{ followup.note }}</span>{% endif %}
           {% if followup.is_overdue %}<span class="badge text-bg-danger ms-2">Overdue</span>{% endif %}
         </span>
-        {% if not followup.done %}
+        {% if not followup.done and followup.can_be_completed %}
         <form method="post" action="{% url 'crm:followup_done' followup.pk %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ lead.get_absolute_url }}">
@@ -57,6 +57,10 @@
     {% endfor %}
   </ul>
 
+  <p class="text-muted small mb-2">
+    Scheduling a new follow-up marks the current one completed — only one runs at a time.
+    A follow-up left untouched past 6pm on its day is flagged overdue.
+  </p>
   <form method="post" action="{% url 'crm:followup_add' lead.pk %}" class="row g-2 align-items-end">
     {% csrf_token %}
     <div class="col-sm-3"><label class="form-label small mb-0">Date</label>{{ followup_form.date }}</div>

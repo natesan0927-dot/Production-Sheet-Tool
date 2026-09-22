@@ -25,12 +25,13 @@
           <td class="text-muted small">{{ followup.note|default:"—" }}</td>
           <td>{{ followup.lead.assigned_to }}</td>
           <td class="text-end">
-            {% if not followup.done %}
+            {% if followup.done %}<span class="badge bg-success">Completed</span>
+            {% elif followup.can_be_completed %}
             <form method="post" action="{% url 'crm:followup_done' followup.pk %}">
               {% csrf_token %}
               <button class="btn btn-sm btn-outline-success">Mark done</button>
             </form>
-            {% else %}<span class="badge text-bg-success">Done</span>{% endif %}
+            {% else %}<span class="badge bg-secondary">Lead closed</span>{% endif %}
           </td>
         </tr>
         {% empty %}

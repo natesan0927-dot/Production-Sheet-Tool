@@ -50,7 +50,7 @@ def _stamp(template, page_values, filename):
     output = BytesIO()
     writer.write(output)
     response = HttpResponse(output.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 
 

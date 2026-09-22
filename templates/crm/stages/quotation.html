@@ -1,7 +1,7 @@
 <div class="tw-subsection">
   <p class="fw-semibold mb-1">Measurements received</p>
   {% for upload in lead.rough_measurement_files %}
-    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% empty %}
     <p class="text-muted mb-1">No file uploaded.</p>
   {% endfor %}
@@ -17,7 +17,7 @@
     <span class="text-muted small ms-2">uploaded by {{ lead.quotation_uploaded_by|default:"—" }} on {{ lead.quotation_uploaded_at|date:"d M Y" }}</span>
   </p>
   {% for upload in lead.quotation_files %}
-    <a href="{{ upload.file.url }}" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% endfor %}
 {% endif %}
 

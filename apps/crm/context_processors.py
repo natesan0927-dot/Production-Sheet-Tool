@@ -23,7 +23,7 @@ QUOTATION_TABS = [
 ]
 
 ACCOUNTS_TABS = [
-    ("Confirmed Orders", "crm:queue_accounts", "fa-indian-rupee-sign", None),
+    ("Accounts", "crm:queue_accounts", "fa-indian-rupee-sign", None),
 ]
 
 PRODUCTION_TABS = [
@@ -40,10 +40,13 @@ ADMIN_TABS = [
 ]
 
 TODO_TABS = [
+    ("Dashboard", "crm:dashboard", "fa-gauge-high", None),
     ("To-Do", "crm:todo_list", "fa-list-check", "todo"),
 ]
 
 TODO_GROUP = ("My Work", "logistics", TODO_TABS)
+# The salesperson already has a Dashboard tab of their own.
+SALES_TODO_GROUP = ("My Work", "logistics", TODO_TABS[1:])
 
 # (section heading, sidebar accent colour, tabs)
 SALES_GROUP = ("CRM & Sales", "sales", SALES_TABS)
@@ -55,7 +58,7 @@ FIELD_GROUP = ("Handover", "aftersales", FIELD_MANAGER_TABS)
 ADMIN_GROUP = ("Administration", "insights", ADMIN_TABS)
 
 ROLE_GROUPS = {
-    Role.SALESPERSON: [SALES_GROUP, TODO_GROUP],
+    Role.SALESPERSON: [SALES_GROUP, SALES_TODO_GROUP],
     Role.MEASUREMENT: [MEASUREMENT_GROUP, TODO_GROUP],
     Role.QUOTATION: [QUOTATION_GROUP, TODO_GROUP],
     Role.ACCOUNTS: [ACCOUNTS_GROUP, TODO_GROUP],
@@ -69,10 +72,13 @@ ROLE_GROUPS = {
         ACCOUNTS_GROUP,
         PRODUCTION_GROUP,
         FIELD_GROUP,
-        TODO_GROUP,
+        SALES_TODO_GROUP,
         ADMIN_GROUP,
     ],
 }
+
+
+ALL_QUEUE_KEYS = {"rough", "final", "validation", "quotation", "production", "fabrication", "warranty", "todo"}
 
 
 def _pending_counts(keys, user):

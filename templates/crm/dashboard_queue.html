@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="hero-banner mb-4">
+  <div class="hero-eyebrow small fw-bold text-uppercase mb-1">{{ role_label }}</div>
+  <h4 class="mb-1">Welcome back, {{ user.get_full_name|default:user.username }}</h4>
+  <div class="text-muted">Here is what is waiting on you.</div>
+</div>
+
+<div class="row g-3">
+  {% for card in cards %}
+  <div class="col-6 col-lg-3">
+    <a class="card stat-card {{ card.tone }} h-100" href="{{ card.url }}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid {{ card.icon }}"></i></div>
+        <div><div class="stat-value">{{ card.count }}</div><div class="stat-label">{{ card.label }}</div></div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+
+  {% if accounts_totals %}
+  <div class="col-6 col-lg-3">
+    <a class="card stat-card tone-navy h-100" href="{% url 'crm:queue_accounts' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+        <div><div class="stat-value">{{ accounts_totals.value|default:0|rupees }}</div><div class="stat-label">Order Value</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="card stat-card tone-emerald h-100" href="{% url 'crm:queue_accounts' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+        <div><div class="stat-value">{{ accounts_totals.advance|default:0|rupees }}</div><div class="stat-label">Advance Received</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a class="card stat-card tone-rose h-100" href="{% url 'crm:queue_accounts' %}">
+      <div class="card-body">
+        <div class="stat-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+        <div><div class="stat-value">{{ accounts_totals.outstanding|default:0|rupees }}</div><div class="stat-label">Outstanding</div></div>
+      </div>
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-7">{% include "crm/_updates.html" %}</div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-list-check me-2"></i>My to-do</span>
+        <a href="{% url 'crm:todo_list' %}" class="small">View all</a>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for task in my_todos %}
+          <a href="{% url 'crm:todo_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <span>
+              <strong>{{ task.title }}</strong>
+              {% if not task.is_self_assigned %}<span class="badge bg-secondary ms-2">from {{ task.assigned_by }}</span>{% endif %}
+            </span>
+            <span class="text-muted small">
+              {% if task.is_overdue %}<span class="badge bg-danger">Overdue</span>
+              {% elif task.due_date %}{{ task.due_date|date:"d M" }}{% endif %}
+            </span>
+          </a>
+        {% empty %}
+          <div class="text-center text-muted py-5">
+            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Nothing on your list.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

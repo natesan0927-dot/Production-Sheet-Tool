@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import wraps
 
 from django.contrib import messages
@@ -5,20 +6,24 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Sum
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role, User
 
 from . import stages as stage_flow
+from .context_processors import ALL_QUEUE_KEYS, _pending_counts
 from .forms import (
     CafFinalForm,
     ChecklistForm,
     DispatchForm,
     FollowUpForm,
     LeadForm,
+    LedgerForm,
     LostForm,
     MeasurementBoxForm,
+    PaymentForm,
     QuotationForm,
     RoughMeasurementForm,
     SalesTargetForm,
@@ -27,7 +32,7 @@ from .forms import (
     TaskForm,
     WonForm,
 )
-from .models import FollowUp, Lead, LeadFile, Notification, SalesTarget, Task
+from .models import FollowUp, Lead, LeadFile, Notification, Payment, SalesTarget, Task
 from .pdf import render_caf, render_warranty_certificate
 
 # ---------------------------------------------------------------------------
@@ -102,21 +107,54 @@ def save_upload(lead, kind, uploaded_file, user):
 # dashboard
 # ---------------------------------------------------------------------------
 
-ROLE_LANDING = {
-    Role.MEASUREMENT: "crm:queue_rough",
-    Role.QUOTATION: "crm:queue_quotations",
-    Role.ACCOUNTS: "crm:queue_accounts",
-    Role.PRODUCTION: "crm:queue_production",
-    Role.FIELD_MANAGER: "crm:queue_warranty",
-}
+def _queue_cards(user, counts):
+    """The tiles a non-sales role sees on their dashboard."""
+    by_role = {
+        Role.MEASUREMENT: [
+            ("Rough Measurements", "rough", "crm:queue_rough", "fa-ruler", "tone-navy"),
+            ("Final Measurements", "final", "crm:queue_final", "fa-ruler-combined", "tone-violet"),
+            ("Sheets to Validate", "validation", "crm:queue_production_validation", "fa-clipboard-check", "tone-amber"),
+        ],
+        Role.QUOTATION: [
+            ("Quotations Pending", "quotation", "crm:queue_quotations", "fa-file-invoice", "tone-amber"),
+        ],
+        Role.PRODUCTION: [
+            ("Sheets to Prepare", "production", "crm:queue_production", "fa-industry", "tone-navy"),
+            ("On the Factory Floor", "fabrication", "crm:queue_fabrication", "fa-screwdriver-wrench", "tone-violet"),
+        ],
+        Role.FIELD_MANAGER: [
+            ("Awaiting Handover", "warranty", "crm:queue_warranty", "fa-shield-halved", "tone-emerald"),
+        ],
+    }
+    return [
+        {"label": label, "count": counts.get(key, 0), "url": reverse(url), "icon": icon, "tone": tone}
+        for label, key, url, icon, tone in by_role.get(user.role, [])
+    ]
 
 
 @login_required
 def dashboard(request):
-    landing = ROLE_LANDING.get(request.user.role)
-    if landing:
-        return redirect(landing)
+    today = timezone.localdate()
+    # "Updates for the day" — only what was routed to this person's role.
+    updates = request.user.notifications.filter(created_at__date=today).select_related("lead")[:25]
 
+    if request.user.role in (Role.SALESPERSON, Role.SUPER_ADMIN):
+        return _sales_dashboard(request, updates)
+
+    counts = _pending_counts(ALL_QUEUE_KEYS, request.user)
+    return render(
+        request,
+        "crm/dashboard_queue.html",
+        {
+            "updates": updates,
+            "cards": _queue_cards(request.user, counts),
+            "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
+            "accounts_totals": _accounts_totals() if request.user.role == Role.ACCOUNTS else None,
+        },
+    )
+
+
+def _sales_dashboard(request, updates):
     leads = visible_leads(request.user)
     selected_salesperson = request.GET.get("salesperson") or ""
     if request.user.is_super_admin and selected_salesperson:
@@ -137,6 +175,7 @@ def dashboard(request):
         "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
         "salespeople": User.objects.filter(role=Role.SALESPERSON, is_active=True),
         "selected_salesperson": selected_salesperson,
+        "updates": updates,
     }
     return render(request, "crm/dashboard.html", context)
 
@@ -375,7 +414,7 @@ def stage_won(request, pk):
             lead.status = Lead.Status.WON
             lead.won_at = timezone.now()
             lead.save()
-            FollowUp.objects.filter(lead=lead, done=False).update(done=True)
+            FollowUp.objects.filter(lead=lead, done=False).update(done=True, done_at=timezone.now())
             notify(
                 lead,
                 f"Order confirmed — {lead.customer_name}: value {lead.order_value}, advance {lead.advance_received}, balance {lead.balance_amount}",
@@ -403,7 +442,7 @@ def stage_lost(request, pk):
             lead.status = Lead.Status.LOST
             lead.lost_at = timezone.now()
             lead.save()
-            FollowUp.objects.filter(lead=lead, done=False).update(done=True)
+            FollowUp.objects.filter(lead=lead, done=False).update(done=True, done_at=timezone.now())
             messages.info(request, "Lead marked as lost and moved to Lost Opportunities.")
             return redirect("crm:lost_opportunities")
     else:
@@ -474,6 +513,10 @@ def stage_production_sheet(request, pk):
         messages.error(request, "Choose the production sheet file to upload.")
         return stage_redirect(lead, stage_flow.PRODUCTION)
 
+    # The superseded sheet goes, so nobody works from the wrong drawing.
+    for stale in lead.production_sheet_files:
+        stale.file.delete(save=False)
+        stale.delete()
     save_upload(lead, LeadFile.Kind.PRODUCTION_SHEET, form.cleaned_data["file"], request.user)
     lead.production_sheet_at = timezone.now()
     lead.production_sheet_by = request.user
@@ -686,11 +729,18 @@ def followup_add(request, pk):
     lead = get_lead(request, pk)
     form = FollowUpForm(request.POST)
     if form.is_valid():
+        # Only one follow-up runs at a time — scheduling the next closes the last.
+        superseded = FollowUp.objects.filter(lead=lead, done=False).update(
+            done=True, done_at=timezone.now()
+        )
         followup = form.save(commit=False)
         followup.lead = lead
         followup.created_by = request.user
         followup.save()
-        messages.success(request, "Follow-up scheduled.")
+        if superseded:
+            messages.success(request, "Follow-up scheduled; the previous one was marked completed.")
+        else:
+            messages.success(request, "Follow-up scheduled.")
     else:
         messages.error(request, form.errors.as_text())
     return redirect(request.POST.get("next") or lead.get_absolute_url())
@@ -702,8 +752,12 @@ def followup_done(request, pk):
     followup = get_object_or_404(FollowUp.objects.select_related("lead"), pk=pk)
     if request.user.role == Role.SALESPERSON and followup.lead.assigned_to_id != request.user.id:
         raise Http404
+    if not followup.can_be_completed:
+        messages.error(request, "This lead is already closed, so its follow-ups are closed with it.")
+        return redirect(request.POST.get("next") or "crm:followups")
     followup.done = True
-    followup.save(update_fields=["done"])
+    followup.done_at = timezone.now()
+    followup.save(update_fields=["done", "done_at"])
     return redirect(request.POST.get("next") or "crm:followups")
 
 
@@ -827,11 +881,83 @@ def queue_quotations(request):
     )
 
 
+def _accounts_totals():
+    leads = Lead.objects.filter(status=Lead.Status.WON).prefetch_related("payments")
+    totals = leads.aggregate(value=Sum("order_value"), advance=Sum("advance_received"))
+    totals["outstanding"] = sum(
+        (lead.balance_amount or Decimal("0")) for lead in leads if lead.is_outstanding
+    )
+    return totals
+
+
 @role_required(Role.ACCOUNTS)
 def queue_accounts(request):
-    leads = Lead.objects.filter(status=Lead.Status.WON).select_related("assigned_to")
-    totals = leads.aggregate(value=Sum("order_value"), advance=Sum("advance_received"))
-    return render(request, "crm/queues/accounts.html", {"leads": leads, "totals": totals})
+    leads = Lead.objects.filter(status=Lead.Status.WON).select_related("assigned_to").prefetch_related("payments")
+    return render(request, "crm/queues/accounts.html", {"leads": leads, "totals": _accounts_totals()})
+
+
+@role_required(Role.ACCOUNTS)
+def ledger(request, pk):
+    """A confirmed order's payment ledger — post entries and correct the figures."""
+    lead = get_object_or_404(Lead.objects.prefetch_related("payments"), pk=pk, status=Lead.Status.WON)
+    payment_form = PaymentForm()
+    ledger_form = LedgerForm(instance=lead)
+
+    if request.method == "POST":
+        if "save_figures" in request.POST:
+            ledger_form = LedgerForm(request.POST, instance=lead)
+            if ledger_form.is_valid():
+                ledger_form.save()
+                messages.success(request, "Order figures updated.")
+                return redirect("crm:ledger", pk=lead.pk)
+        else:
+            payment_form = PaymentForm(request.POST, request.FILES)
+            if payment_form.is_valid():
+                payment = payment_form.save(commit=False)
+                payment.lead = lead
+                payment.recorded_by = request.user
+                payment.save()
+                messages.success(request, "Payment entry posted.")
+                return redirect("crm:ledger", pk=lead.pk)
+
+    # Running balance down the ledger, starting from the advance.
+    running = lead.advance_received or Decimal("0")
+    rows = [
+        {
+            "date": lead.won_at,
+            "label": "Advance received on order confirmation",
+            "amount": running,
+            "balance": (lead.order_value or Decimal("0")) - running,
+            "entry": None,
+        }
+    ]
+    for payment in lead.payments.all():
+        running += payment.amount
+        rows.append(
+            {
+                "date": payment.paid_on,
+                "label": payment.remarks or "Payment received",
+                "amount": payment.amount,
+                "balance": (lead.order_value or Decimal("0")) - running,
+                "entry": payment,
+            }
+        )
+
+    return render(
+        request,
+        "crm/queues/ledger.html",
+        {"lead": lead, "rows": rows, "payment_form": payment_form, "ledger_form": ledger_form},
+    )
+
+
+@role_required(Role.ACCOUNTS)
+@require_POST
+def payment_delete(request, pk):
+    payment = get_object_or_404(Payment, pk=pk)
+    lead_pk = payment.lead_id
+    payment.delete()
+    messages.success(request, "Payment entry removed.")
+    return redirect("crm:ledger", pk=lead_pk)
 
 
 @role_required(Role.PRODUCTION)
@@ -846,23 +972,35 @@ def queue_production(request):
 
 @role_required(Role.PRODUCTION)
 def queue_fabrication(request):
-    leads = Lead.objects.filter(
-        production_approved_at__isnull=False, dispatched_at__isnull=True
-    ).select_related("assigned_to")
+    leads = Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=True).select_related("assigned_to")
     return render(request, "crm/queues/fabrication_list.html", {"leads": leads})
 
 
 @role_required(Role.PRODUCTION)
 def fabrication_detail(request, pk):
-    lead = get_lead(request, pk)
-    if stage_flow.current_stage_key(lead) != stage_flow.FABRICATION:
-        messages.error(request, "That lead is not at the site fabrication stage.")
-        return redirect("crm:queue_fabrication")
+    lead = get_object_or_404(Lead, pk=pk, status=Lead.Status.WON)
+    # The board is readable from the moment an order is won, but nothing can be
+    # moved along until the measurement and production steps before it are done.
     return render(
         request,
         "crm/queues/fabrication_board.html",
-        {"lead": lead, "checklist_form": ChecklistForm(instance=lead)},
+        {
+            "lead": lead,
+            "checklist_form": ChecklistForm(instance=lead),
+            "unlocked": lead.production_approved_at is not None,
+            "waiting_on": _fabrication_waiting_on(lead),
+        },
     )
+
+
+def _fabrication_waiting_on(lead):
+    if not (lead.caf_signed_at and lead.final_measurement_at):
+        return "the measurement staff to upload the signed CAF and final measurement"
+    if not lead.production_sheet_at:
+        return "the production team to upload the production sheet"
+    if not lead.production_approved_at:
+        return "the measurement staff to approve the production sheet"
+    return None
 
 
 @role_required(Role.FIELD_MANAGER)
