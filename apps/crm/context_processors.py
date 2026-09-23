@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from apps.accounts.models import Role
 
+from . import guide as guide_content
 from .models import FollowUp, Lead, Notification, ServiceComplaint, Task
 
 SALES_TABS = [
@@ -46,6 +47,7 @@ ADMIN_TABS = [
 TODO_TABS = [
     ("Dashboard", "crm:dashboard", "fa-gauge-high", None),
     ("To-Do", "crm:todo_list", "fa-list-check", "todo"),
+    ("Guide", "crm:guide", "fa-circle-play", None),
 ]
 
 TODO_GROUP = ("My Work", "logistics", TODO_TABS)
@@ -194,6 +196,7 @@ def navigation(request):
             item = {
                 "label": label,
                 "url": url,
+                "url_name": urlname,
                 "icon": icon,
                 "pending": counts.get(key),
                 "active": request.path == url,
@@ -213,9 +216,16 @@ def navigation(request):
             "nav_groups": nav_groups,
             "role_label": user.get_role_display(),
             "unread_notifications": user.notifications.filter(read=False).count(),
-            "popup_notifications": _take_popups(user),
+            # The walkthrough plays once, on the first sign-in. It suppresses the
+            # pop-ups for that visit so the two don't talk over each other.
+            "show_intro": user.intro_seen_at is None,
+            "popup_notifications": [] if user.intro_seen_at is None else _take_popups(user),
+            # The tour runs across pages, so every page needs to know the steps.
+            "tour_steps": guide_content.tour_for(nav_groups),
         }
     )
+    if user.intro_seen_at is None:
+        context["intro"] = guide_content.intro_for(user)
     return context
 
 

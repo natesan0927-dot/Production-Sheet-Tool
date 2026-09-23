@@ -1,0 +1,71 @@
+{% load static %}
+{% comment %}
+The narrated intro. Rendered on the first sign-in, and again from the Guide tab.
+It only opens by itself when data-autostart is set — browsers will not let the
+voice start without a click, so the poster has a Play button.
+{% endcomment %}
+<div id="tw-walkthrough" class="tw-wt" hidden
+     {% if autostart %}data-autostart="1"{% endif %}
+     data-seen-url="{% url 'crm:guide_seen' %}"
+     data-shots="{% static 'guide/' %}">
+  <div class="tw-wt-panel" role="dialog" aria-modal="true" aria-label="{{ intro.headline }}">
+
+    <div class="tw-wt-bar">
+      <div>
+        <div class="tw-eyebrow">{{ intro.role_label }}</div>
+        <strong class="tw-wt-title">{{ intro.headline }}</strong>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-wt="skip">Skip</button>
+    </div>
+
+    <div class="tw-wt-stage">
+      <img class="tw-wt-shot" alt="" hidden>
+      <div class="tw-wt-shot-fallback"></div>
+      <div class="tw-wt-avatar">{% include "crm/_avatar.html" %}</div>
+      <div class="tw-wt-caption"></div>
+
+      {# Shown before the first play, and again at the end. #}
+      <div class="tw-wt-cover" data-wt-cover="start">
+        <div class="tw-wt-avatar tw-wt-avatar-lg">{% include "crm/_avatar.html" %}</div>
+        <h5 class="mb-1">{{ intro.headline }}</h5>
+        <p class="text-muted small mb-3">About a minute. You can stop at any point.</p>
+        <button type="button" class="btn btn-primary" data-wt="play">
+          <i class="fa-solid fa-play me-2"></i>Play the walkthrough
+        </button>
+      </div>
+
+      <div class="tw-wt-cover" data-wt-cover="end" hidden>
+        <div class="tw-wt-tick"><i class="fa-solid fa-check"></i></div>
+        <h5 class="mb-1">That's the tour of the software</h5>
+        <p class="text-muted small mb-3">Shall I walk you through your tabs one at a time?</p>
+        <div class="d-flex gap-2 flex-wrap justify-content-center">
+          <button type="button" class="btn btn-primary" data-wt="tour">
+            <i class="fa-solid fa-route me-2"></i>Show me around
+          </button>
+          <button type="button" class="btn btn-outline-secondary" data-wt="replay">Watch again</button>
+          <button type="button" class="btn btn-outline-secondary" data-wt="close">Not now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tw-wt-script"></div>
+
+    <div class="tw-wt-foot">
+      <div class="tw-wt-dots"></div>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="tw-icon-btn d-inline-flex align-items-center justify-content-center"
+                data-wt="mute" title="Mute the voice">
+          <i class="fa-solid fa-volume-high"></i><i class="fa-solid fa-volume-xmark"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-wt="back">
+          <i class="fa-solid fa-arrow-left me-1"></i>Back
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" data-wt="next">
+          Next<i class="fa-solid fa-arrow-right ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ intro.scenes|json_script:"tw-wt-scenes" }}

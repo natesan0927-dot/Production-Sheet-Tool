@@ -4,7 +4,7 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Sum
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -13,8 +13,9 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role, User
 
+from . import guide as guide_content
 from . import stages as stage_flow
-from .context_processors import ALL_QUEUE_KEYS, _pending_counts
+from .context_processors import ALL_QUEUE_KEYS, _pending_counts, navigation
 from .forms import (
     CafFinalForm,
     ChecklistForm,
@@ -1353,3 +1354,44 @@ def notifications(request):
     items = request.user.notifications.select_related("lead")[:100]
     request.user.notifications.filter(read=False).update(read=True)
     return render(request, "crm/notifications.html", {"notifications": items})
+
+
+# ---------------------------------------------------------------------------
+# walkthrough
+# ---------------------------------------------------------------------------
+
+
+def _guide_context(request):
+    """The intro scenes and the tour, both built for whoever is signed in."""
+    nav_groups = navigation(request).get("nav_groups", [])
+    return {
+        "intro": guide_content.intro_for(request.user),
+        "tour_steps": guide_content.tour_for(nav_groups),
+        "written": guide_content.written_guide(nav_groups),
+    }
+
+
+@login_required
+def guide(request):
+    return render(request, "crm/guide.html", _guide_context(request))
+
+
+@login_required
+@require_POST
+def guide_seen(request):
+    """Records that the intro, the tour, or both have been got through.
+
+    Sent when the walkthrough is finished and when it is skipped, so it plays
+    once and once only. It is never unset — the Guide tab replays on demand.
+    """
+    now = timezone.now()
+    fields = []
+    if request.POST.get("intro") and request.user.intro_seen_at is None:
+        request.user.intro_seen_at = now
+        fields.append("intro_seen_at")
+    if request.POST.get("tour") and request.user.tour_seen_at is None:
+        request.user.tour_seen_at = now
+        fields.append("tour_seen_at")
+    if fields:
+        request.user.save(update_fields=fields)
+    return JsonResponse({"ok": True})

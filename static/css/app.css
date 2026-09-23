@@ -996,3 +996,159 @@ html[data-bs-theme="light"] .demo-tile .demo-ico { color: var(--tw-blue-600); }
   }
   .tw-reveal { opacity: 1; }
 }
+
+/* =========================================================================
+   The walkthrough — narrated intro, the avatar, and the guided tour
+   ========================================================================= */
+
+/* ------------------------------------------------------------- the avatar */
+.tw-wt-avatar { width: 116px; flex: none; }
+.tw-wt-avatar .tw-av { width: 100%; height: auto; display: block; animation: tw-av-bob 4s ease-in-out infinite; }
+.tw-wt-avatar-lg { width: 150px; }
+
+.tw-av .tw-av-eyes { animation: tw-av-blink 5.5s infinite; transform-origin: 100px 112px; }
+.tw-av .tw-av-arm { transform-origin: 140px 214px; animation: tw-av-point 5s ease-in-out infinite; }
+.tw-av .tw-av-mouth { transform-origin: 100px 134px; transform: scaleY(.35); }
+.is-speaking .tw-av .tw-av-mouth { animation: tw-av-talk .24s ease-in-out infinite alternate; }
+
+@keyframes tw-av-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes tw-av-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+@keyframes tw-av-talk { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
+@keyframes tw-av-point { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-13deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-wt-avatar .tw-av, .tw-av .tw-av-eyes, .tw-av .tw-av-arm, .is-speaking .tw-av .tw-av-mouth { animation: none; }
+  .tw-av .tw-av-mouth { transform: scaleY(.6); }
+}
+
+/* ------------------------------------------------------------- the player */
+body.tw-wt-open { overflow: hidden; }
+
+.tw-wt {
+  position: fixed; inset: 0; z-index: 1090;
+  display: flex; align-items: center; justify-content: center; padding: 1.25rem;
+  background: rgba(5, 13, 28, .78); backdrop-filter: blur(8px);
+  animation: tw-fade-up .3s ease both;
+}
+
+.tw-wt-panel {
+  width: min(980px, 100%); max-height: 100%; overflow: auto;
+  display: flex; flex-direction: column;
+  background: var(--tw-surface-solid); border: 1px solid var(--tw-border);
+  border-radius: var(--tw-r-xl); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .9);
+}
+
+.tw-wt-bar {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  padding: 1.1rem 1.35rem; border-bottom: 1px solid var(--tw-border);
+}
+.tw-wt-title { font-family: var(--tw-font-display); font-size: 1.05rem; }
+
+.tw-wt-stage {
+  position: relative; aspect-ratio: 16 / 8.4; overflow: hidden;
+  background: linear-gradient(140deg, var(--tw-navy-900), var(--tw-navy-700));
+}
+.tw-wt-shot-fallback {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(60% 60% at 25% 15%, rgba(56, 189, 248, .30), transparent 70%),
+    radial-gradient(50% 50% at 85% 85%, rgba(217, 175, 62, .22), transparent 70%);
+}
+.tw-wt-shot {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left;
+  opacity: 0; transform: scale(1.04); transition: opacity .6s ease, transform 6s linear;
+}
+.tw-wt-shot.is-in { opacity: .55; transform: scale(1); }
+
+.tw-wt-stage .tw-wt-avatar {
+  position: absolute; right: 2.2rem; bottom: 0; width: 34%; max-width: 190px;
+  filter: drop-shadow(0 18px 26px rgba(0, 0, 0, .55));
+}
+
+.tw-wt-caption {
+  position: absolute; left: 1.6rem; bottom: 1.6rem; max-width: 58%;
+  font-family: var(--tw-font-display); font-weight: 700;
+  font-size: clamp(1.05rem, 2.4vw, 1.7rem); line-height: 1.25; color: #fff;
+  text-shadow: 0 2px 18px rgba(5, 13, 28, .9);
+}
+
+.tw-wt-cover {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .25rem; text-align: center; padding: 1.5rem;
+  background: rgba(8, 23, 46, .88); backdrop-filter: blur(4px);
+}
+.tw-wt-cover h5 { color: #fff; }
+.tw-wt-cover .tw-wt-avatar { margin-bottom: .35rem; }
+.tw-wt-tick {
+  width: 58px; height: 58px; border-radius: 50%; margin-bottom: .6rem;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--tw-grad-gold); color: var(--tw-navy-900); font-size: 1.4rem;
+}
+
+.tw-wt-script {
+  padding: 1rem 1.35rem; font-size: .96rem; line-height: 1.55;
+  color: var(--tw-ink-soft); border-bottom: 1px solid var(--tw-border); min-height: 5.4rem;
+}
+
+.tw-wt-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .9rem 1.35rem;
+}
+.tw-wt-dots { display: flex; gap: .4rem; flex-wrap: wrap; }
+.tw-wt-dot {
+  width: 26px; height: 5px; border: none; border-radius: 99px; padding: 0;
+  background: var(--tw-border-strong); transition: background .2s ease, width .2s ease;
+}
+.tw-wt-dot.is-done { background: var(--tw-gold-600); }
+.tw-wt-dot.is-on { background: var(--tw-grad-gold); width: 38px; }
+
+.tw-wt [data-wt="mute"] .fa-volume-xmark { display: none; }
+.tw-wt.is-muted [data-wt="mute"] .fa-volume-high { display: none; }
+.tw-wt.is-muted [data-wt="mute"] .fa-volume-xmark { display: inline; }
+
+@media (max-width: 767.98px) {
+  .tw-wt { padding: 0; }
+  .tw-wt-panel { border-radius: 0; height: 100%; }
+  .tw-wt-stage { aspect-ratio: 16 / 11; }
+  .tw-wt-stage .tw-wt-avatar { right: .5rem; width: 38%; }
+  .tw-wt-caption { max-width: 60%; left: 1rem; bottom: 1rem; }
+  .tw-wt-foot { flex-wrap: wrap; }
+}
+
+/* ---------------------------------------------------------- the guide tab */
+.tw-guide-hero { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.tw-guide-stops {
+  margin: 0 0 1rem; padding-left: 1.15rem; color: var(--tw-ink-soft);
+  font-size: .9rem; columns: 2; column-gap: 1.25rem;
+}
+.tw-guide-stops li { margin-bottom: .3rem; break-inside: avoid; }
+@media (max-width: 575.98px) { .tw-guide-stops { columns: 1; } }
+
+/* ---------------------------------------------------------- the tour */
+/* The spotlight is one huge spread shadow — it dims everything but the target
+   without needing an overlay with a hole cut in it. */
+.tw-tour-spot {
+  position: relative; z-index: 1086; border-radius: var(--tw-r-sm);
+  box-shadow: 0 0 0 3px var(--tw-gold), 0 0 0 9999px rgba(5, 13, 28, .72);
+}
+#tw-sidebar .nav-link.tw-tour-spot { background: rgba(217, 175, 62, .22); color: #fff; }
+body.tw-tour-on #tw-sidebar { z-index: 1086; }
+
+.tw-tour-bubble {
+  position: fixed; z-index: 1088; width: min(360px, calc(100vw - 2rem));
+  background: var(--tw-surface-solid); border: 1px solid var(--tw-border);
+  border-radius: var(--tw-r-lg); padding: 1.1rem 1.25rem;
+  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, .9);
+  opacity: 0; transform: translateX(-10px); transition: opacity .25s ease, transform .25s ease;
+}
+.tw-tour-bubble.is-in { opacity: 1; transform: none; }
+.tw-tour-bubble.is-centred.is-in { transform: none; }
+.tw-tour-count {
+  font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  background: var(--tw-grad-gold); -webkit-background-clip: text; background-clip: text;
+  color: transparent; margin-bottom: .3rem;
+}
+.tw-tour-bubble strong { display: block; font-family: var(--tw-font-display); font-size: 1.02rem; margin-bottom: .35rem; }
+.tw-tour-bubble p { color: var(--tw-ink-soft); font-size: .9rem; line-height: 1.5; margin-bottom: .9rem; }
+.tw-tour-actions { display: flex; align-items: center; gap: .5rem; }

@@ -19,6 +19,11 @@ class User(AbstractUser):
     # override it per employee from Settings → Stage Access.
     visible_stages = models.JSONField(default=list, blank=True)
 
+    # The walkthrough plays once, on the first sign-in. Both are set whether the
+    # person watched it or skipped it; the Guide tab replays it on demand.
+    intro_seen_at = models.DateTimeField(null=True, blank=True)
+    tour_seen_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["first_name", "username"]
 

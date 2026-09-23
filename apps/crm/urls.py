@@ -62,5 +62,7 @@ urlpatterns = [
     path("settings/stage-access/", views.stage_access_list, name="stage_access_list"),
     path("settings/stage-access/<int:pk>/", views.stage_access_edit, name="stage_access_edit"),
     path("notifications/", views.notifications, name="notifications"),
+    path("guide/", views.guide, name="guide"),
+    path("guide/seen/", views.guide_seen, name="guide_seen"),
     path("updates/<int:pk>/done/", views.update_dismiss, name="update_dismiss"),
 ]

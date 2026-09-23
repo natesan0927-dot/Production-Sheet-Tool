@@ -102,3 +102,32 @@ Both are produced from the formats the client supplied, filled in from the lead:
   by the client, and uploaded back alongside the final measurement.
 - **Warranty certificate** — downloaded by the field manager at stage 8, signed, and
   uploaded back before the project is saved as complete.
+
+## The walkthrough
+
+Each person gets a short narrated introduction the first time they sign in, written
+for their own role, followed by a guided tour of their own tabs. Both are skippable,
+both are recorded as seen so they only happen once, and both can be replayed at any
+time from the **Guide** tab in the sidebar.
+
+- The narration is spoken by the browser's own speech synthesis. There is no audio
+  file to ship, no third-party service, and nothing to pay for. Browsers will not
+  start a voice without a click, so it opens on a poster with a Play button; the
+  script is also printed under the stage, and there is a mute toggle that switches
+  the scenes to a timer.
+- The scripts live in `apps/crm/guide.py` — one set of scenes per role, plus a
+  one-line note for every tab. The tour is generated from the same navigation the
+  sidebar renders, so it always covers exactly the tabs that role has.
+- The screens playing behind the avatar are in `static/guide/`. Re-take them after
+  a visible change with:
+
+      python scripts/capture_guide_shots.py
+
+  That builds a throwaway database, invents a few leads, drives them through every
+  stage so each queue has something in it, photographs the screens and writes them
+  out. It never touches the working database, so no real customer ever appears in
+  those images.
+
+To show the walkthrough to someone again from scratch, clear their flags:
+
+    python manage.py shell -c "from apps.accounts.models import User; User.objects.filter(username='demo_sales1').update(intro_seen_at=None, tour_seen_at=None)"

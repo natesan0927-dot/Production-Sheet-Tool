@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Guide{% endblock %}
+
+{% block content %}
+<div class="tw-page-header">
+  <div>
+    <div class="tw-eyebrow">{{ role_label }}</div>
+    <h4 class="mb-0">Guide</h4>
+    <div class="text-muted small">Everything from your first sign-in, here whenever you need it.</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-circle-play me-2"></i>The walkthrough</div>
+      <div class="card-body">
+        <div class="tw-guide-hero">
+          <div class="tw-wt-avatar tw-wt-avatar-lg">{% include "crm/_avatar.html" %}</div>
+          <div>
+            <h5 class="mb-1">{{ intro.headline }}</h5>
+            <p class="text-muted small mb-3">
+              A short narrated run through what the software is for and the parts of
+              it that are yours. About a minute.
+            </p>
+            <button type="button" class="btn btn-primary" data-guide="play">
+              <i class="fa-solid fa-play me-2"></i>Play the walkthrough
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-route me-2"></i>The guided tour</div>
+      <div class="card-body d-flex flex-column">
+        <p class="text-muted small">
+          Takes you to each of your tabs in turn and says what is on it. There are
+          {{ tour_steps|length }} stops, and you can leave at any point.
+        </p>
+        <ol class="tw-guide-stops flex-grow-1">
+          {% for step in tour_steps %}<li>{{ step.title }}</li>{% endfor %}
+        </ol>
+        <button type="button" class="btn btn-outline-primary align-self-start" data-guide="tour">
+          <i class="fa-solid fa-route me-2"></i>Start the tour
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header"><i class="fa-solid fa-book-open me-2"></i>What each tab is for</div>
+  <div class="card-body">
+    {% for block in written %}
+      <div class="tw-subsection">
+        <div class="tw-eyebrow mb-2">{{ block.section }}</div>
+        <dl class="row mb-0">
+          {% for entry in block.entries %}
+            <dt class="col-sm-4"><a href="{{ entry.url }}">{{ entry.label }}</a></dt>
+            <dd class="col-sm-8 text-muted">{{ entry.note }}</dd>
+          {% endfor %}
+        </dl>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block walkthrough %}{% include "crm/_walkthrough.html" %}{% endblock %}
