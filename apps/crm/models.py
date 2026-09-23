@@ -232,8 +232,14 @@ class Lead(models.Model):
         return self.site_location
 
     @property
-    def next_followup(self):
+    def open_followup(self):
+        """Only one follow-up runs at a time, so there is at most one of these."""
         return self.followups.filter(done=False).order_by("date", "time").first()
+
+    @property
+    def followup_history(self):
+        """The ones already closed out, most recent first."""
+        return self.followups.filter(done=True).order_by("-date", "-time")
 
 
 class LeadFile(models.Model):
@@ -277,6 +283,8 @@ class FollowUp(models.Model):
     note = models.CharField(max_length=255, blank=True)
     done = models.BooleanField(default=False)
     done_at = models.DateTimeField(null=True, blank=True)
+    # Closed out because a newer follow-up replaced it, rather than by being worked.
+    superseded = models.BooleanField(default=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -285,6 +293,13 @@ class FollowUp(models.Model):
 
     def __str__(self):
         return f"Follow-up {self.date} — {self.lead.customer_name}"
+
+    @property
+    def outcome(self):
+        """What the history line should say — a rescheduled one was never worked."""
+        if not self.done:
+            return "Open"
+        return "Rescheduled" if self.superseded else "Completed"
 
     @property
     def is_overdue(self):

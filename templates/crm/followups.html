@@ -2,8 +2,12 @@
 {% block title %}Follow-up{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Follow-up</h4>
+<div class="tw-page-header">
+  <div>
+    <div class="tw-eyebrow">CRM &amp; Sales</div>
+    <h4 class="mb-0">Follow-up</h4>
+    <div class="text-muted small">Every follow-up stays here until it is marked done.</div>
+  </div>
   <a href="?{% if show_all %}{% else %}show=all{% endif %}" class="btn btn-sm btn-outline-secondary">
     {% if show_all %}Show pending only{% else %}Show all{% endif %}
   </a>
@@ -12,20 +16,22 @@
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
-      <thead class="table-light"><tr><th>Date</th><th>Customer</th><th>Note</th><th>Salesperson</th><th></th></tr></thead>
+      <thead class="table-light"><tr><th>Due</th><th>Customer</th><th>Note</th><th>Salesperson</th><th class="text-end"></th></tr></thead>
       <tbody>
         {% for followup in followups %}
-        <tr class="{% if followup.is_overdue %}table-danger{% elif followup.date == today %}table-warning{% endif %}">
+        <tr class="{% if followup.is_overdue %}table-danger{% elif not followup.done and followup.date == today %}table-warning{% endif %}">
           <td>
-            {{ followup.date|date:"d M Y" }}{% if followup.time %} <span class="text-muted small">{{ followup.time }}</span>{% endif %}
-            {% if followup.is_overdue %}<span class="badge text-bg-danger ms-1">Overdue</span>
-            {% elif followup.date == today %}<span class="badge text-bg-warning ms-1">Today</span>{% endif %}
+            {{ followup.date|date:"d M Y" }}{% if followup.time %} <span class="text-muted small">{{ followup.time|time:"H:i" }}</span>{% endif %}
+            {% if followup.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>
+            {% elif not followup.done and followup.date == today %}<span class="badge bg-warning ms-1">Today</span>
+            {% elif not followup.done %}<span class="badge bg-info ms-1">Upcoming</span>{% endif %}
           </td>
           <td><a href="{{ followup.lead.get_absolute_url }}">{{ followup.lead.customer_name }}</a></td>
           <td class="text-muted small">{{ followup.note|default:"—" }}</td>
           <td>{{ followup.lead.assigned_to }}</td>
           <td class="text-end">
-            {% if followup.done %}<span class="badge bg-success">Completed</span>
+            {% if followup.done %}
+              <span class="badge {% if followup.superseded %}bg-secondary{% else %}bg-success{% endif %}">{{ followup.outcome }}</span>
             {% elif followup.can_be_completed %}
             <form method="post" action="{% url 'crm:followup_done' followup.pk %}">
               {% csrf_token %}

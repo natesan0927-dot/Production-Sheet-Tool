@@ -81,21 +81,27 @@
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="fa-solid fa-phone-volume me-2"></i>Today's lead follow-up</span>
+        <span><i class="fa-solid fa-phone-volume me-2"></i>Lead follow-up</span>
         <a href="{% url 'crm:followups' %}" class="small">View all</a>
       </div>
       <div class="list-group list-group-flush">
-        {% for followup in today_followups %}
+        {# Everything still open, whatever its date — it stays here until marked done. #}
+        {% for followup in open_followups %}
           <a href="{{ followup.lead.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
             <span>
               <strong>{{ followup.lead.customer_name }}</strong>
               {% if followup.note %}<span class="text-muted small ms-2">{{ followup.note }}</span>{% endif %}
             </span>
-            <span class="text-muted small">{{ followup.time|default:"" }}</span>
+            <span class="text-nowrap small">
+              {% if followup.is_overdue %}<span class="badge bg-danger me-1">Overdue</span>
+              {% elif followup.date == today %}<span class="badge bg-warning me-1">Today</span>
+              {% else %}<span class="text-muted me-1">{{ followup.date|date:"d M" }}</span>{% endif %}
+              <span class="text-muted">{{ followup.time|time:"H:i" }}</span>
+            </span>
           </a>
         {% empty %}
           <div class="text-center text-muted py-5">
-            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>No follow-ups due today.
+            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>No follow-ups pending.
           </div>
         {% endfor %}
       </div>

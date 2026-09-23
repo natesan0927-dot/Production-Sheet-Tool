@@ -3,14 +3,14 @@ from django.urls import reverse
 
 from apps.accounts.models import Role
 
-from .models import Lead, Notification, ServiceComplaint, Task
+from .models import FollowUp, Lead, Notification, ServiceComplaint, Task
 
 SALES_TABS = [
     ("Dashboard", "crm:dashboard", "fa-gauge-high", None),
     ("Leads", "crm:lead_list", "fa-user-group", None),
     ("Sales Pipeline", "crm:pipeline", "fa-diagram-project", None),
     ("Sales Target", "crm:targets", "fa-bullseye", None),
-    ("Follow-up", "crm:followups", "fa-bell", None),
+    ("Follow-up", "crm:followups", "fa-bell", "followup"),
     ("Lost Opportunities", "crm:lost_opportunities", "fa-circle-xmark", None),
     ("Completed Projects", "crm:completed_projects", "fa-circle-check", None),
 ]
@@ -82,7 +82,10 @@ ROLE_GROUPS = {
 }
 
 
-ALL_QUEUE_KEYS = {"rough", "final", "validation", "quotation", "production", "fabrication", "warranty", "complaints", "todo"}
+ALL_QUEUE_KEYS = {
+    "rough", "final", "validation", "quotation", "production",
+    "fabrication", "warranty", "complaints", "todo", "followup",
+}
 
 
 def _pending_counts(keys, user):
@@ -120,6 +123,12 @@ def _pending_counts(keys, user):
         counts["complaints"] = ServiceComplaint.objects.filter(resolved_at__isnull=True).count()
     if "todo" in keys:
         counts["todo"] = Task.objects.filter(assigned_to=user, done=False).count()
+    if "followup" in keys:
+        # Everything still open, whatever its date — it stays counted until marked done.
+        open_followups = FollowUp.objects.filter(done=False)
+        if user.role == Role.SALESPERSON:
+            open_followups = open_followups.filter(lead__assigned_to=user)
+        counts["followup"] = open_followups.count()
     if "warranty" in keys:
         counts["warranty"] = Lead.objects.filter(
             dispatched_at__isnull=False, completed_at__isnull=True
@@ -150,15 +159,21 @@ def _fabrication_children(request, url):
     ]
 
 
-STYLESHEET = settings.BASE_DIR / "static" / "css" / "app.css"
+ASSETS = [
+    settings.BASE_DIR / "static" / "css" / "app.css",
+    settings.BASE_DIR / "static" / "js" / "app.js",
+]
 
 
 def _stylesheet_version():
-    """Changes whenever app.css does, so browsers never keep a stale copy."""
-    try:
-        return int(STYLESHEET.stat().st_mtime)
-    except OSError:
-        return 0
+    """Changes whenever the stylesheet or script does, so no stale copies."""
+    stamps = []
+    for asset in ASSETS:
+        try:
+            stamps.append(int(asset.stat().st_mtime))
+        except OSError:
+            pass
+    return max(stamps) if stamps else 0
 
 
 def navigation(request):

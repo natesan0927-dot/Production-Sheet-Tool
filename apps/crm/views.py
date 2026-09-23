@@ -181,7 +181,9 @@ def _sales_dashboard(request, updates):
         "won_count": leads.filter(status=Lead.Status.WON).count(),
         "lost_count": leads.filter(status=Lead.Status.LOST).count(),
         "pending_quotations": leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=True).count(),
-        "today_followups": followups.filter(date=today),
+        # Every follow-up that is still open, whatever its date, until it is done.
+        "open_followups": followups,
+        "today": today,
         "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
         "salespeople": User.objects.filter(role=Role.SALESPERSON, is_active=True),
         "selected_salesperson": selected_salesperson,
@@ -782,7 +784,12 @@ def project_save(request, pk):
 @role_required(Role.SALESPERSON)
 def followups(request):
     leads = visible_leads(request.user)
-    items = FollowUp.objects.filter(lead__in=leads).select_related("lead", "lead__assigned_to")
+    items = (
+        FollowUp.objects.filter(lead__in=leads)
+        .select_related("lead", "lead__assigned_to")
+        # Still open first, oldest due date at the top.
+        .order_by("done", "date", "time")
+    )
     if request.GET.get("show") != "all":
         items = items.filter(done=False)
     return render(
@@ -796,18 +803,21 @@ def followups(request):
 @require_POST
 def followup_add(request, pk):
     lead = get_lead(request, pk)
+    if lead.status != Lead.Status.OPEN:
+        messages.error(request, "This lead is already closed, so no more follow-ups can be scheduled.")
+        return safe_next(request, lead.get_absolute_url())
     form = FollowUpForm(request.POST)
     if form.is_valid():
         # Only one follow-up runs at a time — scheduling the next closes the last.
         superseded = FollowUp.objects.filter(lead=lead, done=False).update(
-            done=True, done_at=timezone.now()
+            done=True, done_at=timezone.now(), superseded=True
         )
         followup = form.save(commit=False)
         followup.lead = lead
         followup.created_by = request.user
         followup.save()
         if superseded:
-            messages.success(request, "Follow-up scheduled; the previous one was marked completed.")
+            messages.success(request, "Follow-up scheduled; the previous one moved to the history.")
         else:
             messages.success(request, "Follow-up scheduled.")
     else:
