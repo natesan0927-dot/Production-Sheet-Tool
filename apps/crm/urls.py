@@ -31,7 +31,6 @@ urlpatterns = [
     path("leads/<int:pk>/fabrication/checklist/", views.fabrication_checklist, name="fabrication_checklist"),
     path("leads/<int:pk>/fabrication/dispatch-ready/", views.fabrication_to_dispatch, name="fabrication_to_dispatch"),
     path("leads/<int:pk>/dispatch/", views.dispatch, name="dispatch"),
-    path("leads/<int:pk>/warranty/", views.warranty_download, name="warranty_download"),
     path("leads/<int:pk>/handover/", views.handover_download, name="handover_download"),
     path("leads/<int:pk>/handover/upload/", views.handover_upload, name="handover_upload"),
     path("leads/<int:pk>/save-project/", views.project_save, name="project_save"),

@@ -36,7 +36,7 @@ from .forms import (
     WonForm,
 )
 from .models import FollowUp, Lead, LeadFile, Notification, Payment, SalesTarget, ServiceComplaint, Task
-from .pdf import render_caf, render_handover_certificate, render_warranty_certificate
+from .pdf import render_caf, render_handover_certificate
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -724,14 +724,6 @@ def dispatch(request, pk):
 # ---------------------------------------------------------------------------
 # stage 8 — warranty & handover (field manager)
 # ---------------------------------------------------------------------------
-
-
-@role_required(Role.FIELD_MANAGER)
-def warranty_download(request, pk):
-    lead = get_lead(request, pk)
-    if not lead.dispatched_at:
-        raise Http404
-    return render_warranty_certificate(lead)
 
 
 @role_required(Role.FIELD_MANAGER)
