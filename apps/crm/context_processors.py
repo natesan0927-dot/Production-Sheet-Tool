@@ -3,7 +3,7 @@ from django.urls import reverse
 
 from apps.accounts.models import Role
 
-from .models import Lead, Task
+from .models import Lead, Notification, ServiceComplaint, Task
 
 SALES_TABS = [
     ("Dashboard", "crm:dashboard", "fa-gauge-high", None),
@@ -36,6 +36,7 @@ PRODUCTION_TABS = [
 
 FIELD_MANAGER_TABS = [
     ("Warranty & Handover", "crm:queue_warranty", "fa-shield-halved", "warranty"),
+    ("Service Requests", "crm:complaint_list", "fa-screwdriver", "complaints"),
 ]
 
 ADMIN_TABS = [
@@ -81,7 +82,7 @@ ROLE_GROUPS = {
 }
 
 
-ALL_QUEUE_KEYS = {"rough", "final", "validation", "quotation", "production", "fabrication", "warranty", "todo"}
+ALL_QUEUE_KEYS = {"rough", "final", "validation", "quotation", "production", "fabrication", "warranty", "complaints", "todo"}
 
 
 def _pending_counts(keys, user):
@@ -115,6 +116,8 @@ def _pending_counts(keys, user):
         counts["fabrication"] = Lead.objects.filter(
             production_approved_at__isnull=False, dispatched_at__isnull=True
         ).count()
+    if "complaints" in keys:
+        counts["complaints"] = ServiceComplaint.objects.filter(resolved_at__isnull=True).count()
     if "todo" in keys:
         counts["todo"] = Task.objects.filter(assigned_to=user, done=False).count()
     if "warranty" in keys:
@@ -195,6 +198,15 @@ def navigation(request):
             "nav_groups": nav_groups,
             "role_label": user.get_role_display(),
             "unread_notifications": user.notifications.filter(read=False).count(),
+            "popup_notifications": _take_popups(user),
         }
     )
     return context
+
+
+def _take_popups(user):
+    """Anything not yet shown as a pop-up. It stays in the list either way."""
+    pending = list(user.notifications.filter(popped=False).select_related("lead")[:4])
+    if pending:
+        Notification.objects.filter(pk__in=[n.pk for n in pending]).update(popped=True)
+    return pending

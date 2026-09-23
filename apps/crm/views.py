@@ -3,7 +3,7 @@ from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Sum
+from django.db.models import Count, Q, Sum
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -25,16 +25,18 @@ from .forms import (
     LostForm,
     MeasurementBoxForm,
     PaymentForm,
+    ComplaintResolveForm,
     QuotationForm,
     RoughMeasurementForm,
     SalesTargetForm,
+    ServiceComplaintForm,
     SingleFileForm,
     StageAccessForm,
     TaskForm,
     WonForm,
 )
-from .models import FollowUp, Lead, LeadFile, Notification, Payment, SalesTarget, Task
-from .pdf import render_caf, render_warranty_certificate
+from .models import FollowUp, Lead, LeadFile, Notification, Payment, SalesTarget, ServiceComplaint, Task
+from .pdf import render_caf, render_handover_certificate, render_warranty_certificate
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -207,6 +209,19 @@ def lead_list(request):
         )
     if request.user.is_super_admin and selected_salesperson:
         leads = leads.filter(assigned_to_id=selected_salesperson)
+
+    status = request.GET.get("status") or ""
+    if status == "won":
+        leads = leads.filter(status=Lead.Status.WON)
+    elif status == "lost":
+        leads = leads.filter(status=Lead.Status.LOST)
+    elif status == "followup":
+        leads = leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=False)
+    elif status == "overdue":
+        leads = leads.filter(
+            followups__done=False, followups__date__lt=timezone.localdate()
+        ).distinct()
+
     return render(
         request,
         "crm/lead_list.html",
@@ -215,6 +230,13 @@ def lead_list(request):
             "q": query,
             "salespeople": User.objects.filter(role=Role.SALESPERSON, is_active=True),
             "selected_salesperson": selected_salesperson,
+            "status": status,
+            "status_choices": [
+                ("followup", "Follow-up stage"),
+                ("won", "Won"),
+                ("lost", "Lost"),
+                ("overdue", "Overdue follow-up"),
+            ],
         },
     )
 
@@ -239,11 +261,16 @@ def lead_create(request):
 @role_required(Role.SALESPERSON)
 def lead_edit(request, pk):
     lead = get_lead(request, pk)
+    was_assigned_to = lead.assigned_to_id
     if request.method == "POST":
         form = LeadForm(request.POST, instance=lead, user=request.user)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Lead updated.")
+            lead = form.save()
+            if lead.assigned_to_id != was_assigned_to:
+                notify_user(lead, f"A lead has been reassigned to you - {lead.customer_name}", lead.assigned_to)
+                messages.success(request, f"Lead updated and reassigned to {lead.assigned_to}.")
+            else:
+                messages.success(request, "Lead updated.")
             return redirect(lead.get_absolute_url())
     else:
         form = LeadForm(instance=lead, user=request.user)
@@ -401,6 +428,7 @@ def stage_quotation(request, pk):
 
     for uploaded in form.cleaned_data["files"]:
         save_upload(lead, LeadFile.Kind.QUOTATION, uploaded, request.user)
+    save_upload(lead, LeadFile.Kind.ELEVATION, form.cleaned_data["elevation"], request.user)
     lead.quotation_number = form.cleaned_data["quotation_number"]
     lead.quotation_uploaded_at = timezone.now()
     lead.quotation_uploaded_by = request.user
@@ -428,6 +456,7 @@ def stage_won(request, pk):
             lead = form.save(commit=False)
             lead.status = Lead.Status.WON
             lead.won_at = timezone.now()
+            lead.won_by = request.user
             lead.save()
             FollowUp.objects.filter(lead=lead, done=False).update(done=True, done_at=timezone.now())
             notify(
@@ -456,6 +485,7 @@ def stage_lost(request, pk):
             lead = form.save(commit=False)
             lead.status = Lead.Status.LOST
             lead.lost_at = timezone.now()
+            lead.lost_by = request.user
             lead.save()
             FollowUp.objects.filter(lead=lead, done=False).update(done=True, done_at=timezone.now())
             messages.info(request, "Lead marked as lost and moved to Lost Opportunities.")
@@ -677,6 +707,7 @@ def dispatch(request, pk):
             lead = form.save(commit=False)
             lead.fabrication_column = Lead.Fabrication.DISPATCHED
             lead.dispatched_at = timezone.now()
+            lead.dispatched_by = request.user
             lead.save()
             notify(lead, f"Dispatched — warranty & handover pending for {lead.customer_name}", Role.FIELD_MANAGER)
             messages.success(request, "Dispatched. Warranty & handover is now open for the field manager.")
@@ -704,8 +735,17 @@ def warranty_download(request, pk):
 
 
 @role_required(Role.FIELD_MANAGER)
+def handover_download(request, pk):
+    lead = get_lead(request, pk)
+    if not lead.dispatched_at:
+        raise Http404
+    return render_handover_certificate(lead)
+
+
+@role_required(Role.FIELD_MANAGER)
 @require_POST
-def warranty_upload(request, pk):
+def handover_upload(request, pk):
+    """The customer signs the handover certificate; the warranty is theirs to keep."""
     lead = get_lead(request, pk)
     blocked = guard_stage(request, lead, stage_flow.WARRANTY)
     if blocked:
@@ -713,13 +753,13 @@ def warranty_upload(request, pk):
 
     form = SingleFileForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, "Choose the signed warranty certificate to upload.")
+        messages.error(request, "Choose the signed handover certificate to upload.")
         return stage_redirect(lead, stage_flow.WARRANTY)
 
-    save_upload(lead, LeadFile.Kind.WARRANTY_SIGNED, form.cleaned_data["file"], request.user)
-    lead.warranty_signed_at = timezone.now()
+    save_upload(lead, LeadFile.Kind.HANDOVER_SIGNED, form.cleaned_data["file"], request.user)
+    lead.handover_signed_at = timezone.now()
     lead.save()
-    messages.success(request, "Signed warranty certificate uploaded. You can now save the project.")
+    messages.success(request, "Signed handover certificate uploaded. You can now save the project.")
     return redirect(lead.get_absolute_url())
 
 
@@ -730,11 +770,12 @@ def project_save(request, pk):
     blocked = guard_stage(request, lead, stage_flow.WARRANTY)
     if blocked:
         return blocked
-    if not lead.warranty_signed_at:
-        messages.error(request, "Upload the signed warranty certificate first.")
+    if not lead.handover_signed_at:
+        messages.error(request, "Upload the signed handover certificate first.")
         return redirect(lead.get_absolute_url())
 
     lead.completed_at = timezone.now()
+    lead.completed_by = request.user
     lead.save()
     notify_user(lead, f"Project completed — {lead.customer_name}", lead.assigned_to)
     messages.success(request, "Project saved and moved to Completed Projects.")
@@ -843,10 +884,24 @@ def targets(request):
 
     this_month = timezone.localdate().replace(day=1)
     current = target_qs.filter(month=this_month).first()
+    won_this_month = []
+    if current:
+        won_this_month = Lead.objects.filter(
+            assigned_to=current.salesperson,
+            status=Lead.Status.WON,
+            won_at__year=this_month.year,
+            won_at__month=this_month.month,
+        ).order_by("-won_at")
     return render(
         request,
         "crm/targets.html",
-        {"form": form, "targets": target_qs, "current": current, "this_month": this_month},
+        {
+            "form": form,
+            "targets": target_qs,
+            "current": current,
+            "this_month": this_month,
+            "won_this_month": won_this_month,
+        },
     )
 
 
@@ -858,7 +913,7 @@ def lost_opportunities(request):
 
 @role_required(Role.SALESPERSON)
 def completed_projects(request):
-    leads = visible_leads(request.user).filter(completed_at__isnull=False)
+    leads = visible_leads(request.user).filter(completed_at__isnull=False).prefetch_related("payments", "complaints")
     return render(request, "crm/completed_list.html", {"leads": leads})
 
 
@@ -1041,8 +1096,30 @@ def _fabrication_admin(request, on_floor):
                 (key, label, on_floor.filter(fabrication_column=key).count()) for key, label in FABRICATION_COLUMNS
             ],
             "leads": on_floor.filter(fabrication_column=column),
+            "totals": _fabrication_totals(on_floor),
         },
     )
+
+
+def _fabrication_totals(on_floor):
+    """What is on the floor right now, column by column and altogether."""
+    rows = []
+    for key, label in FABRICATION_COLUMNS:
+        rows.append({"label": label, "key": key, **_totals_for(on_floor.filter(fabrication_column=key))})
+    rows.append({"label": "All on the floor", "key": "all", **_totals_for(on_floor)})
+    return rows
+
+
+def _totals_for(queryset):
+    figures = queryset.aggregate(
+        orders=Count("id"), windows=Sum("window_count"), sqft=Sum("total_sqft"), value=Sum("order_value")
+    )
+    return {
+        "orders": figures["orders"] or 0,
+        "windows": figures["windows"] or 0,
+        "sqft": figures["sqft"] or 0,
+        "value": figures["value"] or Decimal("0"),
+    }
 
 
 @role_required(Role.PRODUCTION)
@@ -1145,6 +1222,12 @@ def todo_done(request, pk):
     task.done = True
     task.done_at = timezone.now()
     task.save(update_fields=["done", "done_at"])
+    if task.assigned_by_id and task.assigned_by_id != request.user.id:
+        Notification.objects.create(
+            user=task.assigned_by,
+            lead=None,
+            message=f"{request.user.get_full_name() or request.user.username} completed: {task.title}",
+        )
     return safe_next(request, reverse("crm:todo_list"))
 
 
@@ -1155,6 +1238,64 @@ def todo_delete(request, pk):
     task.delete()
     messages.success(request, "To-do removed.")
     return redirect("crm:todo_list")
+
+
+# ---------------------------------------------------------------------------
+# service complaints (after handover)
+# ---------------------------------------------------------------------------
+
+
+@role_required(Role.SALESPERSON, Role.FIELD_MANAGER)
+@require_POST
+def complaint_create(request, pk):
+    """Raised against a finished project when the customer calls back."""
+    lead = get_lead(request, pk)
+    if not lead.completed_at:
+        messages.error(request, "A complaint can only be raised once the project is handed over.")
+        return redirect("crm:completed_projects")
+
+    form = ServiceComplaintForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Describe what needs fixing.")
+        return safe_next(request, reverse("crm:completed_projects"))
+
+    complaint = form.save(commit=False)
+    complaint.lead = lead
+    complaint.raised_by = request.user
+    complaint.save()
+    notify(lead, f"Service complaint raised - {lead.customer_name}", Role.FIELD_MANAGER, Role.SUPER_ADMIN)
+    messages.success(request, "Service complaint registered.")
+    return safe_next(request, reverse("crm:completed_projects"))
+
+
+@role_required(Role.FIELD_MANAGER)
+def complaint_list(request):
+    complaints = ServiceComplaint.objects.select_related("lead", "raised_by", "resolved_by")
+    if request.GET.get("show") != "all":
+        complaints = complaints.filter(resolved_at__isnull=True)
+    return render(
+        request,
+        "crm/complaints.html",
+        {
+            "complaints": complaints,
+            "show_all": request.GET.get("show") == "all",
+            "form": ComplaintResolveForm(),
+            "completed_leads": Lead.objects.filter(completed_at__isnull=False).order_by("customer_name"),
+        },
+    )
+
+
+@role_required(Role.FIELD_MANAGER)
+@require_POST
+def complaint_resolve(request, pk):
+    complaint = get_object_or_404(ServiceComplaint, pk=pk)
+    complaint.resolution_note = request.POST.get("resolution_note", "").strip()
+    complaint.resolved_at = timezone.now()
+    complaint.resolved_by = request.user
+    complaint.save()
+    notify_user(complaint.lead, f"Service complaint resolved - {complaint.lead.customer_name}", complaint.raised_by)
+    messages.success(request, "Marked as resolved.")
+    return redirect("crm:complaint_list")
 
 
 @role_required()  # no roles listed means Super Admin only

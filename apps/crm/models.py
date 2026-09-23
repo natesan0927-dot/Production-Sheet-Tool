@@ -56,6 +56,7 @@ class Lead(models.Model):
     lead_number = models.CharField(max_length=20, unique=True, editable=False)
     customer_name = models.CharField(max_length=150)
     phone = models.CharField("Customer number", max_length=20)
+    project_name = models.CharField(max_length=150, blank=True)
     site_location = models.CharField(max_length=255)
     lead_source = models.CharField(max_length=20, choices=LEAD_SOURCES, default="walk_in")
     lead_source_other = models.CharField("If others, please specify", max_length=120, blank=True)
@@ -93,10 +94,12 @@ class Lead(models.Model):
     committed_delivery_date = models.DateField(null=True, blank=True)
     won_remarks = models.TextField(blank=True)
     won_at = models.DateTimeField(null=True, blank=True)
+    won_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     lost_reason = models.TextField(blank=True)
     lost_price_elsewhere = models.DecimalField("Finalised price elsewhere", max_digits=12, decimal_places=2, null=True, blank=True)
     lost_at = models.DateTimeField(null=True, blank=True)
+    lost_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     # --- Stage 5: CAF & final measurement -----------------------------------
     caf_signed_at = models.DateTimeField(null=True, blank=True)
@@ -130,10 +133,14 @@ class Lead(models.Model):
     invoice_number = models.CharField(max_length=60, blank=True)
     invoice_date = models.DateField(null=True, blank=True)
     dispatched_at = models.DateTimeField(null=True, blank=True)
+    dispatched_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     # --- Stage 8: warranty & handover ---------------------------------------
-    warranty_signed_at = models.DateTimeField(null=True, blank=True)
+    # The warranty certificate is handed to the customer; the handover
+    # certificate is the one they sign and we keep.
+    handover_signed_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     CHECKLIST_FIELDS = [
         "chk_cutting",
@@ -210,8 +217,19 @@ class Lead(models.Model):
         return self.uploads.filter(kind="production_sheet")
 
     @property
-    def warranty_files(self):
-        return self.uploads.filter(kind="warranty_signed")
+    def elevation_files(self):
+        return self.uploads.filter(kind="elevation")
+
+    @property
+    def handover_files(self):
+        return self.uploads.filter(kind="handover_signed")
+
+    @property
+    def project_label(self):
+        """What the CAF prints against "Project Name / Site Location"."""
+        if self.project_name:
+            return f"{self.project_name}, {self.site_location}"
+        return self.site_location
 
     @property
     def next_followup(self):
@@ -225,7 +243,8 @@ class LeadFile(models.Model):
         CAF_SIGNED = "caf_signed", "Signed CAF"
         FINAL_MEASUREMENT = "final_measurement", "Final Measurement"
         PRODUCTION_SHEET = "production_sheet", "Production Sheet"
-        WARRANTY_SIGNED = "warranty_signed", "Signed Warranty Certificate"
+        ELEVATION = "elevation", "Elevation Report"
+        HANDOVER_SIGNED = "handover_signed", "Signed Handover Certificate"
 
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="uploads")
     kind = models.CharField(max_length=24, choices=Kind.choices)
@@ -320,6 +339,30 @@ class SalesTarget(models.Model):
         return min(int(self.achieved / self.amount * 100), 100)
 
 
+class ServiceComplaint(models.Model):
+    """Raised against a finished project when the customer needs a technician."""
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="complaints")
+    description = models.TextField("What needs fixing")
+    raised_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    raised_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    resolution_note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["resolved_at", "-raised_at"]
+
+    def __str__(self):
+        return f"Complaint — {self.lead.customer_name}"
+
+    @property
+    def is_open(self):
+        return self.resolved_at is None
+
+
 class Payment(models.Model):
     """A line in a lead's payment ledger, posted by the accounts team."""
 
@@ -376,6 +419,8 @@ class Notification(models.Model):
     read = models.BooleanField(default=False)
     # Ticked off from "Updates for the day" — separate from read, which the bell sets.
     dismissed = models.BooleanField(default=False)
+    # Shown once as a pop-up; it stays in the notifications list either way.
+    popped = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 
-from .models import FollowUp, Lead, Payment, SalesTarget, Task
+from .models import FollowUp, Lead, Payment, SalesTarget, ServiceComplaint, Task
 
 # ---------------------------------------------------------------------------
 # Sanity checks shared by every form. Each adds an error against the field
@@ -98,6 +98,7 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
         fields = [
             "customer_name",
             "phone",
+            "project_name",
             "site_location",
             "lead_source",
             "lead_source_other",
@@ -114,6 +115,7 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
         self.fields["assigned_to"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
         self.fields["lead_source_other"].widget.attrs["placeholder"] = "Where did this lead come from?"
         self.fields["phone"].widget.attrs.update({"inputmode": "tel", "placeholder": "10-digit mobile number"})
+        self.fields["project_name"].widget.attrs["placeholder"] = "Optional — printed on the CAF"
         limit_number(self.fields["approx_quantity"], 1)
         limit_number(self.fields["expected_value"], 1)
         # A salesperson only ever files leads under their own name.
@@ -177,15 +179,44 @@ class RoughMeasurementForm(forms.Form):
 
 
 class QuotationForm(forms.Form):
+    """The quotation and its elevation report travel together to the salesperson."""
+
     quotation_number = forms.CharField(
         max_length=60,
         widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter the quotation number"}),
     )
     files = MultipleFileField(label="Quotation file(s)")
+    elevation = forms.FileField(
+        label="Elevation report",
+        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
+        help_text="Goes to the measurement staff for the final measurement.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["files"].widget.attrs.setdefault("class", "form-control")
+
+    def clean(self):
+        data = super().clean()
+        if not data.get("files"):
+            self.add_error("files", "Upload the quotation.")
+        if not data.get("elevation"):
+            self.add_error("elevation", "Upload the elevation report as well - both are needed.")
+        return data
+
+
+class ServiceComplaintForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = ServiceComplaint
+        fields = ["description"]
+        widgets = {"description": forms.Textarea(attrs={"rows": 3, "placeholder": "What does the customer need fixed?"})}
+
+
+class ComplaintResolveForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = ServiceComplaint
+        fields = ["resolution_note"]
+        labels = {"resolution_note": "What was done"}
 
 
 class WonForm(BootstrapMixin, forms.ModelForm):

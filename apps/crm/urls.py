@@ -32,7 +32,8 @@ urlpatterns = [
     path("leads/<int:pk>/fabrication/dispatch-ready/", views.fabrication_to_dispatch, name="fabrication_to_dispatch"),
     path("leads/<int:pk>/dispatch/", views.dispatch, name="dispatch"),
     path("leads/<int:pk>/warranty/", views.warranty_download, name="warranty_download"),
-    path("leads/<int:pk>/warranty/upload/", views.warranty_upload, name="warranty_upload"),
+    path("leads/<int:pk>/handover/", views.handover_download, name="handover_download"),
+    path("leads/<int:pk>/handover/upload/", views.handover_upload, name="handover_upload"),
     path("leads/<int:pk>/save-project/", views.project_save, name="project_save"),
     path("leads/<int:pk>/follow-up/", views.followup_add, name="followup_add"),
     path("follow-ups/<int:pk>/done/", views.followup_done, name="followup_done"),
@@ -49,6 +50,10 @@ urlpatterns = [
     path("queue/fabrication/<int:pk>/", views.fabrication_detail, name="fabrication_detail"),
     path("queue/fabrication/<int:pk>/checklist/", views.fabrication_checklist_page, name="fabrication_checklist_page"),
     path("queue/warranty/", views.queue_warranty, name="queue_warranty"),
+    # Service complaints, raised after handover
+    path("service-requests/", views.complaint_list, name="complaint_list"),
+    path("service-requests/<int:pk>/resolve/", views.complaint_resolve, name="complaint_resolve"),
+    path("leads/<int:pk>/complaint/", views.complaint_create, name="complaint_create"),
     # Shared to-do list
     path("to-do/", views.todo_list, name="todo_list"),
     path("to-do/<int:pk>/done/", views.todo_done, name="todo_done"),

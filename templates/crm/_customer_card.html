@@ -1,0 +1,12 @@
+{% comment %}Who and where — shown to whoever is going out to the site.{% endcomment %}
+<div class="tw-subsection mb-3">
+  <p class="fw-semibold mb-1"><i class="fa-solid fa-user me-1"></i>Customer &amp; site</p>
+  <dl class="row mb-0 small">
+    <dt class="col-sm-3">Customer</dt><dd class="col-sm-9">{{ lead.customer_name }}</dd>
+    <dt class="col-sm-3">Contact</dt>
+    <dd class="col-sm-9"><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></dd>
+    {% if lead.project_name %}<dt class="col-sm-3">Project</dt><dd class="col-sm-9">{{ lead.project_name }}</dd>{% endif %}
+    <dt class="col-sm-3">Site location</dt><dd class="col-sm-9">{{ lead.site_location }}</dd>
+    <dt class="col-sm-3">Site stage</dt><dd class="col-sm-9">{{ lead.get_site_stage_display }}</dd>
+  </dl>
+</div>

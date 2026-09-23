@@ -7,7 +7,12 @@
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
-      <thead class="table-light"><tr><th>Lead</th><th>Customer</th><th>Quotation</th><th>Order Value</th><th>Invoice</th><th>Completed</th><th>Documents</th></tr></thead>
+      <thead class="table-light">
+        <tr>
+          <th>Lead</th><th>Customer</th><th>Quotation</th><th>Order Value</th>
+          <th>Payment</th><th>Invoice</th><th>Completed</th><th>Documents</th><th></th>
+        </tr>
+      </thead>
       <tbody>
         {% for lead in leads %}
         <tr>
@@ -15,16 +20,42 @@
           <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.site_location }}</div></td>
           <td>{{ lead.quotation_number|default:"—" }}</td>
           <td>{{ lead.order_value|rupees }}</td>
+          <td>
+            {% if lead.balance_amount > 0 %}
+              <span class="badge bg-danger">Due {{ lead.balance_amount|rupees }}</span>
+            {% else %}
+              <span class="badge bg-success">Cleared</span>
+            {% endif %}
+          </td>
           <td>{{ lead.invoice_number|default:"—" }}<div class="text-muted small">{{ lead.invoice_date|date:"d M Y" }}</div></td>
           <td class="text-muted small">{{ lead.completed_at|date:"d M Y" }}</td>
           <td>
             {% for upload in lead.uploads.all %}
-              <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="badge text-bg-light text-decoration-none" title="{{ upload.filename }}">{{ upload.get_kind_display }}</a>
+              <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="badge bg-light text-decoration-none" title="{{ upload.filename }}">{{ upload.get_kind_display }}</a>
             {% endfor %}
+          </td>
+          <td class="text-end">
+            {% for complaint in lead.complaints.all %}
+              {% if complaint.is_open %}<span class="badge bg-warning d-block mb-1">Service open</span>{% endif %}
+            {% endfor %}
+            <button class="btn btn-sm btn-outline-secondary text-nowrap" data-bs-toggle="collapse" data-bs-target="#complaint-{{ lead.pk }}">
+              <i class="fa-solid fa-screwdriver me-1"></i>Raise complaint
+            </button>
+          </td>
+        </tr>
+        <tr class="collapse" id="complaint-{{ lead.pk }}">
+          <td colspan="9" class="bg-light">
+            <form method="post" action="{% url 'crm:complaint_create' lead.pk %}" class="d-flex gap-2 align-items-start">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <textarea name="description" rows="2" class="form-control" required
+                        placeholder="What does the customer need fixed at {{ lead.site_location }}?"></textarea>
+              <button class="btn btn-primary text-nowrap">Register complaint</button>
+            </form>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No completed projects yet.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">No completed projects yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

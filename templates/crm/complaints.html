@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Service Requests{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h4 class="mb-0">Service Requests</h4>
+    <p class="text-muted small mb-0">Complaints raised against handed-over projects.</p>
+  </div>
+  <a href="?{% if show_all %}{% else %}show=all{% endif %}" class="btn btn-sm btn-outline-secondary">
+    {% if show_all %}Show open only{% else %}Show resolved too{% endif %}
+  </a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><i class="fa-solid fa-plus me-2"></i>Register a complaint</div>
+  <div class="card-body">
+    <form method="post" id="raise-complaint" class="row g-2 align-items-start">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="col-md-4">
+        <select class="form-select" required
+                onchange="document.getElementById('raise-complaint').action = this.value">
+          <option value="">Choose a completed project</option>
+          {% for lead in completed_leads %}
+            <option value="{% url 'crm:complaint_create' lead.pk %}">{{ lead.customer_name }} — {{ lead.site_location }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <textarea name="description" rows="1" class="form-control" required placeholder="What needs fixing?"></textarea>
+      </div>
+      <div class="col-md-2"><button class="btn btn-primary w-100">Register</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="list-group list-group-flush">
+    {% for complaint in complaints %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+          <div>
+            <strong>{{ complaint.lead.customer_name }}</strong>
+            <span class="text-muted small">· {{ complaint.lead.site_location }} · {{ complaint.lead.lead_number }}</span>
+            <div class="mt-1">{{ complaint.description|linebreaksbr }}</div>
+            <div class="text-muted small mt-1">
+              Raised by {{ complaint.raised_by|default:"—" }} on {{ complaint.raised_at|date:"d M Y, H:i" }}
+              {% if complaint.lead.phone %} · <a href="tel:{{ complaint.lead.phone }}">{{ complaint.lead.phone }}</a>{% endif %}
+            </div>
+            {% if not complaint.is_open %}
+              <div class="text-success small mt-1">
+                <i class="fa-solid fa-check me-1"></i>Resolved by {{ complaint.resolved_by|default:"—" }}
+                on {{ complaint.resolved_at|date:"d M Y" }}{% if complaint.resolution_note %} — {{ complaint.resolution_note }}{% endif %}
+              </div>
+            {% endif %}
+          </div>
+          <div class="text-end">
+            {% if complaint.is_open %}
+              <span class="badge bg-warning mb-2 d-block">Open</span>
+              <form method="post" action="{% url 'crm:complaint_resolve' complaint.pk %}" class="d-flex gap-2">
+                {% csrf_token %}
+                <input type="text" name="resolution_note" class="form-control form-control-sm" placeholder="What was done (optional)">
+                <button class="btn btn-sm btn-success text-nowrap">Mark complete</button>
+              </form>
+            {% else %}
+              <span class="badge bg-success">Resolved</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="text-center text-muted py-5">
+        <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>No service requests.
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

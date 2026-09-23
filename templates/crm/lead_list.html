@@ -18,6 +18,14 @@
     {% endfor %}
   </select>
   {% endif %}
+  {% if user.is_super_admin %}
+  <select name="status" class="form-select form-select-sm" style="max-width:200px">
+    <option value="">Any status</option>
+    {% for value, label in status_choices %}
+      <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
   <button class="btn btn-sm btn-outline-secondary">Search</button>
 </form>
 
@@ -48,6 +56,9 @@
               <div class="dropdown-menu dropdown-menu-end">
                 <a class="dropdown-item" href="{{ lead.get_absolute_url }}"><i class="fa-solid fa-eye me-2"></i>Open</a>
                 <a class="dropdown-item" href="{% url 'crm:lead_edit' lead.pk %}"><i class="fa-solid fa-pen me-2"></i>Edit details</a>
+                {% if user.is_super_admin %}
+                  <a class="dropdown-item" href="{% url 'crm:lead_edit' lead.pk %}"><i class="fa-solid fa-user-pen me-2"></i>Reassign salesperson</a>
+                {% endif %}
                 <div class="dropdown-divider"></div>
                 <form method="post" action="{% url 'crm:lead_delete' lead.pk %}"
                       onsubmit="return confirm('Delete the lead for {{ lead.customer_name|escapejs }}? This cannot be undone.')">

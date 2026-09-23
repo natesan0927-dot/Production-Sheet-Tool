@@ -1,3 +1,14 @@
+{% include "crm/_customer_card.html" %}
+
+{% if lead.elevation_files %}
+<div class="tw-subsection mb-3">
+  <p class="fw-semibold mb-1"><i class="fa-solid fa-drafting-compass me-1"></i>Elevation report</p>
+  {% for upload in lead.elevation_files %}
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary me-2 mb-1"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if lead.caf_signed_at or lead.final_measurement_at %}
   <ul class="list-unstyled mb-3">
     <li>

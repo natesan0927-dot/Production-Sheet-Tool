@@ -19,6 +19,9 @@
   {% for upload in lead.quotation_files %}
     <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% endfor %}
+  {% for upload in lead.elevation_files %}
+    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-drafting-compass me-1"></i>{{ upload.filename }}</a>
+  {% endfor %}
 {% endif %}
 
 {% if stage.state == 'current' and stage.can_act %}
@@ -29,10 +32,18 @@
       <div class="col-md-5">
         <label class="form-label">Quotation number</label>
         {{ quotation_form.quotation_number }}
+        {% if quotation_form.quotation_number.errors %}<div class="text-danger small">{{ quotation_form.quotation_number.errors.0 }}</div>{% endif %}
       </div>
       <div class="col-md-7">
         <label class="form-label">Quotation file(s)</label>
         {{ quotation_form.files }}
+        {% if quotation_form.files.errors %}<div class="text-danger small">{{ quotation_form.files.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-7">
+        <label class="form-label">Elevation report</label>
+        {{ quotation_form.elevation }}
+        <div class="form-text">{{ quotation_form.elevation.help_text }}</div>
+        {% if quotation_form.elevation.errors %}<div class="text-danger small">{{ quotation_form.elevation.errors.0 }}</div>{% endif %}
       </div>
     </div>
     <button class="btn btn-primary mt-3">Upload Quotation</button>

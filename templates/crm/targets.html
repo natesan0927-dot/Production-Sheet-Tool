@@ -26,6 +26,23 @@
           <p class="text-muted my-5">No target set for {{ this_month|date:"F Y" }}.</p>
         {% endif %}
       </div>
+      {% if current %}
+      <div class="card-footer bg-white">
+        <p class="fw-semibold small mb-2">Won this month</p>
+        <ul class="list-unstyled small mb-0">
+          {% for lead in won_this_month %}
+            <li class="d-flex justify-content-between border-bottom py-1">
+              <a href="{{ lead.get_absolute_url }}" class="text-truncate me-2">
+                {{ lead.customer_name }}<span class="text-muted"> · {{ lead.site_location }}</span>
+              </a>
+              <strong class="text-nowrap">{{ lead.order_value|rupees }}</strong>
+            </li>
+          {% empty %}
+            <li class="text-muted">Nothing won yet this month.</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
     </div>
   </div>
 

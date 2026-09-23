@@ -85,6 +85,7 @@
       <div class="card-body small">
         <dl class="row mb-0">
           <dt class="col-6">Assigned salesperson</dt><dd class="col-6">{{ lead.assigned_to }}</dd>
+          {% if lead.project_name %}<dt class="col-6">Project</dt><dd class="col-6">{{ lead.project_name }}</dd>{% endif %}
           <dt class="col-6">Lead source</dt><dd class="col-6">{% if lead.lead_source == 'other' and lead.lead_source_other %}{{ lead.lead_source_other }}{% else %}{{ lead.get_lead_source_display }}{% endif %}</dd>
           <dt class="col-6">Approx quantity</dt><dd class="col-6">{{ lead.approx_quantity|default:"—" }}</dd>
           {% if can_see_financials %}<dt class="col-6">Expected value</dt><dd class="col-6">{{ lead.expected_value|rupees }}</dd>{% endif %}
@@ -101,18 +102,19 @@
       <div class="card-body">
         <ul class="timeline">
           <li><span>{{ lead.created_at|date:"d M Y, H:i" }}</span> Lead created by {{ lead.created_by|default:"—" }}</li>
-          {% if lead.measurement_requested_at %}<li><span>{{ lead.measurement_requested_at|date:"d M Y, H:i" }}</span> Rough measurement requested</li>{% endif %}
+          {% if lead.measurement_requested_at %}<li><span>{{ lead.measurement_requested_at|date:"d M Y, H:i" }}</span> Rough measurement requested by {{ lead.assigned_to }}</li>{% endif %}
           {% if lead.measurement_done_at %}<li><span>{{ lead.measurement_done_at|date:"d M Y, H:i" }}</span> Measurements recorded by {{ lead.measurement_done_by|default:"—" }}</li>{% endif %}
-          {% if lead.quotation_uploaded_at %}<li><span>{{ lead.quotation_uploaded_at|date:"d M Y, H:i" }}</span> Quotation {{ lead.quotation_number }} uploaded</li>{% endif %}
-          {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed{% if can_see_financials %} — {{ lead.order_value|rupees }}{% endif %}</li>{% endif %}
-          {% if lead.lost_at %}<li><span>{{ lead.lost_at|date:"d M Y, H:i" }}</span> Marked as lost</li>{% endif %}
-          {% if lead.caf_signed_at %}<li><span>{{ lead.caf_signed_at|date:"d M Y, H:i" }}</span> Signed CAF uploaded</li>{% endif %}
-          {% if lead.final_measurement_at %}<li><span>{{ lead.final_measurement_at|date:"d M Y, H:i" }}</span> Final measurement uploaded</li>{% endif %}
-          {% if lead.production_sheet_at %}<li><span>{{ lead.production_sheet_at|date:"d M Y, H:i" }}</span> Production sheet uploaded</li>{% endif %}
-          {% if lead.production_revision_at %}<li><span>{{ lead.production_revision_at|date:"d M Y, H:i" }}</span> Production sheet sent back for revision</li>{% endif %}
-          {% if lead.production_approved_at %}<li><span>{{ lead.production_approved_at|date:"d M Y, H:i" }}</span> Production sheet approved</li>{% endif %}
-          {% if lead.dispatched_at %}<li><span>{{ lead.dispatched_at|date:"d M Y, H:i" }}</span> Dispatched — invoice {{ lead.invoice_number }}</li>{% endif %}
-          {% if lead.completed_at %}<li><span>{{ lead.completed_at|date:"d M Y, H:i" }}</span> Project completed</li>{% endif %}
+          {% if lead.quotation_uploaded_at %}<li><span>{{ lead.quotation_uploaded_at|date:"d M Y, H:i" }}</span> Quotation {{ lead.quotation_number }} uploaded by {{ lead.quotation_uploaded_by|default:"—" }}</li>{% endif %}
+          {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed by {{ lead.won_by|default:lead.assigned_to }}{% if can_see_financials %} — {{ lead.order_value|rupees }}{% endif %}</li>{% endif %}
+          {% if lead.lost_at %}<li><span>{{ lead.lost_at|date:"d M Y, H:i" }}</span> Marked as lost by {{ lead.lost_by|default:lead.assigned_to }}</li>{% endif %}
+          {% if lead.caf_signed_at %}<li><span>{{ lead.caf_signed_at|date:"d M Y, H:i" }}</span> Signed CAF uploaded by {{ lead.caf_final_by|default:"—" }}</li>{% endif %}
+          {% if lead.final_measurement_at %}<li><span>{{ lead.final_measurement_at|date:"d M Y, H:i" }}</span> Final measurement uploaded by {{ lead.caf_final_by|default:"—" }}</li>{% endif %}
+          {% if lead.production_sheet_at %}<li><span>{{ lead.production_sheet_at|date:"d M Y, H:i" }}</span> Production sheet uploaded by {{ lead.production_sheet_by|default:"—" }}</li>{% endif %}
+          {% if lead.production_revision_at %}<li><span>{{ lead.production_revision_at|date:"d M Y, H:i" }}</span> Production sheet sent back for revision by {{ lead.production_approved_by|default:"measurement staff" }}</li>{% endif %}
+          {% if lead.production_approved_at %}<li><span>{{ lead.production_approved_at|date:"d M Y, H:i" }}</span> Production sheet approved by {{ lead.production_approved_by|default:"—" }}</li>{% endif %}
+          {% if lead.dispatched_at %}<li><span>{{ lead.dispatched_at|date:"d M Y, H:i" }}</span> Dispatched by {{ lead.dispatched_by|default:"—" }} — invoice {{ lead.invoice_number }}</li>{% endif %}
+          {% if lead.handover_signed_at %}<li><span>{{ lead.handover_signed_at|date:"d M Y, H:i" }}</span> Signed handover certificate uploaded</li>{% endif %}
+          {% if lead.completed_at %}<li><span>{{ lead.completed_at|date:"d M Y, H:i" }}</span> Project completed by {{ lead.completed_by|default:"—" }}</li>{% endif %}
         </ul>
       </div>
     </div>

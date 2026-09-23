@@ -8,6 +8,28 @@
   <p class="text-muted small mb-0">Switch between Future Production, Under Production and Ready for Dispatch from the sidebar.</p>
 </div>
 
+<div class="card mb-3">
+  <div class="card-header"><i class="fa-solid fa-chart-simple me-2"></i>What is on the floor</div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Stage</th><th class="text-end">Orders</th><th class="text-end">Windows</th><th class="text-end">Sq Ft</th><th class="text-end">Value</th></tr>
+      </thead>
+      <tbody>
+        {% for row in totals %}
+        <tr class="{% if row.key == 'all' %}table-light fw-bold{% elif row.key == column %}table-warning{% endif %}">
+          <td>{{ row.label }}</td>
+          <td class="text-end">{{ row.orders }}</td>
+          <td class="text-end">{{ row.windows }}</td>
+          <td class="text-end">{{ row.sqft|floatformat:2 }}</td>
+          <td class="text-end">{{ row.value|rupees }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header">{{ column_label }}</div>
   <div class="table-responsive">
