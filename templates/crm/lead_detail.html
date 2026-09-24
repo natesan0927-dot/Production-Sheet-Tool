@@ -110,7 +110,12 @@
           {% if lead.caf_signed_at %}<li><span>{{ lead.caf_signed_at|date:"d M Y, H:i" }}</span> Signed CAF uploaded by {{ lead.caf_final_by|default:"—" }}</li>{% endif %}
           {% if lead.final_measurement_at %}<li><span>{{ lead.final_measurement_at|date:"d M Y, H:i" }}</span> Final measurement uploaded by {{ lead.caf_final_by|default:"—" }}</li>{% endif %}
           {% if lead.production_sheet_at %}<li><span>{{ lead.production_sheet_at|date:"d M Y, H:i" }}</span> Production sheet uploaded by {{ lead.production_sheet_by|default:"—" }}</li>{% endif %}
-          {% if lead.production_revision_at %}<li><span>{{ lead.production_revision_at|date:"d M Y, H:i" }}</span> Production sheet sent back for revision by {{ lead.production_approved_by|default:"measurement staff" }}</li>{% endif %}
+          {% for revision in lead.production_revisions.all %}
+            <li>
+              <span>{{ revision.requested_at|date:"d M Y, H:i" }}</span>
+              Production sheet sent back for revision by {{ revision.requested_by|default:"measurement staff" }} — {{ revision.note }}
+            </li>
+          {% endfor %}
           {% if lead.production_approved_at %}<li><span>{{ lead.production_approved_at|date:"d M Y, H:i" }}</span> Production sheet approved by {{ lead.production_approved_by|default:"—" }}</li>{% endif %}
           {% if lead.dispatched_at %}<li><span>{{ lead.dispatched_at|date:"d M Y, H:i" }}</span> Dispatched by {{ lead.dispatched_by|default:"—" }} — invoice {{ lead.invoice_number }}</li>{% endif %}
           {% if lead.handover_signed_at %}<li><span>{{ lead.handover_signed_at|date:"d M Y, H:i" }}</span> Signed handover certificate uploaded</li>{% endif %}

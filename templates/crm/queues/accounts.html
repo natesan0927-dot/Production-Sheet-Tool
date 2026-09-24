@@ -4,7 +4,7 @@
 
 {% block content %}
 <h4 class="mb-1">Accounts</h4>
-<p class="text-muted small mb-3">Confirmed orders. Open one to post payments against its ledger.</p>
+<p class="text-muted small mb-3">Confirmed orders. Open one to post payments against its ledger. <strong>Overdue By</strong> counts the days since the invoice date on anything still unpaid.</p>
 
 <div class="row g-3 mb-3">
   <div class="col-md-4">
@@ -39,7 +39,7 @@
       <thead class="table-light">
         <tr>
           <th>#</th><th>Name</th><th>Quotation No.</th><th>Order Value</th>
-          <th>Advance</th><th>Balance</th><th>Invoice Date</th><th>Salesperson</th>
+          <th>Advance</th><th>Balance</th><th>Invoice Date</th><th class="text-end">Overdue By</th><th>Sales Executive</th>
         </tr>
       </thead>
       <tbody>
@@ -55,10 +55,17 @@
             {% if lead.is_outstanding %}<span class="badge bg-danger ms-1">Outstanding</span>{% endif %}
           </td>
           <td>{{ lead.invoice_date|date:"d M Y"|default:"—" }}</td>
+          <td class="text-end">
+            {% if lead.is_outstanding %}
+              <span class="badge {% if lead.overdue_days > 30 %}bg-danger{% elif lead.overdue_days > 7 %}bg-warning{% else %}bg-secondary{% endif %}">
+                {{ lead.overdue_days }}
+              </span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
           <td>{{ lead.assigned_to }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="text-center text-muted py-4">No confirmed orders yet.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">No confirmed orders yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

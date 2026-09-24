@@ -36,54 +36,5 @@
 
 {% if lead.followups.exists or stage.state == 'current' and stage.can_act %}
   <hr>
-  <p class="fw-semibold mb-2"><i class="fa-solid fa-phone-volume me-2"></i>Follow-up timeline</p>
-
-  {% with open_followup=lead.open_followup %}
-    {% if open_followup %}
-      <div class="tw-note d-flex justify-content-between align-items-center mb-3">
-        <span>
-          <span class="badge bg-warning me-2">Open</span>
-          <strong>{{ open_followup.date|date:"d M Y" }}</strong>
-          {% if open_followup.time %} at {{ open_followup.time|time:"H:i" }}{% endif %}
-          {% if open_followup.note %}<span class="text-muted small ms-2">{{ open_followup.note }}</span>{% endif %}
-          {% if open_followup.is_overdue %}<span class="badge bg-danger ms-2">Overdue</span>{% endif %}
-        </span>
-        {% if open_followup.can_be_completed %}
-        <form method="post" action="{% url 'crm:followup_done' open_followup.pk %}">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ lead.get_absolute_url }}">
-          <button class="btn btn-sm btn-outline-success">Mark done</button>
-        </form>
-        {% endif %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
-  {# Everything already closed out, newest first. #}
-  <ul class="timeline mb-3">
-    {% for followup in lead.followup_history %}
-      <li>
-        <span>{{ followup.date|date:"d M Y" }}{% if followup.time %}, {{ followup.time|time:"H:i" }}{% endif %}</span>
-        {{ followup.outcome }}{% if followup.note %} — {{ followup.note }}{% endif %}
-        {% if followup.done_at %}<span class="text-muted small">(closed {{ followup.done_at|date:"d M Y" }})</span>{% endif %}
-      </li>
-    {% empty %}
-      <li class="pending"><span>—</span>Nothing closed out yet.</li>
-    {% endfor %}
-  </ul>
-
-  {% if stage.state == 'current' and stage.can_act %}
-    <p class="text-muted small mb-2">
-      Only one follow-up runs at a time — scheduling the next one moves the current one
-      into the timeline above. A follow-up stays on your dashboard until you mark it done,
-      and is flagged overdue once 6pm passes on its day.
-    </p>
-    <form method="post" action="{% url 'crm:followup_add' lead.pk %}" class="row g-2 align-items-end">
-      {% csrf_token %}
-      <div class="col-sm-3"><label class="form-label small mb-0">Date</label>{{ followup_form.date }}</div>
-      <div class="col-sm-3"><label class="form-label small mb-0">Time</label>{{ followup_form.time }}</div>
-      <div class="col-sm-4"><label class="form-label small mb-0">Note</label>{{ followup_form.note }}</div>
-      <div class="col-sm-2"><button class="btn btn-outline-primary w-100">Schedule</button></div>
-    </form>
-  {% endif %}
+  {% include "crm/_followups.html" with can_schedule=can_follow_up %}
 {% endif %}

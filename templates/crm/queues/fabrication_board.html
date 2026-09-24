@@ -28,6 +28,12 @@
           <dt class="col-7">Order value</dt><dd class="col-5 text-end">{{ lead.order_value|rupees }}</dd>
         </dl>
         <p class="text-muted small">Entered by the salesperson when the order was confirmed.</p>
+        {% if lead.ready_for_production %}
+          <div class="alert alert-success py-2 small mb-3">
+            <i class="fa-solid fa-circle-check me-1"></i>
+            Production sheet approved — all set for production.
+          </div>
+        {% endif %}
         {% if lead.fabrication_column == 'future' %}
         <form method="post" action="{% url 'crm:fabrication_start' lead.pk %}">
           {% csrf_token %}

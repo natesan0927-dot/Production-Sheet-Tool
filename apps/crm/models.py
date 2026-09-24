@@ -58,6 +58,8 @@ class Lead(models.Model):
     phone = models.CharField("Customer number", max_length=20)
     project_name = models.CharField(max_length=150, blank=True)
     site_location = models.CharField(max_length=255)
+    # Pasted from Maps when a measurement is requested; whoever goes out taps it.
+    site_map_link = models.URLField("Site location link", max_length=500, blank=True)
     lead_source = models.CharField(max_length=20, choices=LEAD_SOURCES, default="walk_in")
     lead_source_other = models.CharField("If others, please specify", max_length=120, blank=True)
     assigned_to = models.ForeignKey(
@@ -222,7 +224,37 @@ class Lead(models.Model):
 
     @property
     def handover_files(self):
-        return self.uploads.filter(kind="handover_signed")
+        return self.uploads.filter(kind__in=["handover_signed", "warranty_signed"])
+
+    # The order a finished job's paperwork is read in.
+    DOCUMENT_ORDER = [
+        "quotation",
+        "caf_signed",
+        "final_measurement",
+        "production_sheet",
+        "handover_signed",
+        "warranty_signed",
+    ]
+
+    @property
+    def site_documents(self):
+        """Every stored document for the job, in the order it was produced."""
+        by_kind = {}
+        for upload in self.uploads.all():
+            by_kind.setdefault(upload.kind, []).append(upload)
+        return [upload for kind in self.DOCUMENT_ORDER for upload in by_kind.get(kind, [])]
+
+    @property
+    def overdue_days(self):
+        """Days since the invoice went out, for anything still unpaid."""
+        if not self.is_outstanding or not self.invoice_date:
+            return 0
+        return max(0, (timezone.localdate() - self.invoice_date).days)
+
+    @property
+    def ready_for_production(self):
+        """Approved and waiting on the floor to pick it up."""
+        return self.production_approved_at is not None and self.fabrication_column == self.Fabrication.FUTURE
 
     @property
     def project_label(self):
@@ -251,6 +283,8 @@ class LeadFile(models.Model):
         PRODUCTION_SHEET = "production_sheet", "Production Sheet"
         ELEVATION = "elevation", "Elevation Report"
         HANDOVER_SIGNED = "handover_signed", "Signed Handover Certificate"
+        # Jobs finished before the certificate was renamed still carry this kind.
+        WARRANTY_SIGNED = "warranty_signed", "Signed Warranty Certificate"
 
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="uploads")
     kind = models.CharField(max_length=24, choices=Kind.choices)
@@ -314,6 +348,21 @@ class FollowUp(models.Model):
     def can_be_completed(self):
         """Closed leads have their follow-ups closed out with them."""
         return self.lead.status == Lead.Status.OPEN
+
+
+class ProductionRevision(models.Model):
+    """A production sheet sent back for changes. Kept so the timeline has them all."""
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="production_revisions")
+    note = models.TextField()
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    requested_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["requested_at"]
+
+    def __str__(self):
+        return f"Revision for {self.lead.lead_number}"
 
 
 class SalesTarget(models.Model):

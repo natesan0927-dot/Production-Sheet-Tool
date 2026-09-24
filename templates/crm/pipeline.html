@@ -4,7 +4,20 @@
 
 {% block content %}
 <div class="tw-page-header mb-3">
-  <h4 class="mb-0">Sales Pipeline</h4>
+  <div>
+    <h4 class="mb-0">Sales Pipeline</h4>
+    {% if selected_salesperson %}<div class="text-muted small">Showing one sales executive's leads.</div>{% endif %}
+  </div>
+  {% if user.is_super_admin %}
+  <form method="get">
+    <select name="salesperson" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:220px">
+      <option value="">All sales executives</option>
+      {% for person in salespeople %}
+        <option value="{{ person.pk }}" {% if selected_salesperson == person.pk|stringformat:'s' %}selected{% endif %}>{{ person }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
 </div>
 
 <div class="d-flex flex-wrap gap-3 align-items-start">

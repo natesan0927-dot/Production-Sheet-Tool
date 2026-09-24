@@ -3,7 +3,19 @@
 {% block title %}Sales Target{% endblock %}
 
 {% block content %}
-<h4 class="mb-3">Sales Target</h4>
+<div class="tw-page-header">
+  <h4 class="mb-0">Sales Target</h4>
+  {% if user.is_super_admin %}
+  <form method="get">
+    <select name="salesperson" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:240px">
+      <option value="">Everyone's targets</option>
+      {% for person in salespeople %}
+        <option value="{{ person.pk }}" {% if selected_salesperson == person.pk|stringformat:'s' %}selected{% endif %}>{{ person }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
+</div>
 
 <div class="row g-3">
   <div class="{% if form %}col-lg-5{% else %}col-12{% endif %}">

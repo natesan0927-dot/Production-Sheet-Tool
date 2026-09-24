@@ -15,7 +15,13 @@
         {% for lead in leads %}
         <tr onclick="window.location='{% url 'crm:fabrication_detail' lead.pk %}'" style="cursor:pointer">
           <td class="text-muted small">{{ lead.lead_number }}</td>
-          <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.site_location }}</div></td>
+          <td>
+            <strong>{{ lead.customer_name }}</strong>
+            <div class="text-muted small">{{ lead.site_location }}</div>
+            {% if lead.ready_for_production %}
+              <span class="badge bg-success mt-1"><i class="fa-solid fa-circle-check me-1"></i>All set for production</span>
+            {% endif %}
+          </td>
           <td>{{ lead.quotation_number|default:"—" }}</td>
           <td>{{ lead.window_count|default:"—" }}</td>
           <td>

@@ -20,7 +20,6 @@
   <div class="card-body">
     <form method="post" action="{% url 'crm:fabrication_checklist' lead.pk %}">
       {% csrf_token %}
-      <input type="hidden" name="then_dispatch" value="1">
       <input type="hidden" name="next" value="{{ fabrication_url }}?column=under">
       <input type="hidden" name="back" value="{{ request.path }}">
       <div class="row">
@@ -34,10 +33,17 @@
         {% endfor %}
       </div>
       <p class="text-muted small mt-2">
-        Every step must be ticked before the order moves to dispatch. If any are left, your ticks are
-        still saved and the order stays in Under Production.
+        Save as often as you like. Moving to dispatch needs every step ticked — if any are
+        left, your ticks are still saved and the order stays in Under Production.
       </p>
-      <button class="btn btn-primary w-100">Save checklist &amp; move to dispatch</button>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-primary flex-grow-1">
+          <i class="fa-solid fa-floppy-disk me-1"></i>Save checklist
+        </button>
+        <button class="btn btn-primary flex-grow-1" name="then_dispatch" value="1">
+          <i class="fa-solid fa-truck-ramp-box me-1"></i>Move to dispatch
+        </button>
+      </div>
     </form>
   </div>
 </div>

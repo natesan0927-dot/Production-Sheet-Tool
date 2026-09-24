@@ -6,7 +6,15 @@
     <dt class="col-sm-3">Contact</dt>
     <dd class="col-sm-9"><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></dd>
     {% if lead.project_name %}<dt class="col-sm-3">Project</dt><dd class="col-sm-9">{{ lead.project_name }}</dd>{% endif %}
-    <dt class="col-sm-3">Site location</dt><dd class="col-sm-9">{{ lead.site_location }}</dd>
+    <dt class="col-sm-3">Site location</dt>
+    <dd class="col-sm-9">
+      {{ lead.site_location }}
+      {% if lead.site_map_link %}
+        <a href="{{ lead.site_map_link }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info ms-2">
+          <i class="fa-solid fa-location-dot me-1"></i>Open in Maps
+        </a>
+      {% endif %}
+    </dd>
     <dt class="col-sm-3">Site stage</dt><dd class="col-sm-9">{{ lead.get_site_stage_display }}</dd>
   </dl>
 </div>

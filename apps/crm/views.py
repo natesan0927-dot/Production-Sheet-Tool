@@ -36,7 +36,17 @@ from .forms import (
     TaskForm,
     WonForm,
 )
-from .models import FollowUp, Lead, LeadFile, Notification, Payment, SalesTarget, ServiceComplaint, Task
+from .models import (
+    FollowUp,
+    Lead,
+    LeadFile,
+    Notification,
+    Payment,
+    ProductionRevision,
+    SalesTarget,
+    ServiceComplaint,
+    Task,
+)
 from .pdf import render_caf, render_handover_certificate
 
 # ---------------------------------------------------------------------------
@@ -56,6 +66,11 @@ def role_required(*roles):
         return wrapper
 
     return decorator
+
+
+def sales_executives():
+    """Everyone a lead can sit under — the Super Admin works leads of their own."""
+    return User.objects.filter(role__in=[Role.SALESPERSON, Role.SUPER_ADMIN], is_active=True)
 
 
 def visible_leads(user):
@@ -175,6 +190,15 @@ def _sales_dashboard(request, updates):
     month_start = today.replace(day=1)
     followups = FollowUp.objects.filter(lead__in=leads, done=False).select_related("lead")
 
+    # The Super Admin's own panel lists their own leads, the same way a
+    # salesperson's does; everyone else's overdue work is summarised beside it.
+    # The figures across the top stay company-wide.
+    panel_followups = followups
+    overdue_by_person = None
+    if request.user.is_super_admin and not selected_salesperson:
+        panel_followups = followups.filter(lead__assigned_to=request.user)
+        overdue_by_person = _overdue_by_person(today)
+
     context = {
         "lead_bank": leads.count(),
         "leads_this_month": leads.filter(created_at__date__gte=month_start).count(),
@@ -183,14 +207,26 @@ def _sales_dashboard(request, updates):
         "lost_count": leads.filter(status=Lead.Status.LOST).count(),
         "pending_quotations": leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=True).count(),
         # Every follow-up that is still open, whatever its date, until it is done.
-        "open_followups": followups,
+        "open_followups": panel_followups,
         "today": today,
         "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
-        "salespeople": User.objects.filter(role=Role.SALESPERSON, is_active=True),
+        "salespeople": sales_executives(),
         "selected_salesperson": selected_salesperson,
+        "overdue_by_person": overdue_by_person,
         "updates": updates,
     }
     return render(request, "crm/dashboard.html", context)
+
+
+def _overdue_by_person(today):
+    """How much overdue follow-up each sales executive is carrying."""
+    rows = []
+    for person in sales_executives():
+        count = FollowUp.objects.filter(
+            lead__assigned_to=person, done=False, date__lt=today
+        ).count()
+        rows.append({"person": person, "overdue": count})
+    return sorted(rows, key=lambda row: -row["overdue"])
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +267,7 @@ def lead_list(request):
         {
             "leads": leads,
             "q": query,
-            "salespeople": User.objects.filter(role=Role.SALESPERSON, is_active=True),
+            "salespeople": sales_executives(),
             "selected_salesperson": selected_salesperson,
             "status": status,
             "status_choices": [
@@ -254,7 +290,13 @@ def lead_create(request):
                 lead.assigned_to = request.user
             lead.created_by = request.user
             lead.save()
-            messages.success(request, f"Lead {lead.lead_number} saved.")
+            if lead.assigned_to_id != request.user.id:
+                notify_user(
+                    lead,
+                    f"A new lead opportunity has been assigned to you — {lead.customer_name}, {lead.site_location}",
+                    lead.assigned_to,
+                )
+            messages.success(request, f"Lead {lead.lead_number} saved. Set the first follow-up below.")
             return redirect(lead.get_absolute_url())
     else:
         form = LeadForm(user=request.user)
@@ -270,7 +312,11 @@ def lead_edit(request, pk):
         if form.is_valid():
             lead = form.save()
             if lead.assigned_to_id != was_assigned_to:
-                notify_user(lead, f"A lead has been reassigned to you - {lead.customer_name}", lead.assigned_to)
+                notify_user(
+                    lead,
+                    f"A new lead opportunity has been reassigned to you — {lead.customer_name}, {lead.site_location}",
+                    lead.assigned_to,
+                )
                 messages.success(request, f"Lead updated and reassigned to {lead.assigned_to}.")
             else:
                 messages.success(request, "Lead updated.")
@@ -323,6 +369,9 @@ def lead_detail(request, pk):
         # Production is the one stage two roles touch: production uploads, measurement approves.
         "can_validate_production": request.user.has_role(Role.MEASUREMENT),
         "can_see_financials": stage_flow.can_see_financials(request.user),
+        # Follow-ups run from the moment the lead exists, not just once a
+        # quotation is out, so the scheduler shows on stage 1 as well.
+        "can_follow_up": lead.status == Lead.Status.OPEN and request.user.has_role(Role.SALESPERSON),
         "measurement_form": MeasurementBoxForm(),
         "rough_form": RoughMeasurementForm(),
         "quotation_form": QuotationForm(),
@@ -360,6 +409,10 @@ def stage_measurements(request, pk):
 
     if mode == Lead.MeasurementMode.REQUESTED:
         lead.measurement_requested_at = now
+        # Whatever map link came with the request stays on the lead, so the final
+        # measurement visit later has it too.
+        if form.cleaned_data.get("site_map_link"):
+            lead.site_map_link = form.cleaned_data["site_map_link"]
         lead.save()
         notify(
             lead,
@@ -618,6 +671,7 @@ def production_need_revision(request, pk):
     lead.production_revision_note = remarks
     lead.production_revision_at = timezone.now()
     lead.save()
+    ProductionRevision.objects.create(lead=lead, note=remarks, requested_by=request.user)
     notify(lead, f"Production sheet needs revision — {lead.customer_name}: {remarks}", Role.PRODUCTION)
     messages.success(request, "Sent back to the production team with your remarks.")
     return redirect(lead.get_absolute_url())
@@ -849,6 +903,9 @@ def followup_done(request, pk):
 @role_required(Role.SALESPERSON)
 def pipeline(request):
     leads = visible_leads(request.user)
+    selected_salesperson = request.GET.get("salesperson") or ""
+    if request.user.is_super_admin and selected_salesperson:
+        leads = leads.filter(assigned_to_id=selected_salesperson)
     open_leads = leads.filter(status=Lead.Status.OPEN)
     quoted = open_leads.filter(quotation_uploaded_at__isnull=False)
     columns = [
@@ -858,7 +915,15 @@ def pipeline(request):
         ("Won", leads.filter(status=Lead.Status.WON)),
         ("Lost", leads.filter(status=Lead.Status.LOST)),
     ]
-    return render(request, "crm/pipeline.html", {"columns": columns})
+    return render(
+        request,
+        "crm/pipeline.html",
+        {
+            "columns": columns,
+            "salespeople": sales_executives(),
+            "selected_salesperson": selected_salesperson,
+        },
+    )
 
 
 @role_required(Role.SALESPERSON)
@@ -885,6 +950,12 @@ def targets(request):
     if request.user.role == Role.SALESPERSON:
         target_qs = target_qs.filter(salesperson=request.user)
 
+    # The Super Admin sees everyone's by default, and can pick one person to
+    # read exactly as that person reads their own.
+    selected_salesperson = request.GET.get("salesperson") or ""
+    if request.user.is_super_admin and selected_salesperson:
+        target_qs = target_qs.filter(salesperson_id=selected_salesperson)
+
     this_month = timezone.localdate().replace(day=1)
     current = target_qs.filter(month=this_month).first()
     won_this_month = []
@@ -904,6 +975,8 @@ def targets(request):
             "current": current,
             "this_month": this_month,
             "won_this_month": won_this_month,
+            "salespeople": sales_executives(),
+            "selected_salesperson": selected_salesperson,
         },
     )
 
@@ -1105,23 +1178,42 @@ def _fabrication_admin(request, on_floor):
 
 
 def _fabrication_totals(on_floor):
-    """What is on the floor right now, column by column and altogether."""
-    rows = []
+    """Each column written out in full, with its own totals underneath."""
+    sections = []
     for key, label in FABRICATION_COLUMNS:
-        rows.append({"label": label, "key": key, **_totals_for(on_floor.filter(fabrication_column=key))})
-    rows.append({"label": "All on the floor", "key": "all", **_totals_for(on_floor)})
-    return rows
+        column = on_floor.filter(fabrication_column=key)
+        sections.append({
+            "label": label,
+            "key": key,
+            "leads": column,
+            "totals": _totals_for(column),
+        })
+    sections.append({
+        "label": "All on the floor",
+        "key": "all",
+        "leads": None,
+        "totals": _totals_for(on_floor),
+    })
+    return sections
 
 
 def _totals_for(queryset):
     figures = queryset.aggregate(
-        orders=Count("id"), windows=Sum("window_count"), sqft=Sum("total_sqft"), value=Sum("order_value")
+        orders=Count("id"),
+        windows=Sum("window_count"),
+        sqft=Sum("total_sqft"),
+        value=Sum("order_value"),
+        advance=Sum("advance_received"),
     )
+    value = figures["value"] or Decimal("0")
+    advance = figures["advance"] or Decimal("0")
     return {
         "orders": figures["orders"] or 0,
         "windows": figures["windows"] or 0,
         "sqft": figures["sqft"] or 0,
-        "value": figures["value"] or Decimal("0"),
+        "value": value,
+        "advance": advance,
+        "balance": value - advance,
     }
 
 

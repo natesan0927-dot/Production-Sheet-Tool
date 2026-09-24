@@ -30,9 +30,9 @@
           <td>{{ lead.invoice_number|default:"—" }}<div class="text-muted small">{{ lead.invoice_date|date:"d M Y" }}</div></td>
           <td class="text-muted small">{{ lead.completed_at|date:"d M Y" }}</td>
           <td>
-            {% for upload in lead.uploads.all %}
-              <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="badge bg-light text-decoration-none" title="{{ upload.filename }}">{{ upload.get_kind_display }}</a>
-            {% endfor %}
+            <button class="btn btn-sm btn-outline-secondary text-nowrap" data-bs-toggle="collapse" data-bs-target="#docs-{{ lead.pk }}">
+              <i class="fa-solid fa-folder-open me-1"></i>Site Documents
+            </button>
           </td>
           <td class="text-end">
             {% for complaint in lead.complaints.all %}
@@ -41,6 +41,27 @@
             <button class="btn btn-sm btn-outline-secondary text-nowrap" data-bs-toggle="collapse" data-bs-target="#complaint-{{ lead.pk }}">
               <i class="fa-solid fa-screwdriver me-1"></i>Raise complaint
             </button>
+          </td>
+        </tr>
+        <tr class="collapse" id="docs-{{ lead.pk }}">
+          <td colspan="9" class="bg-light">
+            <div class="fw-semibold small mb-2">Site documents — {{ lead.customer_name }}</div>
+            <div class="d-flex flex-wrap gap-2">
+              {% for upload in lead.site_documents %}
+                <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
+                  <i class="fa-solid fa-file-lines me-1"></i>{{ upload.get_kind_display }}
+                  <span class="text-muted ms-1">{{ upload.filename }}</span>
+                </a>
+              {% endfor %}
+              {% if lead.dispatched_at %}
+                <a href="{% url 'crm:handover_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                  <i class="fa-solid fa-file-pdf me-1"></i>Handover Warranty Certificate
+                </a>
+              {% endif %}
+            </div>
+            {% if not lead.site_documents %}
+              <div class="text-muted small">Nothing stored against this job.</div>
+            {% endif %}
           </td>
         </tr>
         <tr class="collapse" id="complaint-{{ lead.pk }}">

@@ -100,6 +100,7 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
             "phone",
             "project_name",
             "site_location",
+            "site_map_link",
             "lead_source",
             "lead_source_other",
             "assigned_to",
@@ -116,6 +117,7 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
         self.fields["lead_source_other"].widget.attrs["placeholder"] = "Where did this lead come from?"
         self.fields["phone"].widget.attrs.update({"inputmode": "tel", "placeholder": "10-digit mobile number"})
         self.fields["project_name"].widget.attrs["placeholder"] = "Optional — printed on the CAF"
+        self.fields["site_map_link"].widget.attrs["placeholder"] = "Optional — paste the Google Maps link"
         limit_number(self.fields["approx_quantity"], 1)
         limit_number(self.fields["expected_value"], 1)
         # A salesperson only ever files leads under their own name.
@@ -153,6 +155,13 @@ class MeasurementBoxForm(forms.Form):
     notes = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 4, "class": "form-control", "placeholder": "Type the measurements here"}),
+    )
+    # Travels with the request so whoever goes out can tap straight through to it.
+    site_map_link = forms.URLField(
+        label="Site location link",
+        required=False,
+        max_length=500,
+        widget=forms.URLInput(attrs={"class": "form-control", "placeholder": "Paste the Google Maps link"}),
     )
 
     def clean(self):
