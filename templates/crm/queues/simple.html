@@ -12,7 +12,7 @@
       <tbody>
         {% for lead in leads %}
         <tr onclick="window.location='{{ lead.get_absolute_url }}'" style="cursor:pointer">
-          <td class="text-muted small">{{ lead.lead_number }}</td>
+          <td class="text-muted">{{ forloop.counter }}</td>
           <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.phone }}</div></td>
           <td>{{ lead.site_location }}</td>
           <td>{{ lead.get_site_stage_display }}</td>

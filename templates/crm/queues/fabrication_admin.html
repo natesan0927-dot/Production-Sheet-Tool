@@ -37,7 +37,7 @@ single place to read a job and a single place to move it.
           <tr>
             <td>
               <a href="{{ lead.get_absolute_url }}"><strong>{{ lead.customer_name }}</strong></a>
-              <div class="text-muted small">{{ lead.lead_number }} · {{ lead.site_location }}</div>
+              <div class="text-muted small">{{ lead.site_location }}</div>
               {% if lead.ready_for_production %}
                 <span class="badge bg-success mt-1"><i class="fa-solid fa-circle-check me-1"></i>All set for production</span>
               {% endif %}

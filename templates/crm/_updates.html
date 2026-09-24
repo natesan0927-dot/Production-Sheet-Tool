@@ -8,7 +8,7 @@
            class="flex-grow-1 text-reset">
           {{ update.message }}
           <span class="text-muted small d-block">
-            {% if update.lead %}{{ update.lead.lead_number }} · {% endif %}{{ update.created_at|time:"H:i" }}
+            {% if update.lead %}{{ update.lead.customer_name }} · {% endif %}{{ update.created_at|time:"H:i" }}
           </span>
         </a>
         <form method="post" action="{% url 'crm:update_dismiss' update.pk %}">

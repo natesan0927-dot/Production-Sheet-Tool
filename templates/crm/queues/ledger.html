@@ -6,7 +6,7 @@
 <a href="{% url 'crm:queue_accounts' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Accounts</a>
 <h4 class="mb-1 mt-1">{{ lead.customer_name }}</h4>
 <p class="text-muted small mb-3">
-  {{ lead.lead_number }} · {{ lead.site_location }}
+  {{ lead.site_location }}
   {% if lead.quotation_number %} · Quotation {{ lead.quotation_number }}{% endif %}
 </p>
 

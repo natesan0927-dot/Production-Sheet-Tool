@@ -144,7 +144,7 @@ copy, so the two never both render.
     <div class="toast-body">
       {{ note.message }}
       {% if note.lead %}
-        <a href="{{ note.lead.get_absolute_url }}" class="d-block small mt-1">Open {{ note.lead.lead_number }}</a>
+        <a href="{{ note.lead.get_absolute_url }}" class="d-block small mt-1">Open {{ note.lead.customer_name }}</a>
       {% endif %}
     </div>
   </div>

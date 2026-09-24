@@ -27,6 +27,12 @@ INK = (0.05, 0.05, 0.15)
 BASELINE_LIFT = 2
 
 
+def _slug(name):
+    """A customer's name, safe to hand a browser as a download filename."""
+    cleaned = "".join(character if character.isalnum() else "-" for character in name)
+    return "-".join(part for part in cleaned.split("-") if part) or "lead"
+
+
 def field(x, y_from_top, text, size=11, align="left", max_width=None):
     return {"x": x, "y": y_from_top, "text": text, "size": size, "align": align, "max_width": max_width}
 
@@ -97,7 +103,7 @@ def render_caf(lead):
             ],
             1: [field(88, 656.23, lead.customer_name, 11, max_width=330)],
         },
-        f"CAF-{lead.lead_number}.pdf",
+        f"CAF-{_slug(lead.customer_name)}.pdf",
     )
 
 
@@ -113,5 +119,5 @@ def render_handover_certificate(lead):
                 field(251, 283.52, invoice_date, 10, max_width=120),
             ],
         },
-        f"Handover-Warranty-{lead.lead_number}.pdf",
+        f"Handover-Warranty-{_slug(lead.customer_name)}.pdf",
     )

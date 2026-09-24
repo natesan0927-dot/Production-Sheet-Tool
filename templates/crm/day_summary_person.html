@@ -40,14 +40,9 @@
               {% else %}
                 <div class="list-group-item">
               {% endif %}
-                <div class="d-flex justify-content-between align-items-start gap-2">
-                  <div>
-                    <strong>{{ row.label }}</strong>
-                    {% if row.detail %}<div class="text-muted small">{{ row.detail }}</div>{% endif %}
-                    {% if row.note %}<div class="text-muted small fst-italic">{{ row.note|truncatewords:18 }}</div>{% endif %}
-                  </div>
-                  {% if row.lead %}<span class="text-muted small text-nowrap">{{ row.lead.lead_number }}</span>{% endif %}
-                </div>
+                <strong>{{ row.label }}</strong>
+                {% if row.detail %}<div class="text-muted small">{{ row.detail }}</div>{% endif %}
+                {% if row.note %}<div class="text-muted small fst-italic">{{ row.note|truncatewords:18 }}</div>{% endif %}
               {% if row.lead %}</a>{% else %}</div>{% endif %}
             {% endfor %}
           </div>

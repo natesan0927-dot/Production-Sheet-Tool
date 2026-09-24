@@ -7,7 +7,7 @@
   <div>
     <a href="{% url 'crm:queue_fabrication' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Site Fabrication Status</a>
     <h4 class="mb-0 mt-1">{{ lead.customer_name }}</h4>
-    <div class="text-muted small">{{ lead.lead_number }} · {{ lead.site_location }}</div>
+    <div class="text-muted small">{{ lead.site_location }}</div>
   </div>
   <a href="{{ lead.get_absolute_url }}" class="btn btn-sm btn-outline-secondary">Open full lead</a>
 </div>

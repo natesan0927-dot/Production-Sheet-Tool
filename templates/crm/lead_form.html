@@ -2,7 +2,7 @@
 {% block title %}{% if lead %}Edit Lead{% else %}Add Lead{% endif %}{% endblock %}
 
 {% block content %}
-<h4 class="mb-3">{% if lead %}Edit Lead — {{ lead.lead_number }}{% else %}Add Lead{% endif %}</h4>
+<h4 class="mb-3">{% if lead %}Edit Lead — {{ lead.customer_name }}{% else %}Add Lead{% endif %}</h4>
 <div class="card tw-form-narrow">
   <div class="card-body">
     <form method="post">

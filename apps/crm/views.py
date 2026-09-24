@@ -250,7 +250,6 @@ def lead_list(request):
             Q(customer_name__icontains=query)
             | Q(phone__icontains=query)
             | Q(site_location__icontains=query)
-            | Q(lead_number__icontains=query)
         )
     if request.user.is_super_admin and selected_salesperson:
         leads = leads.filter(assigned_to_id=selected_salesperson)
@@ -302,7 +301,7 @@ def lead_create(request):
                     f"A new lead opportunity has been assigned to you — {lead.customer_name}, {lead.site_location}",
                     lead.assigned_to,
                 )
-            messages.success(request, f"Lead {lead.lead_number} saved. Set the first follow-up below.")
+            messages.success(request, f"Lead for {lead.customer_name} saved. Set the first follow-up below.")
             return redirect(lead.get_absolute_url())
     else:
         form = LeadForm(user=request.user)
