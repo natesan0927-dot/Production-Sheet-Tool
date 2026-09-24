@@ -5,8 +5,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Dashboard{% endblock %} · Titans Windows</title>
-  <meta name="theme-color" content="#050D1C">
+  <meta name="theme-color" content="#04081A">
   <link rel="icon" type="image/png" href="{% static 'branding/favicon.png' %}">
+  {% comment %}Installable as an app on a phone or a desktop.{% endcomment %}
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+  <link rel="apple-touch-icon" href="{% static 'branding/icon-192.png' %}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Titans">
+  <meta name="mobile-web-app-capable" content="yes">
   {# Applied before the first paint so a light-mode user never sees a dark flash. #}
   <script>try{var t=localStorage.getItem("tw-theme");if(t)document.documentElement.setAttribute("data-bs-theme",t);}catch(e){}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,9 +24,9 @@
   <link href="{% static 'css/app.css' %}?v={{ css_version }}" rel="stylesheet">
   {% block extra_head %}{% endblock %}
 </head>
-<body class="{% if user.is_authenticated %}has-sidebar{% endif %} {% block body_class %}{% endblock %}">
+<body class="{% if user.is_authenticated and not hide_chrome %}has-sidebar{% endif %} {% block body_class %}{% endblock %}">
 
-{% if user.is_authenticated %}
+{% if user.is_authenticated and not hide_chrome %}
 <button id="tw-sidebar-toggle" type="button" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
 <div id="tw-sidebar-backdrop"></div>
 
@@ -79,10 +86,13 @@
 {% endif %}
 
 <div id="tw-content-wrap">
-  {% if user.is_authenticated %}
+  {% if user.is_authenticated and not hide_chrome %}
   <div class="tw-topbar d-flex align-items-center justify-content-between">
     <div class="d-flex align-items-center gap-2 ms-auto">
       <span class="tw-role-chip d-none d-sm-inline-block">{{ role_label }}</span>
+      <button id="tw-install" type="button" class="tw-icon-btn d-none align-items-center justify-content-center" title="Install as an app">
+        <i class="fa-solid fa-mobile-screen-button"></i>
+      </button>
       <button id="tw-theme-toggle" type="button" class="tw-icon-btn d-inline-flex align-items-center justify-content-center" title="Switch theme">
         <i class="fa-solid fa-sun"></i><i class="fa-solid fa-moon"></i>
       </button>
@@ -99,8 +109,11 @@
           <i class="fa-solid fa-chevron-down small text-muted"></i>
         </button>
         <div class="dropdown-menu dropdown-menu-end">
+          <a class="dropdown-item" href="{% url 'accounts:change_password' %}">
+            <i class="fa-solid fa-key me-2"></i>Change password
+          </a>
           <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
-            <button class="dropdown-item text-danger">Logout</button>
+            <button class="dropdown-item text-danger"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</button>
           </form>
         </div>
       </div>
@@ -125,7 +138,7 @@ The first-sign-in walkthrough. The Guide tab overrides this block with its own
 copy, so the two never both render.
 {% endcomment %}
 {% block walkthrough %}
-  {% if show_intro %}{% include "crm/_walkthrough.html" with autostart=1 %}{% endif %}
+  {% if show_intro and not hide_chrome %}{% include "crm/_walkthrough.html" with autostart=1 %}{% endif %}
 {% endblock %}
 
 {{ tour_steps|json_script:"tw-tour-steps" }}

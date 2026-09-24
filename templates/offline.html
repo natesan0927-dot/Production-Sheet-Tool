@@ -1,0 +1,29 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offline · Titans Windows</title>
+  <link rel="icon" type="image/png" href="{% static 'branding/favicon.png' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link href="{% static 'css/app.css' %}" rel="stylesheet">
+</head>
+<body>
+  <div class="tw-gate">
+    <div class="tw-gate-panel text-center">
+      <div class="auth-logo-ring mx-auto mb-3" style="width:88px;height:88px">
+        <img src="{% static 'branding/titans_logo.png' %}" alt="Titans Windows" style="width:100%;height:100%;object-fit:contain">
+      </div>
+      <h4 class="mb-2">You are offline</h4>
+      <p class="text-muted mb-4">
+        Titans Windows needs a connection — it always shows you the live state of a
+        job rather than something remembered from earlier. Reconnect and try again.
+      </p>
+      <button class="btn btn-primary" onclick="location.reload()">
+        <i class="fa-solid fa-rotate-right me-1"></i>Try again
+      </button>
+    </div>
+  </div>
+</body>
+</html>

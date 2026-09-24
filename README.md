@@ -48,51 +48,25 @@ templates/crm/stages/   one template per stage of the journey
 templates/pdf/          the CAF and the warranty certificate
 ```
 
-## Deploying to Render
+## Going live
 
-The existing Render web service keeps working with these settings.
+Hosting options, first sign-in, installing it as an app on a phone or desktop, and the recipe for
+a real `.apk` — all in **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
-**Build Command**
+The short version: it runs for nothing on an Oracle Cloud Always Free machine, or on
+PythonAnywhere's free plan if nobody wants to look after a server. Uploaded files go to the local
+disk unless `AWS_STORAGE_BUCKET_NAME` is set, in which case they go to any S3-compatible bucket
+(Cloudflare R2, Supabase, Backblaze) — which is what makes a host with no permanent disk usable.
+
+## Staff accounts
+
+`python manage.py seed_employees` creates the team. Everyone starts on `ChangeMe@123` and is held
+at a change-password screen until they choose their own. The Super Admin adds and removes people
+from the **Employees** tab. To clear a demo install and start clean:
 
 ```
-pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput && python manage.py seed_data
+python manage.py reset_to_live
 ```
-
-**Start Command**
-
-```
-python manage.py seed_data && gunicorn titans_crm.wsgi:application --bind 0.0.0.0:$PORT
-```
-
-**Environment variables**
-
-| Key | Value |
-| --- | --- |
-| `DJANGO_SECRET_KEY` | a long random string |
-| `DEBUG` | `False` |
-| `ALLOWED_HOSTS` | `<your-app>.onrender.com` |
-| `CSRF_TRUSTED_ORIGINS` | `https://<your-app>.onrender.com` |
-| `DATABASE_URL` | the Render PostgreSQL internal URL |
-| `SECURE_SSL_REDIRECT` / `SESSION_COOKIE_SECURE` / `CSRF_COOKIE_SECURE` | `True` |
-| `DJANGO_SUPERUSER_USERNAME` / `_PASSWORD` / `_EMAIL` | your own Super Admin login, created on first deploy |
-
-### First deploy after the rebuild — read this
-
-This version replaced the old system's database design. A database that still holds the old
-tables is refused on purpose, with the message *"This database still holds the previous version
-of Titans CRM…"*, and nothing in it is touched.
-
-To start fresh, add the environment variable **`RESET_LEGACY_SCHEMA` = `true`** and deploy once.
-That permanently deletes the old data and builds the new tables. After that it does nothing (it
-only acts when the old tables are present), so it is safe to leave or remove. Alternatively, point
-`DATABASE_URL` at a new, empty database.
-
-### Free plan caveat
-
-Uploaded files (quotations, signed CAFs, production sheets, receipts) are stored on the service's
-disk, which Render's Free plan wipes on every deploy or restart. The generated CAF and warranty
-certificate are unaffected — they are built on demand from `documents/`. For real use, move to the
-Starter plan and attach a persistent disk mounted at the project's `media/` folder.
 
 ## Generated documents
 

@@ -88,7 +88,7 @@
             <div class="col-12"><div class="alert alert-danger py-2 small mb-0">{{ form.non_field_errors.0 }}</div></div>
           {% endif %}
           <div class="col-md-4">
-            <label class="form-label">Salesperson</label>
+            <label class="form-label">Sales Executive</label>
             {{ form.salesperson }}
             {% if form.salesperson.errors %}<div class="text-danger small">{{ form.salesperson.errors.0 }}</div>{% endif %}
           </div>
@@ -114,7 +114,7 @@
   <div class="card-header">Targets</div>
   <div class="table-responsive">
     <table class="table mb-0 align-middle">
-      <thead class="table-light"><tr><th>Month</th><th>Salesperson</th><th>Target</th><th>Achieved</th><th>Pending</th><th style="width:25%">Progress</th></tr></thead>
+      <thead class="table-light"><tr><th>Month</th><th>Sales Executive</th><th>Target</th><th>Achieved</th><th>Pending</th><th style="width:25%">Progress</th></tr></thead>
       <tbody>
         {% for target in targets %}
         <tr>

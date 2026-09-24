@@ -62,6 +62,38 @@
     });
   }
 
+  /* ------------------------------------------------- installable as an app */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/sw.js").catch(function () { /* not fatal */ });
+    });
+  }
+
+  // Browsers offer their own install prompt; this puts one in the top bar too,
+  // and only when the browser says the app can actually be installed.
+  var installPrompt = null;
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+    installPrompt = event;
+    var button = document.getElementById("tw-install");
+    if (button) { button.classList.remove("d-none"); button.classList.add("d-inline-flex"); }
+  });
+
+  document.addEventListener("click", function (event) {
+    if (!event.target.closest("#tw-install") || !installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.finally(function () {
+      installPrompt = null;
+      var button = document.getElementById("tw-install");
+      if (button) { button.classList.add("d-none"); button.classList.remove("d-inline-flex"); }
+    });
+  });
+
+  window.addEventListener("appinstalled", function () {
+    var button = document.getElementById("tw-install");
+    if (button) button.classList.add("d-none");
+  });
+
   document.addEventListener("DOMContentLoaded", function () {
     /* ------------------------------------------------- numbers count up */
     var numbers = document.querySelectorAll(".stat-value, .tw-stat-value");

@@ -1024,6 +1024,28 @@ html[data-bs-theme="light"] .demo-tile .demo-ico { color: var(--tw-blue-600); }
   .auth-brand-name { font-size: 1.9rem; }
 }
 
+/* ------------------------------------------------------------- the gate */
+/* A screen with nothing behind it: setting a first password, or being told
+   there is no connection. One panel, centred, no way around it. */
+.tw-gate {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+}
+.tw-gate-panel {
+  width: min(480px, 100%);
+  background: var(--tw-surface-solid); border: 1px solid var(--tw-border);
+  border-radius: var(--tw-r-xl); padding: 2rem 1.9rem;
+  box-shadow: 0 32px 64px -28px rgba(0, 0, 0, .9);
+}
+.tw-gate-panel .form-text { font-size: .82rem; }
+.tw-gate-panel ul { padding-left: 1.1rem; margin-bottom: 0; }
+body.auth-page .tw-gate { min-height: 100vh; }
+
+@media (max-width: 575.98px) {
+  .tw-gate { padding: .9rem; align-items: flex-start; }
+  .tw-gate-panel { padding: 1.4rem 1.2rem; }
+}
+
 /* ---------------------------------------------------------------- motion */
 @keyframes tw-fade-up {
   from { opacity: 0; transform: translateY(14px); }
@@ -1255,3 +1277,61 @@ body.tw-tour-on #tw-sidebar { z-index: 1086; }
 @media (prefers-reduced-motion: reduce) {
   #tw-sidebar .brand-mark::after, .btn-primary::after { animation: none; transition: none; }
 }
+
+/* =========================================================================
+   On a phone
+   ---------------------------------------------------------------------
+   The metal sweep is sized to the viewport, so on a narrow screen its bands
+   compress into something far too loud to read over. Small screens get a
+   much quieter version of the same idea, and cards sit more solidly on it.
+   ========================================================================= */
+@media (max-width: 767.98px) {
+  html, html[data-bs-theme="dark"] {
+    --tw-bg-metal: linear-gradient(160deg,
+      #04081A 0%, #0A1030 32%, #1D2144 52%, #0B1130 68%, #04081A 100%);
+    --tw-surface: rgba(10, 16, 48, .88);
+  }
+  html[data-bs-theme="light"] {
+    --tw-bg-metal: linear-gradient(160deg,
+      #EFF1F8 0%, #E9ECF6 34%, #EDE9DC 52%, #E8EBF5 70%, #EFF1F8 100%);
+  }
+
+  .tw-page { padding: 1rem .9rem 3.5rem; }
+  .tw-page-header { margin-bottom: 1rem; }
+  h4 { font-size: 1.25rem; }
+  .card-body, .card-header, .card-footer { padding-left: 1rem; padding-right: 1rem; }
+  .list-group-item { padding-left: 1rem; padding-right: 1rem; }
+  .hero-banner { padding: 1.25rem 1.1rem; }
+  .hero-banner h4 { font-size: 1.2rem; }
+  .stat-card .card-body { padding: .9rem 1rem; gap: .75rem; }
+  .stat-icon { width: 40px; height: 40px; border-radius: 12px; font-size: .95rem; }
+  .stat-value { font-size: 1.5rem; }
+
+  /* Fingers, not pointers. */
+  .btn, .form-control, .form-select { min-height: 42px; }
+  .btn-sm { min-height: 38px; padding: .45rem .8rem; }
+  .tw-icon-btn { width: 42px; height: 42px; }
+  #tw-sidebar .nav-link { padding: .7rem; }
+  /* More specific than the base rule for sub-items, so they grow too. */
+  #tw-sidebar .nav-children .nav-link.nav-child { padding: .6rem .75rem; }
+
+  /* Columns that are context rather than content step aside. */
+  .tw-col-optional { display: none; }
+
+  /* A table with nothing in it should say so where you can see it. */
+  .table td[colspan] { position: sticky; left: 0; }
+
+  /* Side-by-side actions stack rather than squeeze. */
+  .tw-row-actions { display: flex; flex-direction: column; gap: .35rem; align-items: flex-end; }
+  .tw-complaint-action { flex: 1 1 100%; }
+}
+
+@media (max-width: 575.98px) {
+  .tw-page { padding: .85rem .75rem 3.5rem; }
+  .tw-topbar { padding: 0 .9rem; }
+  .btn { font-size: .88rem; }
+  .table > :not(caption) > * > * { padding: .65rem .6rem; }
+}
+
+/* Two actions in a table cell, side by side on a desktop. */
+.tw-row-actions { display: flex; gap: .35rem; justify-content: flex-end; flex-wrap: wrap; }

@@ -1,6 +1,8 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
+from . import views
+
 app_name = "accounts"
 
 # username, tile label, person's name, icon
@@ -21,12 +23,22 @@ class TitansLoginView(auth_views.LoginView):
     redirect_authenticated_user = True
 
     def get_context_data(self, **kwargs):
+        from .models import User
+
         context = super().get_context_data(**kwargs)
-        context["demo_accounts"] = DEMO_ACCOUNTS
+        # Only offered while the demo accounts are actually installed, so a
+        # live site never shows a row of one-click logins.
+        usernames = [username for username, *_ in DEMO_ACCOUNTS]
+        if User.objects.filter(username__in=usernames).exists():
+            context["demo_accounts"] = DEMO_ACCOUNTS
         return context
 
 
 urlpatterns = [
     path("login/", TitansLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("password/", views.change_password, name="change_password"),
+    path("employees/", views.employee_list, name="employee_list"),
+    path("employees/<int:pk>/reset/", views.employee_reset, name="employee_reset"),
+    path("employees/<int:pk>/remove/", views.employee_remove, name="employee_remove"),
 ]

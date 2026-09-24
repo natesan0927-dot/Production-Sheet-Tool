@@ -1,0 +1,24 @@
+{
+  "name": "Titans Windows CRM",
+  "short_name": "Titans",
+  "description": "Every window, every order — leads, quotations, production, dispatch and handover in one place.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#04081A",
+  "theme_color": "#04081A",
+  "lang": "en",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/static/branding/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/branding/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/branding/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/static/branding/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Leads", "url": "/leads/", "icons": [{ "src": "/static/branding/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Follow-up", "url": "/follow-ups/", "icons": [{ "src": "/static/branding/icon-192.png", "sizes": "192x192" }] },
+    { "name": "To-Do", "url": "/to-do/", "icons": [{ "src": "/static/branding/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

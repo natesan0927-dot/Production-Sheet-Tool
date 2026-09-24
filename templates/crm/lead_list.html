@@ -33,7 +33,7 @@
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
-        <tr><th>#</th><th>Customer Name</th><th>Status</th><th>Sales Executive</th><th>Expected Value</th><th>Last Updated</th><th></th></tr>
+        <tr><th>#</th><th>Customer Name</th><th>Status</th><th class="tw-col-optional">Sales Executive</th><th>Expected Value</th><th class="tw-col-optional">Last Updated</th><th></th></tr>
       </thead>
       <tbody>
         {% for lead in leads %}
@@ -45,9 +45,9 @@
             {% elif lead.status == 'lost' %}<span class="badge text-bg-danger">Lost</span>
             {% else %}<span class="badge text-bg-secondary">Open</span>{% endif %}
           </td>
-          <td>{{ lead.assigned_to }}</td>
+          <td class="tw-col-optional">{{ lead.assigned_to }}</td>
           <td>{{ lead.expected_value|rupees }}</td>
-          <td class="text-muted small">{{ lead.updated_at|date:"d M Y" }}</td>
+          <td class="text-muted small tw-col-optional">{{ lead.updated_at|date:"d M Y" }}</td>
           <td class="text-end" onclick="event.stopPropagation()">
             <div class="dropdown">
               <button class="btn btn-sm btn-light border-0 px-2" data-bs-toggle="dropdown" aria-label="Lead actions">

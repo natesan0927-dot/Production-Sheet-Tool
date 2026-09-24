@@ -9,7 +9,7 @@
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
-        <tr><th>#</th><th>Customer</th><th>Quotation</th><th>Windows</th><th>Stage</th><th></th><th>Progress</th></tr>
+        <tr><th>#</th><th>Customer</th><th class="tw-col-optional">Quotation</th><th class="tw-col-optional">Windows</th><th>Stage</th><th></th><th>Progress</th></tr>
       </thead>
       <tbody>
         {% for lead in leads %}
@@ -22,8 +22,8 @@
               <span class="badge bg-success mt-1"><i class="fa-solid fa-circle-check me-1"></i>All set for production</span>
             {% endif %}
           </td>
-          <td>{{ lead.quotation_number|default:"—" }}</td>
-          <td>{{ lead.window_count|default:"—" }}</td>
+          <td class="tw-col-optional">{{ lead.quotation_number|default:"—" }}</td>
+          <td class="tw-col-optional">{{ lead.window_count|default:"—" }}</td>
           <td>
             {% if lead.fabrication_column == 'future' %}<span class="badge bg-secondary">Future Production</span>
             {% elif lead.fabrication_column == 'under' %}<span class="badge bg-warning">Under Production</span>

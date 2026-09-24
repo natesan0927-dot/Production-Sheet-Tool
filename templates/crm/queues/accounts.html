@@ -38,8 +38,8 @@
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>#</th><th>Name</th><th>Quotation No.</th><th>Order Value</th>
-          <th>Advance</th><th>Balance</th><th>Invoice Date</th><th class="text-end">Overdue By</th><th>Sales Executive</th>
+          <th>#</th><th>Name</th><th class="tw-col-optional">Quotation No.</th><th>Order Value</th>
+          <th class="tw-col-optional">Advance</th><th>Balance</th><th class="tw-col-optional">Invoice Date</th><th class="text-end">Overdue By</th><th class="tw-col-optional">Sales Executive</th>
         </tr>
       </thead>
       <tbody>
@@ -47,14 +47,14 @@
         <tr onclick="window.location='{% url 'crm:ledger' lead.pk %}'" style="cursor:pointer">
           <td class="text-muted">{{ forloop.counter }}</td>
           <td><strong>{{ lead.customer_name }}</strong></td>
-          <td>{{ lead.quotation_number|default:"—" }}</td>
+          <td class="tw-col-optional">{{ lead.quotation_number|default:"—" }}</td>
           <td>{{ lead.order_value|rupees }}</td>
-          <td>{{ lead.advance_received|rupees }}</td>
+          <td class="tw-col-optional">{{ lead.advance_received|rupees }}</td>
           <td>
             <strong>{{ lead.balance_amount|rupees }}</strong>
             {% if lead.is_outstanding %}<span class="badge bg-danger ms-1">Outstanding</span>{% endif %}
           </td>
-          <td>{{ lead.invoice_date|date:"d M Y"|default:"—" }}</td>
+          <td class="tw-col-optional">{{ lead.invoice_date|date:"d M Y"|default:"—" }}</td>
           <td class="text-end">
             {% if lead.is_outstanding %}
               <span class="badge {% if lead.overdue_days > 30 %}bg-danger{% elif lead.overdue_days > 7 %}bg-warning{% else %}bg-secondary{% endif %}">
@@ -62,7 +62,7 @@
               </span>
             {% else %}<span class="text-muted">—</span>{% endif %}
           </td>
-          <td>{{ lead.assigned_to }}</td>
+          <td class="tw-col-optional">{{ lead.assigned_to }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="9" class="text-center text-muted py-4">No confirmed orders yet.</td></tr>

@@ -9,8 +9,8 @@
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th>#</th><th>Customer</th><th>Quotation</th><th>Order Value</th>
-          <th>Payment</th><th>Invoice</th><th>Completed</th><th>Documents</th><th></th>
+          <th>#</th><th>Customer</th><th class="tw-col-optional">Quotation</th><th>Order Value</th>
+          <th>Payment</th><th class="tw-col-optional">Invoice</th><th class="tw-col-optional">Completed</th><th>Documents</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -18,7 +18,7 @@
         <tr>
           <td class="text-muted">{{ forloop.counter }}</td>
           <td><strong>{{ lead.customer_name }}</strong><div class="text-muted small">{{ lead.site_location }}</div></td>
-          <td>{{ lead.quotation_number|default:"—" }}</td>
+          <td class="tw-col-optional">{{ lead.quotation_number|default:"—" }}</td>
           <td>{{ lead.order_value|rupees }}</td>
           <td>
             {% if lead.balance_amount > 0 %}
@@ -27,8 +27,8 @@
               <span class="badge bg-success">Cleared</span>
             {% endif %}
           </td>
-          <td>{{ lead.invoice_number|default:"—" }}<div class="text-muted small">{{ lead.invoice_date|date:"d M Y" }}</div></td>
-          <td class="text-muted small">{{ lead.completed_at|date:"d M Y" }}</td>
+          <td class="tw-col-optional">{{ lead.invoice_number|default:"—" }}<div class="text-muted small">{{ lead.invoice_date|date:"d M Y" }}</div></td>
+          <td class="text-muted small tw-col-optional">{{ lead.completed_at|date:"d M Y" }}</td>
           <td>
             <button class="btn btn-sm btn-outline-secondary text-nowrap" data-bs-toggle="collapse" data-bs-target="#docs-{{ lead.pk }}">
               <i class="fa-solid fa-folder-open me-1"></i>Site Documents

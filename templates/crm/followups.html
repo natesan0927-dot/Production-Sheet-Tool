@@ -16,7 +16,7 @@
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
-      <thead class="table-light"><tr><th>Due</th><th>Customer</th><th>Note</th><th>Salesperson</th><th class="text-end"></th></tr></thead>
+      <thead class="table-light"><tr><th>Due</th><th>Customer</th><th class="tw-col-optional">Note</th><th class="tw-col-optional">Sales Executive</th><th class="text-end"></th></tr></thead>
       <tbody>
         {% for followup in followups %}
         <tr class="{% if followup.is_overdue %}table-danger{% elif not followup.done and followup.date == today %}table-warning{% endif %}">
@@ -27,8 +27,8 @@
             {% elif not followup.done %}<span class="badge bg-info ms-1">Upcoming</span>{% endif %}
           </td>
           <td><a href="{{ followup.lead.get_absolute_url }}">{{ followup.lead.customer_name }}</a></td>
-          <td class="text-muted small">{{ followup.note|default:"—" }}</td>
-          <td>{{ followup.lead.assigned_to }}</td>
+          <td class="text-muted small tw-col-optional">{{ followup.note|default:"—" }}</td>
+          <td class="tw-col-optional">{{ followup.lead.assigned_to }}</td>
           <td class="text-end">
             {% if followup.done %}
               <span class="badge {% if followup.superseded %}bg-secondary{% else %}bg-success{% endif %}">{{ followup.outcome }}</span>

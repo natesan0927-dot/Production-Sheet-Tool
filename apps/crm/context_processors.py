@@ -43,6 +43,7 @@ FIELD_MANAGER_TABS = [
 
 ADMIN_TABS = [
     ("Summary for the Day", "crm:day_summary", "fa-calendar-day", None),
+    ("Employees", "accounts:employee_list", "fa-users", None),
     ("Stage Access", "crm:stage_access_list", "fa-user-shield", None),
 ]
 

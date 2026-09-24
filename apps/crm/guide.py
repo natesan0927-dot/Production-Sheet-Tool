@@ -43,7 +43,7 @@ CLOSING = (
 
 ROLE_INTROS = {
     Role.SALESPERSON: {
-        "headline": "Your walkthrough — Salesperson",
+        "headline": "Your walkthrough — Sales Executive",
         "scenes": [
             OPENING,
             JOURNEY,
@@ -327,6 +327,11 @@ PAGE_NOTES = {
         "Summary for the Day",
         "Everyone on the team with a count of what they got through today. Open "
         "anyone to see their whole day, grouped by the kind of work.",
+    ),
+    "accounts:employee_list": (
+        "Employees",
+        "Everyone who can sign in, grouped by role. Add someone here and they "
+        "get a sign-in name and a starting password they must change.",
     ),
     "crm:stage_access_list": (
         "Stage Access",

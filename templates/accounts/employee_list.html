@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Employees{% endblock %}
+
+{% block content %}
+<div class="tw-page-header">
+  <div>
+    <div class="tw-eyebrow">Administration</div>
+    <h4 class="mb-0">Employees</h4>
+    <div class="text-muted small">{{ total }} {{ total|pluralize:"person,people" }} who can sign in.</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5 col-xl-4">
+    <div class="card">
+      <div class="card-header"><i class="fa-solid fa-user-plus me-2"></i>Add an employee</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {% if form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ form.non_field_errors }}</div>{% endif %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors.0 }}</div>{% endif %}
+            </div>
+          {% endfor %}
+          <p class="text-muted small">
+            They get a sign-in name from their first name and start on
+            <code>{{ default_password }}</code>. The first time they sign in they have to
+            pick a password of their own before they can do anything else.
+          </p>
+          <button class="btn btn-primary w-100"><i class="fa-solid fa-plus me-1"></i>Add employee</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7 col-xl-8">
+    {% for group in groups %}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="fa-solid fa-users me-2"></i>{{ group.role }}</span>
+          <span class="badge bg-secondary">{{ group.people|length }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr><th>#</th><th>Name</th><th class="tw-col-optional">Signs in as</th><th class="tw-col-optional">Password</th><th class="text-end"></th></tr>
+            </thead>
+            <tbody>
+              {% for person in group.people %}
+              <tr>
+                <td class="text-muted">{{ forloop.counter }}</td>
+                <td>
+                  <strong>{{ person.display_name }}</strong>
+                  {% if person.phone %}<div class="text-muted small">{{ person.phone }}</div>{% endif %}
+                </td>
+                <td class="tw-col-optional"><code>{{ person.username }}</code></td>
+                <td class="tw-col-optional">
+                  {% if person.must_change_password %}
+                    <span class="badge bg-warning">Not set yet</span>
+                  {% else %}
+                    <span class="badge bg-success">Their own</span>
+                  {% endif %}
+                </td>
+                <td class="text-end tw-row-actions">
+                  <form method="post" action="{% url 'accounts:employee_reset' person.pk %}"
+                        onsubmit="return confirm('Put {{ person.display_name|escapejs }} back on the default password?')">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-secondary text-nowrap" title="Reset their password">
+                      <i class="fa-solid fa-key me-1"></i>Reset password
+                    </button>
+                  </form>
+                  {% if person.pk != user.pk %}
+                  <form method="post" action="{% url 'accounts:employee_remove' person.pk %}"
+                        onsubmit="return confirm('Stop {{ person.display_name|escapejs }} signing in? Their finished work keeps their name.')">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger text-nowrap" title="Stop them signing in">
+                      <i class="fa-solid fa-user-slash me-1"></i>Remove
+                    </button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% empty %}
+      <div class="card"><div class="card-body text-center text-muted py-5">No employees yet.</div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
