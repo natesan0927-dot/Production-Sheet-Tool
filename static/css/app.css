@@ -68,10 +68,21 @@ html, html[data-bs-theme="dark"] {
   color-scheme: dark;
 
   --tw-bg: var(--tw-navy-950);
-  --tw-bg-glow-1: rgba(68, 87, 184, .20);
-  --tw-bg-glow-2: rgba(212, 175, 55, .10);
+  /* Navy with a broad seam of gold through it and a fainter second band, the
+     way light sits on brushed metal. The cards carry their own base, so this
+     can be read as gold without fighting anything on top of it. */
+  --tw-bg-metal: linear-gradient(135deg,
+    #03060F 0%, #070C22 10%, #0C1538 21%, #141D4C 31%,
+    #23264E 40%, #3D3528 46%, #574728 50%, #3D3528 54%,
+    #202750 62%, #131B45 72%,
+    #2B2A2C 80%, #3A3222 84%, #232A4C 89%,
+    #0A1128 95%, #03060F 100%);
+  --tw-bg-glow-1: rgba(68, 87, 184, .14);
+  --tw-bg-glow-2: rgba(212, 175, 55, .08);
   --tw-panel: var(--tw-navy-900);
-  --tw-surface: rgba(198, 205, 224, .055);
+  /* Translucent, but navy-based — the metal shows through without washing
+     out anything sitting on the card. */
+  --tw-surface: rgba(10, 16, 48, .72);
   --tw-surface-2: rgba(198, 205, 224, .09);
   --tw-surface-solid: #101744;
   --tw-border: rgba(198, 205, 224, .14);
@@ -100,8 +111,12 @@ html[data-bs-theme="light"] {
   color-scheme: light;
 
   --tw-bg: #EFF1F8;
-  --tw-bg-glow-1: rgba(68, 87, 184, .14);
-  --tw-bg-glow-2: rgba(212, 175, 55, .14);
+  --tw-bg-metal: linear-gradient(135deg,
+    #EFF1F8 0%, #E7EAF5 17%, #DFE3F0 30%, #EAE4D2 44%,
+    #F3EAC8 49%, #E7E2CE 54%, #DFE3F0 66%,
+    #EDE7D4 80%, #E4E7F2 89%, #EFF1F8 100%);
+  --tw-bg-glow-1: rgba(68, 87, 184, .10);
+  --tw-bg-glow-2: rgba(212, 175, 55, .12);
   --tw-panel: var(--tw-navy-900);   /* the sidebar stays navy in both themes */
   --tw-surface: #FFFFFF;
   --tw-surface-2: #F4F5FB;
@@ -154,7 +169,10 @@ html, body { height: 100%; }
 
 body {
   font-family: var(--tw-font);
-  background: var(--tw-bg);
+  /* Fixed, so the sweep stays a single sheet of metal rather than stretching
+     down a long page. The flat --tw-bg is the fallback and the colour that
+     other rules mix against. */
+  background: var(--tw-bg) var(--tw-bg-metal) fixed;
   color: var(--tw-ink);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -.005em;
@@ -949,7 +967,7 @@ a:hover { text-decoration: none; }
 
 .auth-form-side {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background: var(--tw-bg); padding: 2.5rem 2rem;
+  background: var(--tw-bg) var(--tw-bg-metal) fixed; padding: 2.5rem 2rem;
 }
 
 .auth-logo-ring { border-radius: 22px; overflow: hidden; }
