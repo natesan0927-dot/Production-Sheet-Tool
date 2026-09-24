@@ -1,8 +1,9 @@
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.views.generic import TemplateView
+
+from .media import serve_upload
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -18,9 +19,16 @@ urlpatterns = [
     path("", include("apps.crm.urls")),
 ]
 
-# This is a small internal tool with no CDN/object storage in front of it,
-# so Django serves uploaded media itself in production too, not just DEBUG.
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Uploaded documents. Django's static() helper is a no-op once DEBUG is off, so
+# this route is spelled out — otherwise every file 404s in production. It asks
+# for a sign-in first, because these are customer documents.
+#
+# With a bucket configured the storage backend serves its own signed links and
+# nothing reaches here.
+if not settings.AWS_STORAGE_BUCKET_NAME:
+    urlpatterns += [
+        re_path(r"^%s(?P<path>.*)$" % settings.MEDIA_URL.lstrip("/"), serve_upload, name="media"),
+    ]
 
 admin.site.site_header = "Titans Windows — Administration"
 admin.site.site_title = "Titans Admin"

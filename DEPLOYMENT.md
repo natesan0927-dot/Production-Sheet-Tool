@@ -2,134 +2,323 @@
 
 Written for whoever sets this up and keeps it running — not necessarily a developer.
 
+- [1. What this needs](#1-what-this-needs)
+- [2. Is Oracle Cloud safe? Is 200 GB enough?](#2-is-oracle-cloud-safe-is-200-gb-enough)
+- [3. Step by step on Oracle Cloud](#3-step-by-step-on-oracle-cloud)
+- [4. Backups — read this one](#4-backups--read-this-one)
+- [5. Updating it later](#5-updating-it-later)
+- [6. When something is wrong](#6-when-something-is-wrong)
+- [7. The other hosting options](#7-the-other-hosting-options)
+- [8. The first sign-in](#8-the-first-sign-in)
+- [9. Installing it as an app](#9-installing-it-as-an-app)
+
 ---
 
-## 1. What this needs to run
+## 1. What this needs
 
 | What | Why |
 | --- | --- |
 | Somewhere to run Python | The app itself |
 | A database | Leads, orders, follow-ups — everything except the files |
 | Somewhere for uploaded files | Quotations, signed CAFs, measurements, production sheets, receipts |
-| HTTPS | Sign-ins, and the app cannot be installed on a phone without it |
+| A domain name | About ₹800/year. HTTPS needs one, and the app will not install on a phone without HTTPS |
 
 The traffic is a dozen people and a few hundred leads a year. Nothing here needs to be big.
-The only thing that grows is **uploaded files**, and that is the one thing to keep an eye on.
+The only thing that grows is **uploaded files**.
 
 ---
 
-## 2. The plans, cheapest first
+## 2. Is Oracle Cloud safe? Is 200 GB enough?
 
-### Plan A — Oracle Cloud Always Free  *(recommended: free forever, nothing expires)*
+### Will the data be safe?
 
-One small virtual machine running everything: the app, PostgreSQL and the files, on the same box.
+The storage itself is solid. Oracle keeps three copies of every block volume inside the data
+centre, so a failed disk is their problem, not yours. That is better than most of what you would
+get for money elsewhere.
 
-- **Cost:** ₹0, permanently. Oracle's Always Free tier is not a trial — 4 ARM cores, 24 GB RAM,
-  200 GB disk, and it does not expire.
-- **Good:** no cold starts, no file-size worries for years, no third-party accounts to wire up,
-  everything in one place so backups are one command.
-- **Bad:** it is a real server. You install it once (about an hour) and apply security updates
-  every month or two. If nobody will do that, take Plan B.
-- **Needs a card** to open the Oracle account, but the Always Free resources are never charged.
+The risks that actually matter are not hardware:
 
-### Plan B — PythonAnywhere free  *(easiest genuinely free option)*
+**Oracle reclaims idle Always Free machines.** This is the most common way people lose an Oracle
+free server. If a machine sits under roughly 10% CPU, 10% network and 10% memory for seven days
+straight, Oracle marks it idle, emails you, and may stop and eventually terminate it. A CRM used
+every day by twelve people will normally stay above that, but a quiet fortnight — a holiday, a
+slow month — could trip it.
 
-- **Cost:** ₹0, permanently.
-- **Good:** no server admin at all, no cold starts, uploaded files sit on their disk and stay
-  there, HTTPS on `yourname.pythonanywhere.com` included.
-- **Bad:** **512 MB** total disk. At roughly 300 KB a document that is a few thousand files —
-  likely two to three years — after which you either archive old jobs or pay ₹450/month for more.
-  No custom domain on the free plan.
+> **Do this:** in the Oracle console, upgrade the account to **Pay As You Go**. The Always Free
+> resources stay free, you are not billed while you stay inside the limits, and idle reclamation
+> stops applying. It is the difference between a hobby server and one you can trust with the
+> business. Oracle places a small temporary card authorisation (about ₹100) and refunds it.
 
-### Plan C — Render free + Neon + Cloudflare R2  *(no server admin, three accounts)*
+**Capacity.** The free ARM machines are popular and a region can run out. You may see *"Out of
+host capacity"* when creating one. Change the availability domain, or try again in an hour — they
+free up. An annoyance at setup, not a risk afterwards.
 
-- **Cost:** ₹0 across all three free tiers.
-- **Good:** deploys straight from GitHub on every push, nothing to patch.
-- **Bad:** the free web service **sleeps after 15 minutes idle** — the first person in each
-  morning waits about 50 seconds. Render's own free database expires after 30 days, which is why
-  the database goes to **Neon** (free, no expiry) and the files to **Cloudflare R2**
-  (10 GB free, no charge for downloads) instead.
+**Free accounts can be closed.** Rare, but Oracle has closed free accounts over verification or
+terms issues. Upgrading to Pay As You Go largely removes this too.
 
-### If you would rather just pay
+**You, or a bad migration.** Far and away the likeliest cause of lost data on any host.
 
-**Render Starter, ₹600/month or so** — the same as Plan C but no sleeping and a real disk,
-everything in one account. If the ₹0 constraint ever loosens, this is the least fuss.
+None of these are reasons to avoid Oracle. They are reasons to **keep backups off the server** —
+which [section 4](#4-backups--read-this-one) sets up in one command. With Pay As You Go and
+off-server backups, this is genuinely dependable for a business this size.
+
+### Is 200 GB enough?
+
+Yes — comfortably, for years.
+
+A completed job carries eight to thirteen documents: the rough measurement, the quotation, the
+elevation report, the signed CAF, the final measurement, the production sheet and any revisions,
+the signed handover, and payment receipts. PDFs run 100–500 KB; a measurement sheet photographed
+on a phone runs 2–5 MB. Call it **15–20 MB per finished job**.
+
+The operating system, PostgreSQL and the app take about 10 GB, leaving roughly 190 GB:
+
+| Jobs per year | Roughly how long 190 GB lasts |
+| --- | --- |
+| 300 | about 30 years |
+| 1,000 | about 9 years |
+| 1,000, with full-resolution phone photos (~50 MB a job) | about 4 years |
+
+The one thing that changes the answer is photo size. If staff upload straight from a phone camera
+at full resolution, files are five to ten times bigger. Asking them to photograph documents with a
+scanning app rather than the camera keeps this under control, and makes the documents easier to
+read anyway.
+
+### What if it does fill up?
+
+Nothing breaks suddenly — you will watch the disk fill long before it matters. Three options,
+cheapest first:
+
+1. **Archive old jobs.** Move completed work older than a few years off the server. Free.
+2. **Buy more block storage.** About **$0.026 per GB per month** — 100 GB extra is roughly
+   **₹220/month**. You can grow the existing volume while the server is running, with no
+   reinstall and no downtime.
+3. **Move documents to a bucket.** Cloudflare R2 gives 10 GB free and charges nothing for
+   downloads. Set `AWS_STORAGE_BUCKET_NAME` and the app writes there instead of the disk — no code
+   change. See [section 7](#7-the-other-hosting-options).
+
+You need a Pay As You Go account to buy anything, which is another reason to upgrade at the start.
 
 ---
 
-## 3. Setting up Plan A (Oracle Cloud)
+## 3. Step by step on Oracle Cloud
 
-On a fresh Ubuntu 22.04 ARM instance, as root:
+Set aside about an hour. You will need a card for the Oracle signup (not charged) and a domain.
+
+### Step 1 — Get a domain
+
+Skip if you have one. Otherwise buy one at Namecheap, GoDaddy or Cloudflare — around ₹800 a year.
+You will point something like `crm.titanswindows.in` at the server in step 5.
+
+### Step 2 — Create the Oracle account
+
+1. Go to **oracle.com/cloud/free** and sign up.
+2. Pick the **home region closest to you** — for India, *India South (Hyderabad)* or
+   *India West (Mumbai)*. **This cannot be changed later.**
+3. Finish verification.
+4. **Upgrade to Pay As You Go**: **Billing & Cost Management → Upgrade and Manage Payment**. As
+   explained above, this keeps everything free but stops Oracle reclaiming the machine. Do it now,
+   before you build anything on it.
+
+### Step 3 — Create the machine
+
+**Compute → Instances → Create instance**
+
+| Setting | Choose |
+| --- | --- |
+| Name | `titans-crm` |
+| Image | **Canonical Ubuntu 22.04** |
+| Shape | **Ampere → VM.Standard.A1.Flex**, then **2 OCPUs, 12 GB memory** |
+| Boot volume | Tick *Specify a custom boot volume size*, enter **200** (GB) |
+| SSH keys | **Generate a key pair for me**, then **download the private key** |
+
+Two cores and 12 GB is half the free allowance and far more than this needs. Taking the whole
+200 GB as the boot volume means one disk to think about rather than two.
+
+> **Save the private key file somewhere safe.** It is the only way into the server, and Oracle
+> will not give you another copy.
+
+If it says *"Out of host capacity"*, change the Availability Domain in the same form and try
+again, or wait an hour.
+
+When it finishes, copy the **Public IP address** from the instance page.
+
+### Step 4 — Open the ports in the console
+
+The step everyone forgets, and it makes a working server look dead.
+
+1. On the instance page, click the **subnet** link.
+2. Click the **Default Security List**.
+3. **Add Ingress Rules**, and add these two:
+
+| Source CIDR | IP Protocol | Destination Port Range |
+| --- | --- | --- |
+| `0.0.0.0/0` | TCP | `80` |
+| `0.0.0.0/0` | TCP | `443` |
+
+### Step 5 — Point the domain at it
+
+At your registrar, add an **A record**:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| A | `crm` | the public IP from step 3 |
+
+Give it fifteen minutes, then check:
 
 ```bash
-apt update && apt install -y python3-venv python3-pip postgresql nginx git
-sudo -u postgres psql -c "CREATE USER titans WITH PASSWORD 'pick-a-long-one';"
-sudo -u postgres psql -c "CREATE DATABASE titans OWNER titans;"
-
-adduser --system --group --home /srv/titans titans
-cd /srv/titans && sudo -u titans git clone https://github.com/darshansathish2006/TITANS.git app
-cd app && sudo -u titans python3 -m venv venv
-sudo -u titans venv/bin/pip install -r requirements.txt
+ping crm.yourdomain.com
 ```
 
-Write `/srv/titans/app/.env`:
+It should answer with the server's IP. The certificate in step 7 fails if this is not working yet,
+so do not rush past it.
 
-```ini
-DJANGO_SECRET_KEY=<50 random characters>
-DEBUG=False
-ALLOWED_HOSTS=crm.yourdomain.com
-CSRF_TRUSTED_ORIGINS=https://crm.yourdomain.com
-DATABASE_URL=postgres://titans:pick-a-long-one@localhost:5432/titans
-SECURE_SSL_REDIRECT=True
-SESSION_COOKIE_SECURE=True
-CSRF_COOKIE_SECURE=True
+### Step 6 — Connect to the server
+
+On Windows, open PowerShell in the folder holding the key you downloaded:
+
+```powershell
+icacls .\ssh-key.key /inheritance:r /grant:r "$($env:USERNAME):(R)"
+ssh -i .\ssh-key.key ubuntu@<the public IP>
 ```
 
-Then:
+Type `yes` at the fingerprint question. You are in when the prompt reads `ubuntu@titans-crm`.
+
+### Step 7 — Install it
+
+One command. Five to ten minutes, and it prints what it is doing.
 
 ```bash
-sudo -u titans venv/bin/python manage.py migrate
-sudo -u titans venv/bin/python manage.py collectstatic --noinput
-sudo -u titans venv/bin/python manage.py seed_employees
+sudo apt update && sudo apt install -y git
+git clone https://github.com/darshansathish2006/TITANS.git /tmp/titans
+sudo bash /tmp/titans/scripts/setup_server.sh crm.yourdomain.com you@yourdomain.com
 ```
 
-Run it with systemd — `/etc/systemd/system/titans.service`:
+Use your real domain and a real email — the email only gets certificate expiry warnings.
 
-```ini
-[Unit]
-Description=Titans Windows CRM
-After=network.target postgresql.service
+It installs PostgreSQL, creates the database with a generated password, fetches the app, writes
+the settings, creates the staff accounts, runs it under systemd, puts nginx in front, gets a free
+HTTPS certificate that renews itself, and schedules nightly backups.
 
-[Service]
-User=titans
-WorkingDirectory=/srv/titans/app
-ExecStart=/srv/titans/app/venv/bin/gunicorn titans_crm.wsgi:application --bind 127.0.0.1:8000 --workers 3
-Restart=always
+### Step 8 — Sign in
 
-[Install]
-WantedBy=multi-user.target
+Open **https://crm.yourdomain.com**. Sign in as `admin` with `ChangeMe@123`. It will make you
+choose a password before it lets you anywhere.
+
+Then tell each person their sign-in name — `rahul`, `natesan`, `prema`, `balasubramaniam`,
+`sowmiya`, `yogesh`, `venkatesan`, `quotation`, `production`, `fieldmanager`, `accounts` — and the
+same starting password. Each picks their own on first sign-in.
+
+### Step 9 — Turn on HSTS, a couple of days later
+
+Once everyone has used it over HTTPS without trouble:
+
+```bash
+sudo nano /srv/titans/app/.env      # set SECURE_HSTS_SECONDS=31536000
+sudo systemctl restart titans
 ```
 
-`systemctl enable --now titans`, then put nginx in front of `127.0.0.1:8000` and get a free
-certificate with `certbot --nginx`. Open ports 80 and 443 in **both** the Oracle security list
-and `ufw` — forgetting the Oracle side is the usual reason a new instance seems dead.
+This tells browsers never to try the site over plain HTTP again. Doing it before HTTPS is
+definitely working locks people out for a year, which is why it starts off.
 
-**Back it up.** One line in `crontab -e` keeps a week of nightly copies:
+---
 
+## 4. Backups — read this one
+
+`setup_server.sh` already runs a backup every night at 2am into `/srv/titans/backups`, keeping
+seven days. That covers a bad migration or a deleted record.
+
+It does **not** cover losing the server. For that the copies have to leave the machine — five
+minutes, and the thing most likely to save you:
+
+```bash
+sudo apt install -y rclone
+rclone config          # name the remote: titans-offsite
 ```
-0 2 * * * pg_dump titans | gzip > /srv/titans/backup-$(date +\%u).sql.gz && tar czf /srv/titans/media-$(date +\%u).tgz /srv/titans/app/media
+
+Point it at Google Drive, OneDrive, Dropbox or a Cloudflare R2 bucket — rclone walks you through
+it. Name the remote exactly **`titans-offsite`** and the nightly job starts copying there by
+itself; it checks for that name and does nothing if it is absent.
+
+Check it after a day:
+
+```bash
+ls -lh /srv/titans/backups
+sudo /usr/local/bin/titans-backup     # run one now
+```
+
+To restore onto a fresh server: install as in step 7, then
+
+```bash
+sudo systemctl stop titans
+gunzip -c db-3.sql.gz | sudo -u postgres psql titans
+sudo -u titans tar xzf media-3.tgz -C /srv/titans/app
+sudo systemctl start titans
+```
+
+**Try this once, on purpose, before you need it.** A backup nobody has restored is a guess.
+
+---
+
+## 5. Updating it later
+
+When there are changes to pick up:
+
+```bash
+ssh -i ssh-key.key ubuntu@<ip>
+sudo bash /srv/titans/app/scripts/setup_server.sh crm.yourdomain.com
+```
+
+The same script pulls the new code, installs anything new, runs migrations and restarts. It leaves
+your `.env`, your database and your uploaded files alone.
+
+Security updates for the server itself, every month or two:
+
+```bash
+sudo apt update && sudo apt upgrade -y && sudo reboot
 ```
 
 ---
 
-## 4. Setting up Plan C (Render + Neon + R2)
+## 6. When something is wrong
 
-1. **Neon** — create a project, copy the connection string.
-2. **Cloudflare R2** — create a bucket, then an API token with Object Read & Write.
-3. **Render** — New Web Service from the GitHub repo. It reads the `Procfile`, so:
-   - Build command: `pip install -r requirements.txt && python manage.py collectstatic --noinput`
-   - Start command: leave blank
-4. Set the environment variables below and deploy.
+| What you see | What it usually is |
+| --- | --- |
+| Browser hangs, never loads | Ports 80/443 not added in the Oracle console — [step 4](#step-4--open-the-ports-in-the-console) |
+| *"Out of host capacity"* | The free ARM shape is busy in that availability domain. Change it in the form, or try in an hour |
+| Certificate step failed | DNS is not pointing at the server yet. Check `ping crm.yourdomain.com`, then `sudo certbot --nginx -d crm.yourdomain.com` |
+| **502 Bad Gateway** | The app is not running: `sudo systemctl status titans`, then `sudo journalctl -u titans -n 50` |
+| *"Bad Request (400)"* | `ALLOWED_HOSTS` in `/srv/titans/app/.env` does not include the domain you typed |
+| CSS missing, page looks plain | `sudo -u titans /srv/titans/app/venv/bin/python /srv/titans/app/manage.py collectstatic --noinput` |
+| An upload fails on a big file | Raise `client_max_body_size` in `/etc/nginx/sites-available/titans`, then `sudo systemctl reload nginx` |
+| Someone forgot their password | Employees tab → **Reset password**. No server access needed |
+
+Useful commands:
+
+```bash
+sudo systemctl status titans        # is it running?
+sudo journalctl -u titans -f        # watch the log live
+sudo systemctl restart titans       # restart it
+df -h /                             # how full is the disk
+```
+
+---
+
+## 7. The other hosting options
+
+### PythonAnywhere free — easiest, if nobody will look after a server
+
+₹0 forever, no server admin, no cold starts, HTTPS included on `yourname.pythonanywhere.com`. The
+catch is a **512 MB** disk — a few thousand documents, so two to three years — and no custom
+domain on the free plan.
+
+### Render free + Neon + Cloudflare R2 — no server admin, three accounts
+
+₹0 across all three. Deploys from GitHub on every push. The free web service **sleeps after 15
+minutes idle**, so the first person each morning waits about 50 seconds. Render's own free
+database expires after 30 days, which is why the database goes to Neon and the files to R2.
+
+Environment variables on Render:
 
 | Key | Value |
 | --- | --- |
@@ -143,25 +332,23 @@ and `ufw` — forgetting the Oracle side is the usual reason a new instance seem
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | from the R2 token |
 | `AWS_S3_ENDPOINT_URL` | `https://<account-id>.r2.cloudflarestorage.com` |
 
-With `AWS_STORAGE_BUCKET_NAME` set, every upload goes to the bucket instead of the container's
-disk, so a redeploy no longer loses anything. Leave it unset and files stay local — which is
-correct for Plan A and Plan B, where the disk is permanent.
-
-Once the certificate is working and people have used the site over HTTPS for a day or two, add
-`SECURE_HSTS_SECONDS=31536000` (and `SECURE_HSTS_INCLUDE_SUBDOMAINS=True` if every subdomain is
-HTTPS). Setting it before HTTPS is reliable locks browsers out for a year, which is why it starts
-off.
+With `AWS_STORAGE_BUCKET_NAME` set, uploads go to the bucket and survive a redeploy. Leave it
+unset and files stay on the local disk, which is correct wherever the disk is permanent.
 
 **If the database already holds an older version of this software**, the first migration stops
-with an explanation rather than damaging anything. Set `RESET_LEGACY_SCHEMA=true`, deploy once to
-clear it, then remove the variable.
+with an explanation rather than damaging anything. Set `RESET_LEGACY_SCHEMA=true`, deploy once,
+then remove it.
+
+### If you would rather just pay
+
+**Render Starter, around ₹600/month** — no sleeping, a real disk, one account, nothing to patch.
 
 ---
 
-## 5. The first sign-in
+## 8. The first sign-in
 
-`seed_employees` runs on every deploy and creates anyone missing. It never touches an account
-that already exists, so it cannot reset a password somebody has chosen.
+`seed_employees` runs on every deploy and creates anyone missing. It never touches an account that
+already exists, so it cannot reset a password somebody has chosen.
 
 | Signs in as | Role |
 | --- | --- |
@@ -174,34 +361,34 @@ that already exists, so it cannot reset a password somebody has chosen.
 | `admin` | Super Admin |
 
 Everyone starts on **`ChangeMe@123`** and is stopped at a change-password screen until they pick
-their own — they cannot reach any other page first.
+their own — no other page is reachable first.
 
 The Super Admin adds anyone else from **Employees**, and can put a forgotten account back on the
 default from the same screen.
 
 ---
 
-## 6. Installing it as an app
+## 9. Installing it as an app
 
-The app installs on a phone or a desktop straight from the browser. There is nothing to download,
-nothing to sideload, and it updates itself whenever the site does.
+It installs on a phone or a desktop straight from the browser. Nothing to download, nothing to
+sideload, and it updates itself whenever the site does.
 
-**Android** — open the site in Chrome, tap the ⋮ menu, **Add to Home screen**. It gets the Titans
-crest as its icon and opens in its own window with no browser bars. Chrome usually offers this by
-itself, and there is an install button in the app's own top bar too.
+**Android** — open the site in Chrome, tap ⋮, **Add to Home screen**. It gets the Titans crest as
+its icon and opens in its own window with no browser bars. Chrome usually offers this itself, and
+there is an install button in the app's top bar.
 
-**Windows** — open the site in Edge or Chrome and click the install icon in the address bar (or
-the same button in the top bar). It lands in the Start menu and behaves like any other program.
+**Windows** — open in Edge or Chrome and click the install icon in the address bar, or the same
+button in the top bar. It lands in the Start menu and behaves like any other program.
 
 **iPhone** — Safari, Share, **Add to Home Screen**.
 
-HTTPS is required for all of this. It will not offer to install over plain `http://`.
+All of this needs HTTPS. It will not offer to install over plain `http://`.
 
 ### If a real `.apk` file is needed
 
-The install above is the same thing for day-to-day use, so only go here if you specifically need
-a file to send around or a Play Store listing. It wraps the live site in a thin Android shell, so
-the site still has to be deployed first.
+The install above is the same thing day to day, so only go here if you need a file to send around
+or a Play Store listing. It wraps the live site in a thin Android shell, so the site has to be
+deployed first.
 
 ```bash
 npm install -g @bubblewrap/cli
@@ -209,33 +396,17 @@ bubblewrap init --manifest https://crm.yourdomain.com/static/manifest.webmanifes
 bubblewrap build          # produces app-release-signed.apk
 ```
 
-Bubblewrap needs the Android SDK and a JDK, and asks you to create a signing key — **keep that
-key**, because Android will not accept an update signed with a different one. To stop the address
-bar showing inside the app, upload the `assetlinks.json` it prints to
+Bubblewrap needs the Android SDK and a JDK, and creates a signing key — **keep that key**, because
+Android will not accept an update signed with a different one. To stop the address bar showing
+inside the app, upload the `assetlinks.json` it prints to
 `https://crm.yourdomain.com/.well-known/assetlinks.json`.
 
 ### About a `.exe`
 
-Installing from Edge, above, already gives a Start-menu app with its own window and icon. That is
-the `.exe` for a web app.
+Installing from Edge already gives a Start-menu app with its own window and icon. That is the
+`.exe` for a web app.
 
-A self-contained `.exe` bundling Python and the database is possible with PyInstaller, but it is
-the wrong shape for this: each machine would carry its **own separate copy** of the data, so two
-people would never see the same leads. This software is only useful when everyone is looking at
-one set of records, so it is deliberately not built that way.
-
----
-
-## 7. Day to day
-
-```bash
-python manage.py seed_employees              # add anyone missing, touch nobody else
-python manage.py reset_to_live               # wipe demo data and create the real staff (asks first)
-python manage.py seed_data                   # put the demo accounts and sample leads back
-```
-
-**Watch the disk.** On Plan B the 512 MB limit is the thing that will eventually bite. `media/`
-holds every uploaded document; check it now and then.
-
-**Back up the database.** Whichever plan you pick, a nightly `pg_dump` somewhere off the server
-is the difference between a bad afternoon and a lost year.
+A self-contained `.exe` bundling Python and the database is possible, but it is the wrong shape
+for this: each machine would carry its **own separate copy** of the data, so two people would
+never see the same leads. This software is only useful when everyone is looking at one set of
+records.
