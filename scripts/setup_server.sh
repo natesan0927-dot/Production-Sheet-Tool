@@ -161,6 +161,15 @@ server {
     # /media/ is deliberately NOT served by nginx — the app checks who is
     # asking before handing over a customer's paperwork.
 
+    # Android checks this file to decide whether the .apk really belongs to
+    # this site; without it the app shows a browser address bar. Bubblewrap
+    # prints the file — drop it at the path below. Harmless until then.
+    # An exact match, so it cannot shadow certbot's renewal challenge.
+    location = /.well-known/assetlinks.json {
+        alias /srv/titans/assetlinks.json;
+        default_type application/json;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host \$host;

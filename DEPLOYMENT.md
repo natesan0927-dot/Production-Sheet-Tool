@@ -103,12 +103,28 @@ You need a Pay As You Go account to buy anything, which is another reason to upg
 
 ## 3. Step by step on Oracle Cloud
 
-Set aside about an hour. You will need a card for the Oracle signup (not charged) and a domain.
+Set aside about an hour. You will need a card for the Oracle signup (not charged) and a hostname.
 
-### Step 1 — Get a domain
+### Step 1 — Get a hostname
 
-Skip if you have one. Otherwise buy one at Namecheap, GoDaddy or Cloudflare — around ₹800 a year.
-You will point something like `crm.titanswindows.in` at the server in step 5.
+The server needs a name, not just an IP address. Everything downstream depends on it: the HTTPS
+certificate, the install-as-an-app prompt, and the `.apk` wrapper, which Android will only accept
+against a verified `https://` hostname. A bare IP gets none of that, and staff passwords would
+travel the public internet in clear text.
+
+**Free — DuckDNS.** Sign in at **duckdns.org** with a Google account, type a name such as
+`titanswindows`, and click *add domain*. You now own `titanswindows.duckdns.org`. Paste the
+server's public IP into the box in step 5 instead of editing a registrar's DNS. Let's Encrypt
+issues certificates for it exactly as it would for a paid domain, so step 7 is unchanged.
+
+**Paid — your own name.** Around ₹800 a year at Namecheap, GoDaddy or Cloudflare, giving
+something like `crm.titanswindows.in`. Worth it if the name will ever be seen by a customer, or if
+you want email on it. For a tool only twelve staff open, DuckDNS is genuinely fine.
+
+The one thing to know about the free route: if you later move to your own domain, the `.apk` has
+to be rebuilt and reinstalled, because the hostname is baked into it. Browsers and the desktop
+install are unaffected. So if you think you will want your own name eventually, buy it before
+building the `.apk`, not after.
 
 ### Step 2 — Create the Oracle account
 
@@ -397,9 +413,15 @@ bubblewrap build          # produces app-release-signed.apk
 ```
 
 Bubblewrap needs the Android SDK and a JDK, and creates a signing key — **keep that key**, because
-Android will not accept an update signed with a different one. To stop the address bar showing
-inside the app, upload the `assetlinks.json` it prints to
-`https://crm.yourdomain.com/.well-known/assetlinks.json`.
+Android will not accept an update signed with a different one.
+
+To stop the address bar showing inside the app, copy the `assetlinks.json` it prints onto the
+server at `/srv/titans/assetlinks.json` — nginx already serves that path as
+`/.well-known/assetlinks.json`. Check it with:
+
+```bash
+curl https://your-hostname/.well-known/assetlinks.json
+```
 
 ### About a `.exe`
 
