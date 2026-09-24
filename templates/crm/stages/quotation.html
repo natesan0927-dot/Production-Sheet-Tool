@@ -24,6 +24,17 @@
   {% endfor %}
 {% endif %}
 
+{% if lead.quotation_revision_pending %}
+  <div class="alert alert-warning mt-3">
+    <i class="fa-solid fa-rotate-left me-1"></i>
+    <strong>A revision has been asked for.</strong>
+    {% with revision=lead.quotation_revisions.last %}
+      {{ revision.note }}
+      <div class="small mt-1">Asked by {{ revision.requested_by|default:"the sales executive" }} on {{ revision.requested_at|date:"d M Y, H:i" }}.</div>
+    {% endwith %}
+  </div>
+{% endif %}
+
 {% if stage.state == 'current' and stage.can_act %}
   <hr>
   <form method="post" action="{% url 'crm:stage_quotation' lead.pk %}" enctype="multipart/form-data">
@@ -46,6 +57,8 @@
         {% if quotation_form.elevation.errors %}<div class="text-danger small">{{ quotation_form.elevation.errors.0 }}</div>{% endif %}
       </div>
     </div>
-    <button class="btn btn-primary mt-3">Upload Quotation</button>
+    <button class="btn btn-primary mt-3">
+      {% if lead.quotation_revision_pending %}Upload Revised Quotation{% else %}Upload Quotation{% endif %}
+    </button>
   </form>
 {% endif %}

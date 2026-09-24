@@ -61,7 +61,8 @@ def _is_done(lead, key):
     if key == ROUGH:
         return lead.measurement_done_at is not None
     if key == QUOTATION:
-        return lead.quotation_uploaded_at is not None
+        # A quotation waiting on a revision counts as unfinished again.
+        return lead.quotation_uploaded_at is not None and not lead.quotation_revision_pending
     if key == DECISION:
         return lead.status == Lead.Status.WON
     if key == CAF:

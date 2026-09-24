@@ -292,8 +292,10 @@ PAGE_NOTES = {
     ),
     "crm:queue_accounts": (
         "Accounts",
-        "Every confirmed order with its value, advance and balance, and the total "
-        "outstanding across all of them. Open one for its ledger.",
+        "Every confirmed order with its value, advance and balance, the days each "
+        "invoice has been outstanding, and the total across all of them. Open one "
+        "for its ledger, where you post payments and add transport or other "
+        "charges to the invoice.",
     ),
     "crm:queue_production": (
         "Production",
@@ -302,8 +304,9 @@ PAGE_NOTES = {
     ),
     "crm:queue_fabrication": (
         "Site Fabrication Status",
-        "The factory floor in three columns. A job only reaches dispatch once all "
-        "eight fabrication steps are ticked.",
+        "The factory floor, all three columns written out with their figures and "
+        "their buttons. A job only reaches dispatch once all eight fabrication "
+        "steps are ticked, and anything moved by mistake can be put back.",
     ),
     "crm:queue_warranty": (
         "Warranty & Handover",
@@ -319,6 +322,11 @@ PAGE_NOTES = {
         "To-Do",
         "Tasks anyone has sent you, and tasks you have sent others. Whoever assigned "
         "it is told the moment you mark it done.",
+    ),
+    "crm:day_summary": (
+        "Summary for the Day",
+        "Everyone on the team with a count of what they got through today. Open "
+        "anyone to see their whole day, grouped by the kind of work.",
     ),
     "crm:stage_access_list": (
         "Stage Access",

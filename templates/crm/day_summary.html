@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Summary for the Day{% endblock %}
+
+{% block content %}
+<div class="tw-page-header">
+  <div>
+    <div class="tw-eyebrow">Administration</div>
+    <h4 class="mb-0">Summary for the Day</h4>
+    <div class="text-muted small">
+      {% if is_today %}Everything the team has done today.{% else %}Everything the team did on {{ day|date:"d M Y" }}.{% endif %}
+      Pick anyone to see their day in full.
+    </div>
+  </div>
+  <form method="get" class="d-flex align-items-end gap-2">
+    <div>
+      <label class="form-label small mb-1" for="day">Day</label>
+      <input type="date" id="day" name="day" value="{{ day|date:'Y-m-d' }}" max="{% now 'Y-m-d' %}"
+             class="form-control form-control-sm" onchange="this.form.submit()">
+    </div>
+  </form>
+</div>
+
+<div class="row g-3">
+  {% for row in rows %}
+    <div class="col-md-6 col-xl-4">
+      <a class="card stat-card h-100 {% if row.total %}tone-amber{% endif %}"
+         href="{% url 'crm:day_summary_person' row.person.pk %}?day={{ day|date:'Y-m-d' }}">
+        <div class="card-body">
+          <div class="stat-icon tw-person-mark">{{ row.person.get_full_name|default:row.person.username|slice:":1"|upper }}</div>
+          <div class="flex-grow-1">
+            <div class="fw-bold">{{ row.person.get_full_name|default:row.person.username }}</div>
+            <div class="stat-label">{{ row.person.get_role_display }}</div>
+          </div>
+          <div class="text-end">
+            <div class="stat-value">{{ row.total }}</div>
+            <div class="stat-label">{% if row.total == 1 %}entry{% else %}entries{% endif %}</div>
+          </div>
+        </div>
+      </a>
+    </div>
+  {% empty %}
+    <div class="col-12">
+      <div class="card"><div class="card-body text-center text-muted py-5">No other employees yet.</div></div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

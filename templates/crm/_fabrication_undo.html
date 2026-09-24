@@ -1,0 +1,14 @@
+{% comment %}
+Putting a job back where it came from, for when it was moved by mistake.
+Needs `lead` and `label` (the column it goes back to).
+{% endcomment %}
+{% if not lead.dispatched_at %}
+<form method="post" action="{% url 'crm:fabrication_back' lead.pk %}" class="mt-1"
+      onsubmit="return confirm('Move {{ lead.customer_name|escapejs }} back to {{ label|escapejs }}?')">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <button class="btn btn-sm btn-outline-secondary text-nowrap" title="Moved by mistake? Put it back.">
+    <i class="fa-solid fa-rotate-left me-1"></i>Back to {{ label }}
+  </button>
+</form>
+{% endif %}

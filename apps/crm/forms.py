@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 
-from .models import FollowUp, Lead, Payment, SalesTarget, ServiceComplaint, Task
+from .models import FollowUp, InvoiceCharge, Lead, Payment, SalesTarget, ServiceComplaint, Task
 
 # ---------------------------------------------------------------------------
 # Sanity checks shared by every form. Each adds an error against the field
@@ -392,6 +392,25 @@ class PaymentForm(BootstrapMixin, forms.ModelForm):
                     f"That is more than the balance still due (₹{self.lead.balance_amount:,.2f}).",
                 )
         return data
+
+
+class InvoiceChargeForm(BootstrapMixin, forms.ModelForm):
+    """Transport, site charges — anything billed on top of the order value."""
+
+    class Meta:
+        model = InvoiceCharge
+        fields = ["description", "amount"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["description"].widget.attrs["placeholder"] = "e.g. Transport to site"
+        limit_number(self.fields["amount"], 1)
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount <= 0:
+            raise forms.ValidationError("A charge has to be more than zero.")
+        return amount
 
 
 class LedgerForm(BootstrapMixin, forms.ModelForm):

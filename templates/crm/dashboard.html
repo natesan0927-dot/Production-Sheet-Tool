@@ -97,9 +97,9 @@
             </span>
             <span class="text-nowrap small">
               {% if followup.is_overdue %}<span class="badge bg-danger me-1">Overdue</span>
-              {% elif followup.date == today %}<span class="badge bg-warning me-1">Today</span>
-              {% else %}<span class="text-muted me-1">{{ followup.date|date:"d M" }}</span>{% endif %}
-              <span class="text-muted">{{ followup.time|time:"H:i" }}</span>
+              {% elif followup.date == today %}<span class="badge bg-warning me-1">Today</span>{% endif %}
+              {# Always say the day it was due, so an overdue one is dated. #}
+              <span class="text-muted">{{ followup.date|date:"d M Y" }}, {{ followup.time|time:"H:i" }}</span>
             </span>
           </a>
         {% empty %}

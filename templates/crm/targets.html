@@ -40,19 +40,38 @@
       </div>
       {% if current %}
       <div class="card-footer bg-white">
-        <p class="fw-semibold small mb-2">Won this month</p>
-        <ul class="list-unstyled small mb-0">
-          {% for lead in won_this_month %}
-            <li class="d-flex justify-content-between border-bottom py-1">
-              <a href="{{ lead.get_absolute_url }}" class="text-truncate me-2">
-                {{ lead.customer_name }}<span class="text-muted"> · {{ lead.site_location }}</span>
-              </a>
-              <strong class="text-nowrap">{{ lead.order_value|rupees }}</strong>
-            </li>
-          {% empty %}
-            <li class="text-muted">Nothing won yet this month.</li>
-          {% endfor %}
-        </ul>
+        <div class="row g-3 text-start">
+          <div class="col-md-6">
+            <p class="fw-semibold small mb-2"><i class="fa-solid fa-trophy text-success me-1"></i>Won this month</p>
+            <ul class="list-unstyled small mb-0">
+              {% for lead in won_this_month %}
+                <li class="d-flex justify-content-between border-bottom py-1">
+                  <a href="{{ lead.get_absolute_url }}" class="text-truncate me-2">
+                    {{ lead.customer_name }}<span class="text-muted"> · {{ lead.site_location }}</span>
+                  </a>
+                  <strong class="text-nowrap text-success">{{ lead.order_value|rupees }}</strong>
+                </li>
+              {% empty %}
+                <li class="text-muted">Nothing won yet this month.</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <p class="fw-semibold small mb-2"><i class="fa-solid fa-circle-xmark text-danger me-1"></i>Lost this month</p>
+            <ul class="list-unstyled small mb-0">
+              {% for lead in lost_this_month %}
+                <li class="d-flex justify-content-between border-bottom py-1">
+                  <a href="{{ lead.get_absolute_url }}" class="text-truncate me-2">
+                    {{ lead.customer_name }}<span class="text-muted"> · {{ lead.site_location }}</span>
+                  </a>
+                  <strong class="text-nowrap text-danger">{{ lead.lost_price_elsewhere|rupees }}</strong>
+                </li>
+              {% empty %}
+                <li class="text-muted">Nothing lost this month.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
       </div>
       {% endif %}
     </div>

@@ -4,17 +4,19 @@
 
 {% block content %}
 <div class="mb-3">
-  <h4 class="mb-0">Site Fabrication Status <span class="text-muted fw-semibold">· {{ column_label }}</span></h4>
-  <p class="text-muted small mb-0">Switch between Future Production, Under Production and Ready for Dispatch from the sidebar.</p>
+  <h4 class="mb-0">Site Fabrication Status</h4>
+  <p class="text-muted small mb-0">
+    The whole floor, column by column. The sidebar jumps to whichever one you want.
+  </p>
 </div>
 
 {% comment %}
-What is on the floor: each column written out in full with its own totals, so
-the whole board can be read without switching between them.
+One table per column — the figures and the buttons together, so there is a
+single place to read a job and a single place to move it.
 {% endcomment %}
 {% for section in totals %}
   {% if section.leads is not None %}
-  <div class="card mb-3 {% if section.key == column %}tw-floor-here{% endif %}">
+  <div class="card mb-3 {% if section.key == column %}tw-floor-here{% endif %}" id="column-{{ section.key }}">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span><i class="fa-solid fa-layer-group me-2"></i>{{ section.label }}</span>
       <span class="badge bg-secondary">{{ section.totals.orders }} order{{ section.totals.orders|pluralize }}</span>
@@ -27,13 +29,14 @@ the whole board can be read without switching between them.
             <th class="text-end">Windows</th><th class="text-end">Total Sq Ft</th>
             <th class="text-end">Order Value</th><th class="text-end">Advance</th>
             <th class="text-end">Balance Receivable</th><th>Committed Supply</th>
+            <th class="text-end tw-floor-actions"></th>
           </tr>
         </thead>
         <tbody>
           {% for lead in section.leads %}
           <tr>
             <td>
-              <strong>{{ lead.customer_name }}</strong>
+              <a href="{{ lead.get_absolute_url }}"><strong>{{ lead.customer_name }}</strong></a>
               <div class="text-muted small">{{ lead.lead_number }} · {{ lead.site_location }}</div>
               {% if lead.ready_for_production %}
                 <span class="badge bg-success mt-1"><i class="fa-solid fa-circle-check me-1"></i>All set for production</span>
@@ -46,9 +49,34 @@ the whole board can be read without switching between them.
             <td class="text-end">{{ lead.advance_received|rupees }}</td>
             <td class="text-end"><strong>{{ lead.balance_amount|rupees }}</strong></td>
             <td>{{ lead.committed_delivery_date|date:"d M Y"|default:"—" }}</td>
+            <td class="text-end tw-floor-actions">
+              {% if section.key == 'future' %}
+                <form method="post" action="{% url 'crm:fabrication_start' lead.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="btn btn-sm btn-primary text-nowrap"
+                          {% if not lead.production_approved_at %}disabled title="Waiting for the measurement and production steps to finish"{% endif %}>
+                    Move to Under Production
+                  </button>
+                </form>
+                {% if not lead.production_approved_at %}
+                  <div class="text-muted small mt-1">Earlier stages not finished</div>
+                {% endif %}
+              {% elif section.key == 'under' %}
+                <a href="{% url 'crm:fabrication_checklist_page' lead.pk %}" class="btn btn-sm btn-outline-primary text-nowrap">
+                  <i class="fa-solid fa-list-check me-1"></i>{{ lead.checklist_done_count }}/8 steps
+                </a>
+                {% include "crm/_fabrication_undo.html" with lead=lead label="Future Production" %}
+              {% else %}
+                <a href="{% url 'crm:dispatch' lead.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-primary text-nowrap">
+                  <i class="fa-solid fa-truck me-1"></i>Dispatch
+                </a>
+                {% include "crm/_fabrication_undo.html" with lead=lead label="Under Production" %}
+              {% endif %}
+            </td>
           </tr>
           {% empty %}
-          <tr><td colspan="8" class="text-center text-muted py-3">Nothing in {{ section.label }} right now.</td></tr>
+          <tr><td colspan="9" class="text-center text-muted py-3">Nothing in {{ section.label }} right now.</td></tr>
           {% endfor %}
         </tbody>
         {% if section.totals.orders %}
@@ -61,6 +89,7 @@ the whole board can be read without switching between them.
             <td class="text-end">{{ section.totals.advance|rupees }}</td>
             <td class="text-end">{{ section.totals.balance|rupees }}</td>
             <td></td>
+            <td class="tw-floor-actions"></td>
           </tr>
         </tfoot>
         {% endif %}
@@ -93,58 +122,15 @@ the whole board can be read without switching between them.
   </div>
   {% endif %}
 {% endfor %}
+{% endblock %}
 
-<div class="card">
-  <div class="card-header">{{ column_label }} — move things along</div>
-  <div class="table-responsive">
-    <table class="table align-middle mb-0 {% if column == 'under' %}table-hover{% endif %}">
-      <thead class="table-light">
-        <tr>
-          <th>Customer Name</th><th>Quotation No.</th><th>No. of Windows</th>
-          <th>Sq Ft</th><th>Order Value</th><th class="text-end"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for lead in leads %}
-        <tr {% if column == 'under' %}onclick="window.location='{% url 'crm:fabrication_checklist_page' lead.pk %}'" style="cursor:pointer"{% endif %}>
-          <td>
-            <strong>{{ lead.customer_name }}</strong>
-            <div class="text-muted small">{{ lead.lead_number }}</div>
-            {% if lead.ready_for_production %}
-              <span class="badge bg-success mt-1"><i class="fa-solid fa-circle-check me-1"></i>All set for production</span>
-            {% endif %}
-          </td>
-          <td>{{ lead.quotation_number|default:"—" }}</td>
-          <td>{{ lead.window_count|default:"—" }}</td>
-          <td>{{ lead.total_sqft|default:"—" }}</td>
-          <td>{{ lead.order_value|rupees }}</td>
-          <td class="text-end">
-            {% if column == 'future' %}
-              <form method="post" action="{% url 'crm:fabrication_start' lead.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button class="btn btn-sm btn-primary text-nowrap" {% if not lead.production_approved_at %}disabled title="Waiting for the measurement and production steps to finish"{% endif %}>
-                  Move to Under Production
-                </button>
-              </form>
-              {% if not lead.production_approved_at %}
-                <div class="text-muted small mt-1">Earlier stages not finished</div>
-              {% endif %}
-            {% elif column == 'under' %}
-              <span class="badge bg-dark">{{ lead.checklist_done_count }}/8 steps</span>
-              <i class="fa-solid fa-chevron-right text-muted ms-2"></i>
-            {% else %}
-              <a href="{% url 'crm:dispatch' lead.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-primary">
-                <i class="fa-solid fa-truck me-1"></i>Dispatch
-              </a>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6" class="text-center text-muted py-5">Nothing in {{ column_label }} right now.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{% block extra_js %}
+<script>
+  // The sidebar picks a column; bring it into view rather than reloading a page
+  // that only differs by which card is highlighted.
+  var here = document.querySelector(".tw-floor-here");
+  if (here && window.location.search.indexOf("column=") !== -1) {
+    here.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+</script>
 {% endblock %}

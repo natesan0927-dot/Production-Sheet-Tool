@@ -13,7 +13,13 @@
 <div class="row g-3 mb-3">
   <div class="col-md-3">
     <div class="card stat-card tone-navy"><div class="card-body">
-      <div><div class="stat-value">{{ lead.order_value|rupees }}</div><div class="stat-label">Order Value</div></div>
+      <div>
+        <div class="stat-value">{{ lead.invoice_total|rupees }}</div>
+        <div class="stat-label">Invoice Total</div>
+        {% if lead.extra_charges %}
+          <div class="text-muted small mt-1">{{ lead.order_value|rupees }} order + {{ lead.extra_charges|rupees }} extras</div>
+        {% endif %}
+      </div>
     </div></div>
   </div>
   <div class="col-md-3">
@@ -46,6 +52,25 @@
             <tr><th>Date</th><th>Particulars</th><th class="text-end">Received</th><th class="text-end">Balance</th><th></th></tr>
           </thead>
           <tbody>
+            {% for charge in lead.invoice_charges.all %}
+            <tr class="table-warning">
+              <td class="text-nowrap">{{ charge.added_at|date:"d M Y" }}</td>
+              <td>
+                <i class="fa-solid fa-plus text-warning me-1"></i>{{ charge.description }}
+                <span class="badge bg-warning ms-1">Added to invoice</span>
+                {% if charge.added_by %}<span class="text-muted small d-block">added by {{ charge.added_by }}</span>{% endif %}
+              </td>
+              <td class="text-end text-muted">+{{ charge.amount|rupees:2 }}</td>
+              <td class="text-end"></td>
+              <td class="text-end">
+                <form method="post" action="{% url 'crm:charge_delete' charge.pk %}"
+                      onsubmit="return confirm('Remove this charge from the invoice?')">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-link text-danger" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
             {% for row in rows %}
             <tr>
               <td class="text-nowrap">{{ row.date|date:"d M Y"|default:"—" }}</td>
@@ -74,6 +99,12 @@
           </tbody>
           <tfoot class="table-light">
             <tr>
+              <th colspan="2">Billed{% if lead.extra_charges %} (order + extras){% endif %}</th>
+              <th></th>
+              <th class="text-end">{{ lead.invoice_total|rupees:2 }}</th>
+              <th></th>
+            </tr>
+            <tr>
               <th colspan="2">Outstanding</th>
               <th></th>
               <th class="text-end">{{ lead.balance_amount|rupees:2 }}</th>
@@ -99,6 +130,27 @@
           </div>
           {% endfor %}
           <button class="btn btn-primary w-100">Post entry</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><i class="fa-solid fa-cart-plus me-2"></i>Add to the invoice</div>
+      <div class="card-body">
+        <p class="text-muted small">
+          Transport, site charges — anything the customer is billed for on top of
+          the order value. It is added to the balance straight away.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          {% for field in charge_form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-outline-primary w-100" name="add_charge" value="1">Add charge</button>
         </form>
       </div>
     </div>

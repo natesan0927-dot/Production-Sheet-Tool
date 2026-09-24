@@ -102,8 +102,21 @@
       <div class="card-body">
         <ul class="timeline">
           <li><span>{{ lead.created_at|date:"d M Y, H:i" }}</span> Lead created by {{ lead.created_by|default:"—" }}</li>
-          {% if lead.measurement_requested_at %}<li><span>{{ lead.measurement_requested_at|date:"d M Y, H:i" }}</span> Rough measurement requested by {{ lead.assigned_to }}</li>{% endif %}
+          {% if lead.measurement_requested_at %}<li><span>{{ lead.measurement_requested_at|date:"d M Y, H:i" }}</span> Rough measurement requested by {{ lead.measurement_requested_by|default:lead.assigned_to }}</li>{% endif %}
           {% if lead.measurement_done_at %}<li><span>{{ lead.measurement_done_at|date:"d M Y, H:i" }}</span> Measurements recorded by {{ lead.measurement_done_by|default:"—" }}</li>{% endif %}
+          {% for handover in lead.assignments.all %}
+            <li>
+              <span>{{ handover.changed_at|date:"d M Y, H:i" }}</span>
+              Lead reassigned from {{ handover.from_user|default:"—" }} to {{ handover.to_user|default:"—" }}
+              {% if handover.changed_by %} by {{ handover.changed_by }}{% endif %}
+            </li>
+          {% endfor %}
+          {% for revision in lead.quotation_revisions.all %}
+            <li>
+              <span>{{ revision.requested_at|date:"d M Y, H:i" }}</span>
+              Quotation sent back for revision by {{ revision.requested_by|default:"the sales executive" }} — {{ revision.note }}
+            </li>
+          {% endfor %}
           {% if lead.quotation_uploaded_at %}<li><span>{{ lead.quotation_uploaded_at|date:"d M Y, H:i" }}</span> Quotation {{ lead.quotation_number }} uploaded by {{ lead.quotation_uploaded_by|default:"—" }}</li>{% endif %}
           {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed by {{ lead.won_by|default:lead.assigned_to }}{% if can_see_financials %} — {{ lead.order_value|rupees }}{% endif %}</li>{% endif %}
           {% if lead.lost_at %}<li><span>{{ lead.lost_at|date:"d M Y, H:i" }}</span> Marked as lost by {{ lead.lost_by|default:lead.assigned_to }}</li>{% endif %}
@@ -118,7 +131,7 @@
           {% endfor %}
           {% if lead.production_approved_at %}<li><span>{{ lead.production_approved_at|date:"d M Y, H:i" }}</span> Production sheet approved by {{ lead.production_approved_by|default:"—" }}</li>{% endif %}
           {% if lead.dispatched_at %}<li><span>{{ lead.dispatched_at|date:"d M Y, H:i" }}</span> Dispatched by {{ lead.dispatched_by|default:"—" }} — invoice {{ lead.invoice_number }}</li>{% endif %}
-          {% if lead.handover_signed_at %}<li><span>{{ lead.handover_signed_at|date:"d M Y, H:i" }}</span> Signed handover certificate uploaded</li>{% endif %}
+          {% if lead.handover_signed_at %}<li><span>{{ lead.handover_signed_at|date:"d M Y, H:i" }}</span> Signed handover certificate uploaded by {{ lead.handover_signed_by|default:"—" }}</li>{% endif %}
           {% if lead.completed_at %}<li><span>{{ lead.completed_at|date:"d M Y, H:i" }}</span> Project completed by {{ lead.completed_by|default:"—" }}</li>{% endif %}
         </ul>
       </div>

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db.models import Q
 from django.urls import reverse
 
 from apps.accounts.models import Role
@@ -41,6 +42,7 @@ FIELD_MANAGER_TABS = [
 ]
 
 ADMIN_TABS = [
+    ("Summary for the Day", "crm:day_summary", "fa-calendar-day", None),
     ("Stage Access", "crm:stage_access_list", "fa-user-shield", None),
 ]
 
@@ -111,7 +113,9 @@ def _pending_counts(keys, user):
         ).count()
     if "quotation" in keys:
         counts["quotation"] = Lead.objects.filter(
-            status=Lead.Status.OPEN, measurement_done_at__isnull=False, quotation_uploaded_at__isnull=True
+            Q(quotation_uploaded_at__isnull=True) | Q(quotation_revision_pending=True),
+            status=Lead.Status.OPEN,
+            measurement_done_at__isnull=False,
         ).count()
     if "production" in keys:
         counts["production"] = Lead.objects.filter(

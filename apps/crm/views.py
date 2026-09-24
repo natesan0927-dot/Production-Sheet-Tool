@@ -7,17 +7,20 @@ from django.db.models import Count, Q, Sum
 from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role, User
 
+from . import daysummary
 from . import guide as guide_content
 from . import stages as stage_flow
 from .context_processors import ALL_QUEUE_KEYS, _pending_counts, navigation
 from .forms import (
     CafFinalForm,
+    InvoiceChargeForm,
     ChecklistForm,
     DispatchForm,
     FollowUpForm,
@@ -39,10 +42,13 @@ from .forms import (
 from .models import (
     FollowUp,
     Lead,
+    LeadAssignment,
     LeadFile,
     Notification,
     Payment,
+    InvoiceCharge,
     ProductionRevision,
+    QuotationRevision,
     SalesTarget,
     ServiceComplaint,
     Task,
@@ -312,6 +318,14 @@ def lead_edit(request, pk):
         if form.is_valid():
             lead = form.save()
             if lead.assigned_to_id != was_assigned_to:
+                # Work already done keeps the name of whoever did it; this row
+                # is what lets the timeline say when the hand-over happened.
+                LeadAssignment.objects.create(
+                    lead=lead,
+                    from_user_id=was_assigned_to,
+                    to_user=lead.assigned_to,
+                    changed_by=request.user,
+                )
                 notify_user(
                     lead,
                     f"A new lead opportunity has been reassigned to you — {lead.customer_name}, {lead.site_location}",
@@ -409,6 +423,7 @@ def stage_measurements(request, pk):
 
     if mode == Lead.MeasurementMode.REQUESTED:
         lead.measurement_requested_at = now
+        lead.measurement_requested_by = request.user
         # Whatever map link came with the request stays on the lead, so the final
         # measurement visit later has it too.
         if form.cleaned_data.get("site_map_link"):
@@ -488,9 +503,15 @@ def stage_quotation(request, pk):
     lead.quotation_number = form.cleaned_data["quotation_number"]
     lead.quotation_uploaded_at = timezone.now()
     lead.quotation_uploaded_by = request.user
+    revised = lead.quotation_revision_pending
+    lead.quotation_revision_pending = False
     lead.save()
-    notify_user(lead, f"Quotation {lead.quotation_number} uploaded for {lead.customer_name}", lead.assigned_to)
-    messages.success(request, "Quotation uploaded and forwarded to the salesperson.")
+    if revised:
+        notify_user(lead, f"Revised quotation uploaded for {lead.customer_name}", lead.assigned_to)
+        messages.success(request, "Revised quotation uploaded and sent back to the sales executive.")
+    else:
+        notify_user(lead, f"Quotation {lead.quotation_number} uploaded for {lead.customer_name}", lead.assigned_to)
+        messages.success(request, "Quotation uploaded and forwarded to the salesperson.")
     return redirect(lead.get_absolute_url())
 
 
@@ -677,6 +698,31 @@ def production_need_revision(request, pk):
     return redirect(lead.get_absolute_url())
 
 
+@role_required(Role.SALESPERSON)
+@require_POST
+def quotation_need_revision(request, pk):
+    """The same loop the production sheet has, one stage earlier."""
+    lead = get_lead(request, pk)
+    if not lead.quotation_uploaded_at:
+        messages.error(request, "There is no quotation to send back yet.")
+        return redirect(lead.get_absolute_url())
+    if lead.status != Lead.Status.OPEN:
+        messages.error(request, "This lead is already closed.")
+        return redirect(lead.get_absolute_url())
+
+    remarks = request.POST.get("remarks", "").strip()
+    if not remarks:
+        messages.error(request, "Say what needs changing before sending the quotation back.")
+        return stage_redirect(lead, stage_flow.DECISION)
+
+    lead.quotation_revision_pending = True
+    lead.save(update_fields=["quotation_revision_pending"])
+    QuotationRevision.objects.create(lead=lead, note=remarks, requested_by=request.user)
+    notify(lead, f"Quotation needs revision — {lead.customer_name}: {remarks}", Role.QUOTATION)
+    messages.success(request, "Sent back to the quotation team with your remarks.")
+    return redirect(lead.get_absolute_url())
+
+
 # ---------------------------------------------------------------------------
 # stage 7 — site fabrication status
 # ---------------------------------------------------------------------------
@@ -730,6 +776,34 @@ def fabrication_checklist(request, pk):
 
 def _unfinished_steps(lead):
     return [lead._meta.get_field(field).verbose_name for field in Lead.CHECKLIST_FIELDS if not getattr(lead, field)]
+
+
+# Where a wrongly-moved job goes back to.
+FABRICATION_BACK = {
+    Lead.Fabrication.UNDER: (Lead.Fabrication.FUTURE, "Future Production"),
+    Lead.Fabrication.READY: (Lead.Fabrication.UNDER, "Under Production"),
+}
+
+
+@role_required(Role.PRODUCTION)
+@require_POST
+def fabrication_back(request, pk):
+    """Undo a move between columns. Only before the order has been dispatched."""
+    lead = get_lead(request, pk)
+    blocked = guard_stage(request, lead, stage_flow.FABRICATION)
+    if blocked:
+        return blocked
+
+    step_back = FABRICATION_BACK.get(lead.fabrication_column)
+    if not step_back or lead.dispatched_at:
+        messages.error(request, "This order cannot be moved back.")
+        return safe_next(request, lead.get_absolute_url())
+
+    column, label = step_back
+    lead.fabrication_column = column
+    lead.save(update_fields=["fabrication_column"])
+    messages.success(request, f"{lead.customer_name} moved back to {label}.")
+    return safe_next(request, lead.get_absolute_url())
 
 
 @role_required(Role.PRODUCTION)
@@ -807,6 +881,7 @@ def handover_upload(request, pk):
 
     save_upload(lead, LeadFile.Kind.HANDOVER_SIGNED, form.cleaned_data["file"], request.user)
     lead.handover_signed_at = timezone.now()
+    lead.handover_signed_by = request.user
     lead.save()
     messages.success(request, "Signed handover certificate uploaded. You can now save the project.")
     return redirect(lead.get_absolute_url())
@@ -959,13 +1034,22 @@ def targets(request):
     this_month = timezone.localdate().replace(day=1)
     current = target_qs.filter(month=this_month).first()
     won_this_month = []
+    lost_this_month = []
     if current:
+        # Credit follows whoever actually closed it, so a reassignment does not
+        # move an old win onto someone else's target.
         won_this_month = Lead.objects.filter(
-            assigned_to=current.salesperson,
+            Q(won_by=current.salesperson) | Q(won_by__isnull=True, assigned_to=current.salesperson),
             status=Lead.Status.WON,
             won_at__year=this_month.year,
             won_at__month=this_month.month,
         ).order_by("-won_at")
+        lost_this_month = Lead.objects.filter(
+            Q(lost_by=current.salesperson) | Q(lost_by__isnull=True, assigned_to=current.salesperson),
+            status=Lead.Status.LOST,
+            lost_at__year=this_month.year,
+            lost_at__month=this_month.month,
+        ).order_by("-lost_at")
     return render(
         request,
         "crm/targets.html",
@@ -975,6 +1059,7 @@ def targets(request):
             "current": current,
             "this_month": this_month,
             "won_this_month": won_this_month,
+            "lost_this_month": lost_this_month,
             "salespeople": sales_executives(),
             "selected_salesperson": selected_salesperson,
         },
@@ -984,7 +1069,18 @@ def targets(request):
 @role_required(Role.SALESPERSON)
 def lost_opportunities(request):
     leads = visible_leads(request.user).filter(status=Lead.Status.LOST)
-    return render(request, "crm/lost_list.html", {"leads": leads})
+    selected_salesperson = request.GET.get("salesperson") or ""
+    if request.user.is_super_admin and selected_salesperson:
+        leads = leads.filter(assigned_to_id=selected_salesperson)
+    return render(
+        request,
+        "crm/lost_list.html",
+        {
+            "leads": leads,
+            "salespeople": sales_executives(),
+            "selected_salesperson": selected_salesperson,
+        },
+    )
 
 
 @role_required(Role.SALESPERSON)
@@ -1040,15 +1136,19 @@ def queue_production_validation(request):
 
 @role_required(Role.QUOTATION)
 def queue_quotations(request):
+    # Waiting on a first quotation, or on a revision the sales executive asked for.
     leads = Lead.objects.filter(
-        status=Lead.Status.OPEN, measurement_done_at__isnull=False, quotation_uploaded_at__isnull=True
+        Q(quotation_uploaded_at__isnull=True) | Q(quotation_revision_pending=True),
+        status=Lead.Status.OPEN,
+        measurement_done_at__isnull=False,
     ).select_related("assigned_to")
     return _queue(
         request,
         "crm/queues/simple.html",
         leads,
         "Quotation Upload",
-        "Customers whose measurements are in and are waiting for a quotation.",
+        "Customers whose measurements are in and are waiting for a quotation, "
+        "plus any quotation sent back for revision.",
     )
 
 
@@ -1070,9 +1170,12 @@ def queue_accounts(request):
 @role_required(Role.ACCOUNTS)
 def ledger(request, pk):
     """A confirmed order's payment ledger — post entries and correct the figures."""
-    lead = get_object_or_404(Lead.objects.prefetch_related("payments"), pk=pk, status=Lead.Status.WON)
+    lead = get_object_or_404(
+        Lead.objects.prefetch_related("payments", "invoice_charges"), pk=pk, status=Lead.Status.WON
+    )
     payment_form = PaymentForm(lead=lead)
     ledger_form = LedgerForm(instance=lead)
+    charge_form = InvoiceChargeForm()
 
     if request.method == "POST":
         if "save_figures" in request.POST:
@@ -1080,6 +1183,15 @@ def ledger(request, pk):
             if ledger_form.is_valid():
                 ledger_form.save()
                 messages.success(request, "Order figures updated.")
+                return redirect("crm:ledger", pk=lead.pk)
+        elif "add_charge" in request.POST:
+            charge_form = InvoiceChargeForm(request.POST)
+            if charge_form.is_valid():
+                charge = charge_form.save(commit=False)
+                charge.lead = lead
+                charge.added_by = request.user
+                charge.save()
+                messages.success(request, f"{charge.description} added to the invoice.")
                 return redirect("crm:ledger", pk=lead.pk)
         else:
             payment_form = PaymentForm(request.POST, request.FILES, lead=lead)
@@ -1091,14 +1203,16 @@ def ledger(request, pk):
                 messages.success(request, "Payment entry posted.")
                 return redirect("crm:ledger", pk=lead.pk)
 
-    # Running balance down the ledger, starting from the advance.
+    # Running balance down the ledger, starting from the advance. Anything
+    # accounts added to the invoice is owed on top of the order value.
+    billed = lead.invoice_total or Decimal("0")
     running = lead.advance_received or Decimal("0")
     rows = [
         {
             "date": lead.won_at,
             "label": "Advance received on order confirmation",
             "amount": running,
-            "balance": (lead.order_value or Decimal("0")) - running,
+            "balance": billed - running,
             "entry": None,
         }
     ]
@@ -1109,7 +1223,7 @@ def ledger(request, pk):
                 "date": payment.paid_on,
                 "label": payment.remarks or "Payment received",
                 "amount": payment.amount,
-                "balance": (lead.order_value or Decimal("0")) - running,
+                "balance": billed - running,
                 "entry": payment,
             }
         )
@@ -1117,7 +1231,13 @@ def ledger(request, pk):
     return render(
         request,
         "crm/queues/ledger.html",
-        {"lead": lead, "rows": rows, "payment_form": payment_form, "ledger_form": ledger_form},
+        {
+            "lead": lead,
+            "rows": rows,
+            "payment_form": payment_form,
+            "ledger_form": ledger_form,
+            "charge_form": charge_form,
+        },
     )
 
 
@@ -1128,6 +1248,16 @@ def payment_delete(request, pk):
     lead_pk = payment.lead_id
     payment.delete()
     messages.success(request, "Payment entry removed.")
+    return redirect("crm:ledger", pk=lead_pk)
+
+
+@role_required(Role.ACCOUNTS)
+@require_POST
+def charge_delete(request, pk):
+    charge = get_object_or_404(InvoiceCharge, pk=pk)
+    lead_pk = charge.lead_id
+    charge.delete()
+    messages.success(request, "Charge removed from the invoice.")
     return redirect("crm:ledger", pk=lead_pk)
 
 
@@ -1487,3 +1617,49 @@ def guide_seen(request):
     if fields:
         request.user.save(update_fields=fields)
     return JsonResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# summary for the day
+# ---------------------------------------------------------------------------
+
+
+def _summary_day(request):
+    """The day being looked at — today unless one is asked for."""
+    asked = request.GET.get("day")
+    if asked:
+        parsed = parse_date(asked)
+        if parsed and parsed <= timezone.localdate():
+            return parsed
+    return timezone.localdate()
+
+
+@role_required(Role.SUPER_ADMIN)
+def day_summary(request):
+    day = _summary_day(request)
+    people = User.objects.filter(is_active=True).exclude(pk=request.user.pk)
+    return render(
+        request,
+        "crm/day_summary.html",
+        {
+            "day": day,
+            "is_today": day == timezone.localdate(),
+            "rows": daysummary.counts_for(people, day),
+        },
+    )
+
+
+@role_required(Role.SUPER_ADMIN)
+def day_summary_person(request, pk):
+    day = _summary_day(request)
+    person = get_object_or_404(User, pk=pk, is_active=True)
+    return render(
+        request,
+        "crm/day_summary_person.html",
+        {
+            "day": day,
+            "is_today": day == timezone.localdate(),
+            "person": person,
+            **daysummary.for_person(person, day),
+        },
+    )

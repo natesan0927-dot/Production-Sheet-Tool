@@ -82,6 +82,7 @@ class Lead(models.Model):
     measurement_mode = models.CharField(max_length=12, choices=MeasurementMode.choices, blank=True)
     measurement_notes = models.TextField(blank=True)
     measurement_requested_at = models.DateTimeField(null=True, blank=True)
+    measurement_requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     measurement_done_at = models.DateTimeField(null=True, blank=True)
     measurement_done_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
@@ -89,6 +90,9 @@ class Lead(models.Model):
     quotation_number = models.CharField(max_length=60, blank=True)
     quotation_uploaded_at = models.DateTimeField(null=True, blank=True)
     quotation_uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # Set while the sales executive is waiting on a revised quotation; cleared
+    # when the next one is uploaded.
+    quotation_revision_pending = models.BooleanField(default=False)
 
     # --- Stage 4: won / lost ------------------------------------------------
     order_value = models.DecimalField("Order finalized value", max_digits=12, decimal_places=2, null=True, blank=True)
@@ -141,6 +145,7 @@ class Lead(models.Model):
     # The warranty certificate is handed to the customer; the handover
     # certificate is the one they sign and we keep.
     handover_signed_at = models.DateTimeField(null=True, blank=True)
+    handover_signed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     completed_at = models.DateTimeField(null=True, blank=True)
     completed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
@@ -179,10 +184,22 @@ class Lead(models.Model):
         return (self.advance_received or Decimal("0")) + posted
 
     @property
+    def extra_charges(self):
+        """Transport and the like, added to the invoice by accounts."""
+        return self.invoice_charges.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+
+    @property
+    def invoice_total(self):
+        """What the customer is actually billed — the order plus any extras."""
+        if self.order_value is None:
+            return None
+        return self.order_value + self.extra_charges
+
+    @property
     def balance_amount(self):
         if self.order_value is None:
             return None
-        return self.order_value - self.collected
+        return self.invoice_total - self.collected
 
     @property
     def is_outstanding(self):
@@ -350,6 +367,37 @@ class FollowUp(models.Model):
         return self.lead.status == Lead.Status.OPEN
 
 
+class QuotationRevision(models.Model):
+    """A quotation the sales executive has asked to have redone."""
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="quotation_revisions")
+    note = models.TextField()
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    requested_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["requested_at"]
+
+    def __str__(self):
+        return f"Quotation revision for {self.lead.lead_number}"
+
+
+class LeadAssignment(models.Model):
+    """Who a lead moved from, to, and when — so old work keeps its own name."""
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="assignments")
+    from_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    to_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["changed_at"]
+
+    def __str__(self):
+        return f"{self.lead.lead_number}: {self.from_user} -> {self.to_user}"
+
+
 class ProductionRevision(models.Model):
     """A production sheet sent back for changes. Kept so the timeline has them all."""
 
@@ -425,6 +473,26 @@ class ServiceComplaint(models.Model):
     @property
     def is_open(self):
         return self.resolved_at is None
+
+
+class InvoiceCharge(models.Model):
+    """Something added to the invoice after the order was priced.
+
+    Transport the customer asked us to bear, a site charge, anything the
+    accounts team needs on the bill that was not in the order value.
+    """
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="invoice_charges")
+    description = models.CharField("What the charge is for", max_length=180)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["added_at", "id"]
+
+    def __str__(self):
+        return f"{self.description} — {self.amount}"
 
 
 class Payment(models.Model):

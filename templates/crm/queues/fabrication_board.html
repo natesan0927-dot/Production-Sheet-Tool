@@ -76,6 +76,9 @@
             {% endif %}
           </form>
           {% if lead.fabrication_column == 'under' %}
+            {% include "crm/_fabrication_undo.html" with lead=lead label="Future Production" %}
+          {% endif %}
+          {% if lead.fabrication_column == 'under' %}
             <form method="post" action="{% url 'crm:fabrication_to_dispatch' lead.pk %}" class="mt-2">
               {% csrf_token %}
               <input type="hidden" name="next" value="{{ request.path }}">
@@ -101,6 +104,7 @@
           <p class="mb-3"><span class="badge bg-info">Ready for dispatch</span></p>
           <p class="text-muted small">Dispatching asks for the installation person, invoice number and invoice date.</p>
           <a href="{% url 'crm:dispatch' lead.pk %}" class="btn btn-primary w-100">Dispatch</a>
+          {% include "crm/_fabrication_undo.html" with lead=lead label="Under Production" %}
         {% else %}
           <p class="text-muted mb-0"><i class="fa-solid fa-lock me-1"></i>Opens once every production step is complete.</p>
         {% endif %}
