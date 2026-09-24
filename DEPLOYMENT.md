@@ -5,6 +5,7 @@ Written for whoever sets this up and keeps it running — not necessarily a deve
 - [1. What this needs](#1-what-this-needs)
 - [2. Is Oracle Cloud safe? Is 200 GB enough?](#2-is-oracle-cloud-safe-is-200-gb-enough)
 - [3. Step by step on Oracle Cloud](#3-step-by-step-on-oracle-cloud)
+- [3b. Step by step with no credit card — Render + Neon + Supabase](#3b-step-by-step-with-no-credit-card--render--neon--supabase)
 - [4. Backups — read this one](#4-backups--read-this-one)
 - [5. Updating it later](#5-updating-it-later)
 - [6. When something is wrong](#6-when-something-is-wrong)
@@ -21,10 +22,25 @@ Written for whoever sets this up and keeps it running — not necessarily a deve
 | Somewhere to run Python | The app itself |
 | A database | Leads, orders, follow-ups — everything except the files |
 | Somewhere for uploaded files | Quotations, signed CAFs, measurements, production sheets, receipts |
-| A domain name | About ₹800/year. HTTPS needs one, and the app will not install on a phone without HTTPS |
+| A hostname | HTTPS needs one, and the app will not install on a phone without HTTPS. Free on DuckDNS, or ~₹800/year for your own |
 
 The traffic is a dozen people and a few hundred leads a year. Nothing here needs to be big.
 The only thing that grows is **uploaded files**.
+
+**Which route?** Every provider that rents you a real Linux server — Oracle, AWS, Google, Azure,
+DigitalOcean — wants a **credit card** to verify you, because a server is what gets abused for
+mining. There is no way round that.
+
+| | Section 3 — Oracle | Section 3b — Render + Neon + Supabase |
+| --- | --- | --- |
+| Credit card to sign up | **Yes** | **No** — email only |
+| Setup | ~1 hour, some of it SSH | ~30 minutes, all in a browser |
+| Free file storage | 200 GB | 1 GB, then a paid step |
+| Always on | Yes | Sleeps after 15 min idle; ~50s first load |
+| Server to look after | Yes (one script handles it) | None |
+
+Oracle is the better home if the card can be arranged. Section 3b is the honest answer when it
+cannot, and nothing about it is throwaway — the same code, and you can move later.
 
 ---
 
@@ -239,6 +255,118 @@ definitely working locks people out for a year, which is why it starts off.
 
 ---
 
+## 3b. Step by step with no credit card — Render + Neon + Supabase
+
+Three free accounts, none of which asks for a card. About thirty minutes, entirely in a browser —
+no SSH, no terminal, no key files to lose. Afterwards every `git push` redeploys the site by
+itself.
+
+Do them in this order, because the last step needs values from the first two.
+
+### Step 1 — Neon, for the database (5 min)
+
+1. **neon.tech** → *Sign up* → continue with GitHub.
+2. Create a project: name `titans`, region **AWS ap-southeast-1 (Singapore)** — the closest to
+   India.
+3. On the dashboard, **Connection string** → copy it. It looks like:
+
+   ```
+   postgresql://titans_owner:XXXX@ep-cool-name-123.ap-southeast-1.aws.neon.tech/titans?sslmode=require
+   ```
+
+Keep that in a note. It is the `DATABASE_URL`. Free plan: 0.5 GB, which is tens of thousands of
+leads — the database stays small because the *files* go elsewhere.
+
+### Step 2 — Supabase, for the uploaded files (10 min)
+
+1. **supabase.com** → *Start your project* → continue with GitHub.
+2. New project: name `titans`, region **Southeast Asia (Singapore)**. It sets a database password
+   — you will not need it, Neon is the database.
+3. Wait for it to finish provisioning (~2 min).
+4. **Storage → New bucket**, name it exactly **`titans-documents`**, leave *Public* **off**. The
+   app signs its own expiring links, so the bucket must stay private.
+5. **Project Settings → Storage → S3 Connection.** Copy the **Endpoint URL** and the **Region**.
+   The endpoint looks like `https://abcdefgh.supabase.co/storage/v1/s3`.
+6. On the same page, **New access key** → copy the **access key ID** and the **secret**. The
+   secret is shown once.
+
+You now have four values: endpoint, region, key id, secret.
+
+> Supabase pauses a free project after **7 days with no activity**. Daily use keeps it awake; a
+> long holiday does not. If it ever pauses, one *Restore* click in the dashboard brings it back
+> with nothing lost.
+
+### Step 3 — Render, to run the app (10 min)
+
+1. **render.com** → *Get Started* → continue with GitHub, and authorise it for the **TITANS**
+   repository. (This replaces the access token entirely — Render pulls the code itself, so there
+   is no token to create or paste.)
+2. **New → Blueprint** → pick the TITANS repo → **Apply**.
+
+   Render reads `render.yaml` from the repo and sets almost everything up on its own. It stops and
+   asks for the handful of values it cannot invent:
+
+   | It asks for | Paste |
+   | --- | --- |
+   | `DATABASE_URL` | the Neon connection string from step 1 |
+   | `AWS_S3_ENDPOINT_URL` | the Supabase endpoint |
+   | `AWS_S3_REGION_NAME` | the Supabase region, e.g. `ap-southeast-1` |
+   | `AWS_ACCESS_KEY_ID` | the Supabase key id |
+   | `AWS_SECRET_ACCESS_KEY` | the Supabase secret |
+   | `CSRF_TRUSTED_ORIGINS` | leave blank for now — step 4 |
+
+3. It builds for five to ten minutes. Watch the log; it ends with the staff accounts being
+   created.
+
+### Step 4 — The one value you can only fill in afterwards
+
+Render has now given the service an address like `https://titans-crm-a1b2.onrender.com`. Copy it
+from the top of the service page, then:
+
+**Environment → `CSRF_TRUSTED_ORIGINS` → Edit**, and paste it **with the `https://`**:
+
+```
+https://titans-crm-a1b2.onrender.com
+```
+
+Save. Render redeploys itself. Without this, sign-in fails with *"CSRF verification failed"* — it
+is the single most common stumble on this route.
+
+### Step 5 — Sign in and prove the uploads work
+
+Open the address. Sign in as `admin` / `ChangeMe@123`; it will make you change it.
+
+Then do this before letting anyone else in — it is the one thing that can be silently misconfigured:
+
+1. Create a test lead.
+2. Upload any PDF to it.
+3. Open it again from the timeline.
+
+If it opens, files are landing in Supabase and will survive every future deploy. If it errors,
+the four Supabase values are wrong — the endpoint is the usual culprit, it must end in
+`/storage/v1/s3`. Delete the test lead afterwards.
+
+### Living with the free plan
+
+**It sleeps.** After 15 minutes with nobody on it, Render stops the service; the next request
+wakes it in about 50 seconds. In practice the first person each morning waits, and nobody else
+notices. If that becomes irritating, **Render Starter is about ₹600/month** and removes it — one
+card, one account, no re-architecting.
+
+**1 GB of files.** Roughly 55 finished jobs. Watch it at **Supabase → Storage → Usage**. When it
+gets close, either Supabase Pro (100 GB, about ₹2,000/month) or move the bucket to Cloudflare R2
+(10 GB free, needs a card) by changing the same four values. Nothing in the app changes either way.
+
+**Backups.** Neon keeps point-in-time recovery for 24 hours on the free plan, which is not a
+backup. Once a month, download one: Neon dashboard → your branch → **Backup**, or run
+`pg_dump "<the DATABASE_URL>" > titans.sql` from any machine with PostgreSQL installed. Keep it
+somewhere that is not Neon.
+
+**Updating it.** Push to `main` on GitHub. Render rebuilds and restarts by itself, migrations
+included. There is nothing else to do.
+
+---
+
 ## 4. Backups — read this one
 
 `setup_server.sh` already runs a backup every night at 2am into `/srv/titans/backups`, keeping
@@ -328,32 +456,15 @@ df -h /                             # how full is the disk
 catch is a **512 MB** disk — a few thousand documents, so two to three years — and no custom
 domain on the free plan.
 
-### Render free + Neon + Cloudflare R2 — no server admin, three accounts
+### Render free + Neon + Supabase — no server admin, no credit card
 
-₹0 across all three. Deploys from GitHub on every push. The free web service **sleeps after 15
-minutes idle**, so the first person each morning waits about 50 seconds. Render's own free
-database expires after 30 days, which is why the database goes to Neon and the files to R2.
+Now written out in full as [section 3b](#3b-step-by-step-with-no-credit-card--render--neon--supabase),
+since it is the route to take when the Oracle card check cannot be cleared.
 
-Environment variables on Render:
-
-| Key | Value |
-| --- | --- |
-| `DJANGO_SECRET_KEY` | 50 random characters |
-| `DEBUG` | `False` |
-| `ALLOWED_HOSTS` | `your-app.onrender.com` |
-| `CSRF_TRUSTED_ORIGINS` | `https://your-app.onrender.com` |
-| `DATABASE_URL` | the Neon connection string |
-| `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | `True` |
-| `AWS_STORAGE_BUCKET_NAME` | the R2 bucket name |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | from the R2 token |
-| `AWS_S3_ENDPOINT_URL` | `https://<account-id>.r2.cloudflarestorage.com` |
-
-With `AWS_STORAGE_BUCKET_NAME` set, uploads go to the bucket and survive a redeploy. Leave it
-unset and files stay on the local disk, which is correct wherever the disk is permanent.
-
-**If the database already holds an older version of this software**, the first migration stops
-with an explanation rather than damaging anything. Set `RESET_LEGACY_SCHEMA=true`, deploy once,
-then remove it.
+Swapping Supabase for **Cloudflare R2** later gives 10 GB instead of 1 GB and costs nothing, but
+Cloudflare wants a card on file before it will enable R2. It is the same four environment
+variables, plus `AWS_S3_ADDRESSING_STYLE=virtual` — R2 addresses a bucket by subdomain where
+Supabase uses the path.
 
 ### If you would rather just pay
 

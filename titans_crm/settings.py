@@ -123,6 +123,9 @@ if AWS_STORAGE_BUCKET_NAME:
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
     AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)
     AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="auto")
+    # R2 and B2 address a bucket as a subdomain; Supabase puts it in the path.
+    # Pointing boto3 the wrong way makes every upload fail to resolve a host.
+    AWS_S3_ADDRESSING_STYLE = env("AWS_S3_ADDRESSING_STYLE", default="virtual")
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None
     # Links are signed and short-lived, so a bucket can stay private.

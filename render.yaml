@@ -1,0 +1,63 @@
+# Render Blueprint — New → Blueprint, point it at this repo, and everything
+# below is created for you. The values marked sync:false are the ones Render
+# stops and asks for, so no secret is ever committed here.
+#
+# The database is Neon and the uploaded files go to Supabase Storage; neither
+# needs a card. DEPLOYMENT.md walks through both.
+
+services:
+  - type: web
+    name: titans-crm
+    runtime: python
+    plan: free
+    region: singapore          # closest Render region to India
+    buildCommand: "./scripts/render_build.sh"
+    # Two workers, not three: the free instance has 512 MB of memory.
+    startCommand: "gunicorn titans_crm.wsgi:application --workers 2 --timeout 120"
+    healthCheckPath: /accounts/login/
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true    # Render invents one; nobody ever sees it
+      - key: DEBUG
+        value: "False"
+      - key: TIME_ZONE
+        value: Asia/Kolkata
+      - key: ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: titans-crm
+          property: host
+      # Needs the https:// prefix, which cannot be derived from the host above,
+      # so Render asks. It is https://<whatever>.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      - key: SESSION_COOKIE_SECURE
+        value: "True"
+      - key: CSRF_COOKIE_SECURE
+        value: "True"
+      # Turn this on only once the site has been used over HTTPS for a day or
+      # two — 31536000 is a year.
+      - key: SECURE_HSTS_SECONDS
+        value: "0"
+      # --- Neon ---------------------------------------------------------
+      - key: DATABASE_URL
+        sync: false
+      # --- Supabase Storage, so uploads survive a redeploy ---------------
+      - key: AWS_STORAGE_BUCKET_NAME
+        value: titans-documents
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_S3_REGION_NAME
+        sync: false
+      # Supabase addresses buckets by path, not by subdomain. Without this
+      # every upload fails with a name-resolution error.
+      - key: AWS_S3_ADDRESSING_STYLE
+        value: path
