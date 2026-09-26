@@ -4,6 +4,9 @@
     <p class="mb-2 text-success"><i class="fa-solid fa-check me-1"></i>Completed by {{ lead.measurement_done_by|default:"measurement staff" }} on {{ lead.measurement_done_at|date:"d M Y" }}</p>
   {% else %}
     <p class="mb-2"><span class="badge text-bg-warning">Rough measurement requested</span>
+      {% if lead.measurement_assigned_to %}
+        <span class="badge text-bg-primary ms-1"><i class="fa-solid fa-user me-1"></i>{{ lead.measurement_assigned_to.display_name }}</span>
+      {% endif %}
       <span class="text-muted small ms-2">{{ lead.customer_name }} · {{ lead.site_location }} · Site stage: {{ lead.get_site_stage_display }}</span>
     </p>
   {% endif %}
@@ -23,6 +26,7 @@
     {% csrf_token %}
     <label class="form-label">Upload the rough measurement file</label>
     {{ rough_form.file }}
+    {% include "crm/_scan_panel.html" with target="id_file" %}
     <label class="form-label mt-3">Or type the measurements</label>
     {{ rough_form.notes }}
     <button class="btn btn-primary mt-3">Submit Rough Measurement</button>

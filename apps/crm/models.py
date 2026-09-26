@@ -83,6 +83,16 @@ class Lead(models.Model):
     measurement_notes = models.TextField(blank=True)
     measurement_requested_at = models.DateTimeField(null=True, blank=True)
     measurement_requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # The measurement person the sales executive picked for this site. Left
+    # blank the whole team is told, as it used to be.
+    measurement_assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rough_measurement_jobs",
+        verbose_name="Allocate to",
+    )
     measurement_done_at = models.DateTimeField(null=True, blank=True)
     measurement_done_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 

@@ -4,7 +4,7 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Sum
-from django.http import Http404, HttpResponseForbidden, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_date
@@ -53,7 +53,9 @@ from .models import (
     ServiceComplaint,
     Task,
 )
-from .pdf import render_caf, render_handover_certificate
+from .pdf import render_caf, render_handover_certificate, render_warranty_certificate
+from .scan import ScanError, pages_to_pdf, pdf_filename
+from .statements import render_customer_ledger, render_outstanding_statement
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -104,6 +106,31 @@ def notify(lead, message, *roles):
 def notify_user(lead, message, user):
     if user:
         Notification.objects.create(user=user, lead=lead, message=message)
+
+
+@login_required
+@require_POST
+def scan_to_pdf(request, pk):
+    """Merge photographed pages into one PDF and hand it straight back.
+
+    Nothing is stored here. The browser attaches what comes back to the file
+    box on the form the person is already filling in, so a scan travels the
+    same path as a file they picked themselves and the stage is completed by
+    the same submit button.
+    """
+    get_lead(request, pk)
+    pages = request.FILES.getlist("pages")
+    try:
+        content = pages_to_pdf(pages)
+    except ScanError as problem:
+        return HttpResponseBadRequest(str(problem))
+
+    filename = pdf_filename(request.POST.get("name"))
+    response = HttpResponse(content, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    # The browser reads the name off this rather than parsing the header.
+    response["X-Scan-Filename"] = filename
+    return response
 
 
 def safe_next(request, fallback):
@@ -427,13 +454,20 @@ def stage_measurements(request, pk):
         # measurement visit later has it too.
         if form.cleaned_data.get("site_map_link"):
             lead.site_map_link = form.cleaned_data["site_map_link"]
+        allocated = form.cleaned_data.get("assign_to")
+        lead.measurement_assigned_to = allocated
         lead.save()
-        notify(
-            lead,
-            f"Rough measurement needed — {lead.customer_name}, {lead.site_location} (site stage: {lead.get_site_stage_display()})",
-            Role.MEASUREMENT,
+        message = (
+            f"Rough measurement needed — {lead.customer_name}, {lead.site_location} "
+            f"(site stage: {lead.get_site_stage_display()})"
         )
-        messages.success(request, "Rough measurement request sent to the measurement team.")
+        if allocated:
+            # Told to one person, so only that person is chased for it.
+            notify_user(lead, message, allocated)
+            messages.success(request, f"Rough measurement allocated to {allocated.display_name}.")
+        else:
+            notify(lead, message, Role.MEASUREMENT)
+            messages.success(request, "Rough measurement request sent to the measurement team.")
     else:
         if form.cleaned_data.get("file"):
             save_upload(lead, LeadFile.Kind.ROUGH_MEASUREMENT, form.cleaned_data["file"], request.user)
@@ -856,8 +890,21 @@ def dispatch(request, pk):
 # ---------------------------------------------------------------------------
 
 
-@role_required(Role.FIELD_MANAGER)
+# Both certificates are a job's own paperwork rather than a stage action, and
+# the completed-projects list offers them to the sales executive too. get_lead
+# still keeps a sales executive to their own leads.
+@login_required
+def warranty_download(request, pk):
+    """The guarantee certificate the customer keeps."""
+    lead = get_lead(request, pk)
+    if not lead.dispatched_at:
+        raise Http404
+    return render_warranty_certificate(lead)
+
+
+@login_required
 def handover_download(request, pk):
+    """The certificate the customer signs, filled in from the job."""
     lead = get_lead(request, pk)
     if not lead.dispatched_at:
         raise Http404
@@ -1152,8 +1199,12 @@ def queue_quotations(request):
 
 
 def _accounts_totals():
-    leads = Lead.objects.filter(status=Lead.Status.WON).prefetch_related("payments")
-    totals = leads.aggregate(value=Sum("order_value"), advance=Sum("advance_received"))
+    # "Order value" is what the customer is billed, so anything accounts added
+    # to an invoice has to count towards it here too.
+    leads = Lead.objects.filter(status=Lead.Status.WON).prefetch_related("payments", "invoice_charges")
+    totals = leads.aggregate(advance=Sum("advance_received"))
+    totals["value"] = sum((lead.invoice_total or Decimal("0")) for lead in leads)
+    totals["extras"] = sum(lead.extra_charges for lead in leads)
     totals["outstanding"] = sum(
         (lead.balance_amount or Decimal("0")) for lead in leads if lead.is_outstanding
     )
@@ -1162,7 +1213,11 @@ def _accounts_totals():
 
 @role_required(Role.ACCOUNTS)
 def queue_accounts(request):
-    leads = Lead.objects.filter(status=Lead.Status.WON).select_related("assigned_to").prefetch_related("payments")
+    leads = (
+        Lead.objects.filter(status=Lead.Status.WON)
+        .select_related("assigned_to")
+        .prefetch_related("payments", "invoice_charges")
+    )
     return render(request, "crm/queues/accounts.html", {"leads": leads, "totals": _accounts_totals()})
 
 
@@ -1202,42 +1257,87 @@ def ledger(request, pk):
                 messages.success(request, "Payment entry posted.")
                 return redirect("crm:ledger", pk=lead.pk)
 
-    # Running balance down the ledger, starting from the advance. Anything
-    # accounts added to the invoice is owed on top of the order value.
-    billed = lead.invoice_total or Decimal("0")
-    running = lead.advance_received or Decimal("0")
-    rows = [
-        {
-            "date": lead.won_at,
-            "label": "Advance received on order confirmation",
-            "amount": running,
-            "balance": billed - running,
-            "entry": None,
-        }
-    ]
-    for payment in lead.payments.all():
-        running += payment.amount
-        rows.append(
-            {
-                "date": payment.paid_on,
-                "label": payment.remarks or "Payment received",
-                "amount": payment.amount,
-                "balance": billed - running,
-                "entry": payment,
-            }
-        )
-
     return render(
         request,
         "crm/queues/ledger.html",
         {
             "lead": lead,
-            "rows": rows,
+            "rows": ledger_rows(lead),
             "payment_form": payment_form,
             "ledger_form": ledger_form,
             "charge_form": charge_form,
         },
     )
+
+
+def ledger_rows(lead):
+    """One statement, charges and receipts in the order they happened.
+
+    A charge raises what is owed and a payment lowers it, so both move the
+    running balance in the last column. A charge is not money received and
+    never belongs in the Received column — reading it there makes a customer
+    who owes more look like a customer who has paid.
+    """
+    billed = lead.order_value or Decimal("0")
+    received = Decimal("0")
+    rows = []
+
+    def add(date, label, charged, paid, entry=None, kind="payment"):
+        rows.append(
+            {
+                "date": date,
+                "label": label,
+                "charged": charged,
+                "amount": paid,
+                "balance": billed - received,
+                "entry": entry,
+                "kind": kind,
+            }
+        )
+
+    add(lead.won_at, "Order confirmed", billed, None, kind="order")
+
+    advance = lead.advance_received or Decimal("0")
+    if advance:
+        received += advance
+        add(lead.won_at, "Advance received on order confirmation", None, advance, kind="advance")
+
+    events = [(charge.added_at.date(), 0, charge) for charge in lead.invoice_charges.all()]
+    events += [(payment.paid_on, 1, payment) for payment in lead.payments.all()]
+    # Same-day charges are listed before the receipts that settle them.
+    events.sort(key=lambda item: (item[0], item[1], item[2].pk))
+
+    for date, _, entry in events:
+        if isinstance(entry, InvoiceCharge):
+            billed += entry.amount
+            add(date, entry.description, entry.amount, None, entry, kind="charge")
+        else:
+            received += entry.amount
+            add(date, entry.remarks or "Payment received", None, entry.amount, entry)
+
+    return rows
+
+
+@role_required(Role.ACCOUNTS)
+def ledger_pdf(request, pk):
+    """One customer's statement, as it reads on screen."""
+    lead = get_object_or_404(
+        Lead.objects.select_related("assigned_to").prefetch_related("payments", "invoice_charges"),
+        pk=pk,
+        status=Lead.Status.WON,
+    )
+    return render_customer_ledger(lead, ledger_rows(lead))
+
+
+@role_required(Role.ACCOUNTS)
+def outstanding_pdf(request):
+    """Everything still owed, for chasing it."""
+    leads = (
+        Lead.objects.filter(status=Lead.Status.WON)
+        .select_related("assigned_to")
+        .prefetch_related("payments", "invoice_charges")
+    )
+    return render_outstanding_statement(leads)
 
 
 @role_required(Role.ACCOUNTS)

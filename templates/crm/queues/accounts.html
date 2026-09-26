@@ -3,15 +3,26 @@
 {% block title %}Accounts{% endblock %}
 
 {% block content %}
-<h4 class="mb-1">Accounts</h4>
-<p class="text-muted small mb-3">Confirmed orders. Open one to post payments against its ledger. <strong>Overdue By</strong> counts the days since the invoice date on anything still unpaid.</p>
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1">Accounts</h4>
+    <p class="text-muted small mb-3">Confirmed orders. Open one to post payments against its ledger. <strong>Overdue By</strong> counts the days since the invoice date on anything still unpaid.</p>
+  </div>
+  <a href="{% url 'crm:outstanding_pdf' %}" target="_blank" rel="noopener" class="btn btn-outline-primary">
+    <i class="fa-solid fa-file-pdf me-1"></i>Outstanding statement
+  </a>
+</div>
 
 <div class="row g-3 mb-3">
   <div class="col-md-4">
     <div class="card stat-card tone-navy">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
-        <div><div class="stat-value">{{ totals.value|default:0|rupees }}</div><div class="stat-label">Total Order Value</div></div>
+        <div>
+          <div class="stat-value">{{ totals.value|default:0|rupees }}</div>
+          <div class="stat-label">Total Order Value</div>
+          {% if totals.extras %}<div class="small opacity-75 mt-1">includes {{ totals.extras|rupees }} added to invoices</div>{% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -48,7 +59,10 @@
           <td class="text-muted">{{ forloop.counter }}</td>
           <td><strong>{{ lead.customer_name }}</strong></td>
           <td class="tw-col-optional">{{ lead.quotation_number|default:"—" }}</td>
-          <td>{{ lead.order_value|rupees }}</td>
+          <td>
+            {{ lead.invoice_total|rupees }}
+            {% if lead.extra_charges %}<span class="text-muted small d-block">+{{ lead.extra_charges|rupees }} added</span>{% endif %}
+          </td>
           <td class="tw-col-optional">{{ lead.advance_received|rupees }}</td>
           <td>
             <strong>{{ lead.balance_amount|rupees }}</strong>

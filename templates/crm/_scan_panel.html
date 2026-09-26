@@ -1,0 +1,39 @@
+{% comment %}
+Scan-to-PDF, sitting beside an ordinary file box.
+
+Takes `target` — the id of the file input the finished PDF is attached to —
+and expects `lead` in the context. Everything inside is deliberately without a
+name attribute: this panel is rendered inside the stage's own form, and a
+named input here would be posted along with it. The script reads the files
+off the element directly and builds its own request.
+{% endcomment %}
+<div class="tw-scan mt-2" data-scan data-url="{% url 'crm:scan_to_pdf' lead.pk %}" data-target="{{ target }}">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-scan-open>
+    <i class="fa-solid fa-camera me-1"></i>Scan pages instead
+  </button>
+
+  <div class="tw-scan-body d-none" data-scan-body>
+    <p class="text-muted small mb-2">
+      Photograph each sheet, then give the finished document a name. The pages are
+      joined into one PDF and attached to the box above.
+    </p>
+
+    <label class="btn btn-sm btn-outline-primary mb-2">
+      <i class="fa-solid fa-plus me-1"></i>Add pages
+      <input type="file" accept="image/*" capture="environment" multiple hidden data-scan-input>
+    </label>
+
+    <ol class="tw-scan-list" data-scan-list></ol>
+
+    <label class="form-label small mb-1" for="{{ target }}-scan-name">Name this document</label>
+    <input type="text" class="form-control form-control-sm" id="{{ target }}-scan-name"
+           placeholder="e.g. Rough measurement — first floor" maxlength="80" data-scan-name>
+
+    <div class="d-flex align-items-center gap-2 mt-2">
+      <button type="button" class="btn btn-sm btn-primary" data-scan-make disabled>
+        <i class="fa-solid fa-file-pdf me-1"></i>Make PDF
+      </button>
+      <span class="small" data-scan-status></span>
+    </div>
+  </div>
+</div>

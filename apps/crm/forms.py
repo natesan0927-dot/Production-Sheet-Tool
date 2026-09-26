@@ -18,6 +18,11 @@ def _today():
     return timezone.localdate()
 
 
+def measurement_staff():
+    """Everyone who can be sent out to measure a site."""
+    return User.objects.filter(role=Role.MEASUREMENT, is_active=True).order_by("first_name", "username")
+
+
 def reject_future(form, name, label):
     value = form.cleaned_data.get(name)
     if value and value > _today():
@@ -163,6 +168,19 @@ class MeasurementBoxForm(forms.Form):
         max_length=500,
         widget=forms.URLInput(attrs={"class": "form-control", "placeholder": "Paste the Google Maps link"}),
     )
+    # Who is going out to the site. Left empty the whole team is told, which is
+    # what happened before anyone could be picked.
+    assign_to = forms.ModelChoiceField(
+        label="Allocate to",
+        required=False,
+        queryset=User.objects.none(),
+        empty_label="Anyone on the measurement team",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["assign_to"].queryset = measurement_staff()
 
     def clean(self):
         data = super().clean()

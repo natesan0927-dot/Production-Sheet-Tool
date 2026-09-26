@@ -1,6 +1,10 @@
 {% extends "base.html" %}
-{% load money %}
+{% load money static %}
 {% block title %}{{ lead.customer_name }}{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/scan.js' %}?v={{ css_version }}"></script>
+{% endblock %}
 
 {% block content %}
 <div class="tw-lead-head">

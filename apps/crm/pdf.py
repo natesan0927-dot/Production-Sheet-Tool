@@ -107,8 +107,8 @@ def render_caf(lead):
     )
 
 
-def render_handover_certificate(lead):
-    """The client's own certificate, handed over and signed by the customer."""
+def render_warranty_certificate(lead):
+    """The client's own guarantee certificate. The customer keeps this one."""
     invoice_date = lead.invoice_date.strftime("%d / %m / %Y") if lead.invoice_date else ""
     return _stamp(
         WARRANTY_TEMPLATE,
@@ -119,5 +119,18 @@ def render_handover_certificate(lead):
                 field(251, 283.52, invoice_date, 10, max_width=120),
             ],
         },
-        f"Handover-Warranty-{_slug(lead.customer_name)}.pdf",
+        f"Warranty-{_slug(lead.customer_name)}.pdf",
     )
+
+
+def render_handover_certificate(lead):
+    """The certificate the customer signs to say the job is finished.
+
+    Drawn rather than stamped: unlike the warranty and the CAF there is no
+    printed stationery for it, so the letterhead is reproduced here. Every
+    blank the office would otherwise fill in by hand is filled from the job,
+    and only the signatures are left empty.
+    """
+    from .handover import build_handover
+
+    return build_handover(lead, f"Handover-{_slug(lead.customer_name)}.pdf")

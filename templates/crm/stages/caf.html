@@ -36,10 +36,12 @@
       <div class="col-md-6">
         <label class="form-label">Signed CAF</label>
         {{ caf_form.caf_signed }}
+        {% include "crm/_scan_panel.html" with target="id_caf_signed" %}
       </div>
       <div class="col-md-6">
         <label class="form-label">Final measurement file</label>
         {{ caf_form.final_measurement }}
+        {% include "crm/_scan_panel.html" with target="id_final_measurement" %}
       </div>
     </div>
     <button class="btn btn-primary mt-3">Upload</button>

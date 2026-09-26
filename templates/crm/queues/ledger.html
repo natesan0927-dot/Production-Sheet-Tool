@@ -45,48 +45,47 @@
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card h-100">
-      <div class="card-header"><i class="fa-solid fa-book me-2"></i>Ledger</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-book me-2"></i>Ledger</span>
+        <a href="{% url 'crm:ledger_pdf' lead.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+          <i class="fa-solid fa-file-pdf me-1"></i>Download ledger
+        </a>
+      </div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
           <thead class="table-light">
-            <tr><th>Date</th><th>Particulars</th><th class="text-end">Received</th><th class="text-end">Balance</th><th></th></tr>
+            <tr>
+              <th>Date</th><th>Particulars</th>
+              <th class="text-end">Charged</th><th class="text-end">Received</th><th class="text-end">Balance</th><th></th>
+            </tr>
           </thead>
           <tbody>
-            {% for charge in lead.invoice_charges.all %}
-            <tr class="table-warning">
-              <td class="text-nowrap">{{ charge.added_at|date:"d M Y" }}</td>
-              <td>
-                <i class="fa-solid fa-plus text-warning me-1"></i>{{ charge.description }}
-                <span class="badge bg-warning ms-1">Added to invoice</span>
-                {% if charge.added_by %}<span class="text-muted small d-block">added by {{ charge.added_by }}</span>{% endif %}
-              </td>
-              <td class="text-end text-muted">+{{ charge.amount|rupees:2 }}</td>
-              <td class="text-end"></td>
-              <td class="text-end">
-                <form method="post" action="{% url 'crm:charge_delete' charge.pk %}"
-                      onsubmit="return confirm('Remove this charge from the invoice?')">
-                  {% csrf_token %}
-                  <button class="btn btn-sm btn-link text-danger" title="Remove"><i class="fa-solid fa-xmark"></i></button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
             {% for row in rows %}
-            <tr>
+            <tr{% if row.kind == 'charge' %} class="table-warning"{% endif %}>
               <td class="text-nowrap">{{ row.date|date:"d M Y"|default:"—" }}</td>
               <td>
+                {% if row.kind == 'charge' %}<i class="fa-solid fa-plus text-warning me-1"></i>{% endif %}
                 {{ row.label }}
+                {% if row.kind == 'charge' %}<span class="badge bg-warning ms-1">Added to invoice</span>{% endif %}
                 {% if row.entry.file %}
                   <a href="{{ row.entry.file.url }}" target="_blank" rel="noopener" class="badge bg-light text-decoration-none ms-1">
                     <i class="fa-solid fa-paperclip me-1"></i>Proof
                   </a>
                 {% endif %}
                 {% if row.entry.recorded_by %}<span class="text-muted small d-block">posted by {{ row.entry.recorded_by }}</span>{% endif %}
+                {% if row.entry.added_by %}<span class="text-muted small d-block">added by {{ row.entry.added_by }}</span>{% endif %}
               </td>
-              <td class="text-end">{{ row.amount|rupees:2 }}</td>
+              <td class="text-end">{% if row.charged %}{{ row.charged|rupees:2 }}{% endif %}</td>
+              <td class="text-end">{% if row.amount %}{{ row.amount|rupees:2 }}{% endif %}</td>
               <td class="text-end fw-semibold">{{ row.balance|rupees:2 }}</td>
               <td class="text-end">
-                {% if row.entry %}
+                {% if row.kind == 'charge' %}
+                <form method="post" action="{% url 'crm:charge_delete' row.entry.pk %}"
+                      onsubmit="return confirm('Remove this charge from the invoice?')">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-link text-danger" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+                </form>
+                {% elif row.kind == 'payment' %}
                 <form method="post" action="{% url 'crm:payment_delete' row.entry.pk %}"
                       onsubmit="return confirm('Remove this payment entry?')">
                   {% csrf_token %}
@@ -100,13 +99,13 @@
           <tfoot class="table-light">
             <tr>
               <th colspan="2">Billed{% if lead.extra_charges %} (order + extras){% endif %}</th>
-              <th></th>
               <th class="text-end">{{ lead.invoice_total|rupees:2 }}</th>
-              <th></th>
+              <th class="text-end">{{ lead.collected|rupees:2 }}</th>
+              <th></th><th></th>
             </tr>
             <tr>
               <th colspan="2">Outstanding</th>
-              <th></th>
+              <th></th><th></th>
               <th class="text-end">{{ lead.balance_amount|rupees:2 }}</th>
               <th></th>
             </tr>
@@ -139,7 +138,8 @@
       <div class="card-body">
         <p class="text-muted small">
           Transport, site charges — anything the customer is billed for on top of
-          the order value. It is added to the balance straight away.
+          the order value. It is added to the balance straight away, and shows
+          in the Charged column of the ledger.
         </p>
         <form method="post">
           {% csrf_token %}

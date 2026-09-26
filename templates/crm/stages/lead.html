@@ -24,7 +24,10 @@
           <input class="form-check-input" type="radio" name="mode" value="file" id="m-file" checked>
           <label class="form-check-label" for="m-file">Upload a file</label>
         </div>
-        <div class="ms-4 mb-3">{{ measurement_form.file }}</div>
+        <div class="ms-4 mb-3">
+          {{ measurement_form.file }}
+          {% include "crm/_scan_panel.html" with target="id_file" %}
+        </div>
 
         <div class="form-check mb-1">
           <input class="form-check-input" type="radio" name="mode" value="text" id="m-text">
@@ -45,6 +48,11 @@
           Sends the measurement team a request for <strong>{{ lead.customer_name }}</strong> at
           {{ lead.site_location }} (site stage: {{ lead.get_site_stage_display }}).
         </p>
+        <div class="mb-3">
+          <label class="form-label small mb-1" for="id_assign_to">Allocate to</label>
+          {{ measurement_form.assign_to }}
+          <div class="form-text">Only this person is notified. Leave it on "anyone" to tell the whole team.</div>
+        </div>
         <div class="mb-3 flex-grow-1">
           <label class="form-label small mb-1" for="id_site_map_link">Site location link</label>
           {{ measurement_form.site_map_link }}

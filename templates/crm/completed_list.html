@@ -54,8 +54,11 @@
                 </a>
               {% endfor %}
               {% if lead.dispatched_at %}
+                <a href="{% url 'crm:warranty_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                  <i class="fa-solid fa-file-shield me-1"></i>Warranty Certificate
+                </a>
                 <a href="{% url 'crm:handover_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
-                  <i class="fa-solid fa-file-pdf me-1"></i>Handover Warranty Certificate
+                  <i class="fa-solid fa-file-signature me-1"></i>Handover Certificate
                 </a>
               {% endif %}
             </div>

@@ -11,18 +11,31 @@
   <p class="mb-0"><span class="badge bg-primary">Project saved as completed on {{ lead.completed_at|date:"d M Y" }}</span></p>
 {% elif stage.state == 'current' and stage.can_act %}
   <div class="tw-note tw-form-narrow">
-    <p class="fw-semibold mb-1"><i class="fa-solid fa-shield-halved me-1"></i>Handover warranty certificate</p>
+    <p class="fw-semibold mb-1"><i class="fa-solid fa-shield-halved me-1"></i>Certificates for this job</p>
     <p class="text-muted small">
-      Filled in with the customer's name, invoice number and invoice date. Hand it to the
-      customer, get it signed, then upload it back to complete the project.
+      Both are filled in from the job already. The <strong>warranty certificate</strong> stays with the
+      customer. The <strong>handover certificate</strong> is the one they sign — upload it back here and
+      it is filed with the project's site documents.
     </p>
-    <a href="{% url 'crm:handover_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-outline-primary mb-3">
-      <i class="fa-solid fa-file-pdf me-1"></i>Download Handover Warranty Certificate
-    </a>
+
+    <div class="row g-2 mb-3">
+      <div class="col-sm-6">
+        <a href="{% url 'crm:warranty_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-outline-primary w-100">
+          <i class="fa-solid fa-file-shield me-1"></i>Warranty Certificate
+        </a>
+      </div>
+      <div class="col-sm-6">
+        <a href="{% url 'crm:handover_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-outline-primary w-100">
+          <i class="fa-solid fa-file-signature me-1"></i>Handover Certificate
+        </a>
+      </div>
+    </div>
+
     <form method="post" action="{% url 'crm:handover_upload' lead.pk %}" enctype="multipart/form-data">
       {% csrf_token %}
-      <label class="form-label">Signed handover warranty certificate</label>
+      <label class="form-label">Signed handover certificate</label>
       {{ warranty_form.file }}
+      {% include "crm/_scan_panel.html" with target="id_file" %}
       <button class="btn btn-primary mt-3">Upload</button>
     </form>
   </div>
