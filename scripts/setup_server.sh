@@ -37,7 +37,8 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq python3-venv python3-pip python3-dev build-essential \
   libpq-dev postgresql postgresql-contrib nginx git curl \
-  certbot python3-certbot-nginx iptables-persistent
+  certbot python3-certbot-nginx iptables-persistent \
+  libjpeg-dev zlib1g-dev libfreetype6-dev
 
 # ------------------------------------------------------------------- ports
 # Oracle's Ubuntu images drop everything except SSH in iptables, on top of the
