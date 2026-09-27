@@ -346,6 +346,33 @@ If it opens, files are landing in Supabase and will survive every future deploy.
 the four Supabase values are wrong — the endpoint is the usual culprit, it must end in
 `/storage/v1/s3`. Delete the test lead afterwards.
 
+### Already have a Render service from the earlier guide?
+
+The first version of this guide told Render to run `seed_data` in both its **Build Command** and
+its **Start Command**. That command creates the demo logins (`demo_sales1`…, password `Demo@123`)
+and never creates the real staff, so a service set up that way shows the demo tiles on its login
+page and none of your people.
+
+The app now looks after this itself: on a live site (`DEBUG` off) `seed_data` creates no demo data,
+removes any that is already there, and creates the real staff. The next deploy therefore clears it
+up without you touching the dashboard. Real leads and real users are never touched.
+
+Do change the two commands anyway, so the service stops calling something it no longer needs.
+Render dashboard → your service → **Settings → Build & Deploy**:
+
+| Setting | Set it to |
+| --- | --- |
+| Build Command | `./scripts/render_build.sh` |
+| Start Command | `gunicorn titans_crm.wsgi:application --workers 2 --timeout 120` |
+
+Then **Manual Deploy → Deploy latest commit**. When it finishes, sign in as `rahul` (or any name on
+the Employees list) with `ChangeMe@123`. Two things to check under **Environment**:
+
+- `DEBUG` must be **`False`**. If it is `True` the protection above does not apply and the demo
+  data comes straight back.
+- The service must be deploying the **`main`** branch of your repository, with **Auto-Deploy** on.
+  If the *Events* tab shows an old commit message, that is why nothing has changed.
+
 ### Living with the free plan
 
 **It sleeps.** After 15 minutes with nobody on it, Render stops the service; the next request

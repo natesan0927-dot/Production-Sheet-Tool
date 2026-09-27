@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -30,9 +32,20 @@ DEMO_LEADS = [
 
 
 class Command(BaseCommand):
-    help = "Create the demo users and a few sample leads."
+    help = "Create the demo users and a few sample leads (development machines only)."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Create the demo data even though DEBUG is off. Never do this on a live site.",
+        )
 
     def handle(self, *args, **options):
+        if not settings.DEBUG and not options["force"]:
+            self._live_site()
+            return
+
         for username, first, last, role in DEMO_USERS:
             user, created = User.objects.get_or_create(
                 username=username,
@@ -77,6 +90,24 @@ class Command(BaseCommand):
 
         self._owner_from_environment()
         self.stdout.write(self.style.SUCCESS(f"Demo data ready. Password for every demo account: {PASSWORD}"))
+
+    def _live_site(self):
+        """A live site is not the place for demo logins with a published password.
+
+        Hosts that were set up from the early guide run this command on every
+        build and every start. Rather than let that keep recreating `demo_*`
+        accounts on the real site, it now does the opposite: clears any that
+        are already there, makes sure the real staff exist, and carries on so
+        the start command that called it still goes on to launch the app.
+        """
+        from .remove_demo_data import remove_demo_data
+
+        self.stdout.write("DEBUG is off, so this is a live site: not creating demo data.")
+        logins, leads = remove_demo_data()
+        if logins:
+            self.stdout.write(self.style.WARNING(f"Removed {logins} leftover demo login(s) and {leads} sample lead(s)."))
+        call_command("seed_employees", stdout=self.stdout)
+        self._owner_from_environment()
 
     def _owner_from_environment(self):
         """The real owner's Super Admin login, taken from the host's settings.
