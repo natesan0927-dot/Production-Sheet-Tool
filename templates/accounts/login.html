@@ -44,20 +44,26 @@
           <label class="form-label">Username</label>
           <div class="input-group">
             <span class="input-group-text"><i class="fa-regular fa-user"></i></span>
-            <input type="text" name="username" class="form-control" required autofocus>
+            <input type="text" name="username" class="form-control" required autofocus
+                   autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
           </div>
         </div>
         <div class="mb-3">
           <label class="form-label">Password</label>
           <div class="input-group">
             <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
-            <input type="password" name="password" class="form-control" required>
+            <input type="password" name="password" class="form-control" required autocomplete="current-password">
           </div>
         </div>
         <input type="hidden" name="next" value="{{ next }}">
         <button class="btn btn-primary w-100 py-2" type="submit">Sign in</button>
       </form>
 
+      {% comment %}
+      Demo logins are only for a machine that has the demo accounts installed. On a
+      live site none exist, and this must not advertise a password.
+      {% endcomment %}
+      {% if demo_accounts %}
       <div class="d-flex align-items-center gap-2 my-4">
         <hr class="flex-grow-1"><span class="text-muted small">or try a demo account</span><hr class="flex-grow-1">
       </div>
@@ -81,6 +87,7 @@
         {% endfor %}
       </div>
       <p class="text-muted small mt-4 mb-0 text-center">All demo accounts use the password <code>Demo@123</code></p>
+      {% endif %}
     </div>
   </div>
 </div>

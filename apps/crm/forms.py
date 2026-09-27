@@ -206,7 +206,7 @@ class RoughMeasurementForm(forms.Form):
 
 
 class QuotationForm(forms.Form):
-    """The quotation and its elevation report travel together to the salesperson."""
+    """The quotation and its elevation report travel together to the sales executive."""
 
     quotation_number = forms.CharField(
         max_length=60,
@@ -519,7 +519,7 @@ class SalesTargetForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["salesperson"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
-        self.fields["salesperson"].empty_label = "Choose a salesperson"
+        self.fields["salesperson"].empty_label = "Choose a sales executive"
         limit_number(self.fields["amount"], 1)
 
     def validate_unique(self):

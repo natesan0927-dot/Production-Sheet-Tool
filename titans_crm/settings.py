@@ -91,6 +91,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+AUTHENTICATION_BACKENDS = ["apps.accounts.backends.CaseInsensitiveModelBackend"]
+
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "crm:dashboard"
 LOGOUT_REDIRECT_URL = "accounts:login"

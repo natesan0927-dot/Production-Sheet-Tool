@@ -20,8 +20,8 @@ class Lead(models.Model):
         LOST = "lost", "Lost"
 
     class MeasurementMode(models.TextChoices):
-        FILE = "file", "Measurements uploaded by salesperson"
-        TEXT = "text", "Measurements typed by salesperson"
+        FILE = "file", "Measurements uploaded by the sales executive"
+        TEXT = "text", "Measurements typed by the sales executive"
         REQUESTED = "requested", "Rough measurement requested from measurement staff"
 
     class Fabrication(models.TextChoices):
@@ -66,7 +66,7 @@ class Lead(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="leads",
-        verbose_name="Assigned salesperson",
+        verbose_name="Sales Executive",
     )
     approx_quantity = models.PositiveIntegerField("Approx quantity (nos.)", null=True, blank=True)
     expected_value = models.DecimalField("Expected closing value", max_digits=12, decimal_places=2, null=True, blank=True)
@@ -424,7 +424,9 @@ class ProductionRevision(models.Model):
 
 
 class SalesTarget(models.Model):
-    salesperson = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="targets")
+    salesperson = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="targets", verbose_name="Sales Executive"
+    )
     month = models.DateField(help_text="Any date inside the target month; stored as the 1st.")
     amount = models.DecimalField("Target for the month", max_digits=12, decimal_places=2)
 
@@ -441,7 +443,7 @@ class SalesTarget(models.Model):
 
     @property
     def achieved(self):
-        """Finalised value of everything this salesperson won inside the month."""
+        """Finalised value of everything this sales executive won inside the month."""
         total = Lead.objects.filter(
             assigned_to=self.salesperson,
             status=Lead.Status.WON,

@@ -80,7 +80,7 @@ ROLE_INTROS = {
             (
                 "rough",
                 "Rough measurements",
-                "When a salesperson asks for a rough measurement the job lands in your "
+                "When a sales executive asks for a rough measurement the job lands in your "
                 "queue with the customer's name, number and site address. Take the "
                 "measurements, upload the sheet, and the quotation team is notified.",
             ),
@@ -131,7 +131,7 @@ ROLE_INTROS = {
             (
                 "accounts",
                 "Every confirmed order",
-                "The moment a salesperson confirms an order, the figures reach you — "
+                "The moment a sales executive confirms an order, the figures reach you — "
                 "order value, advance and balance, with the total outstanding across "
                 "every job at the top.",
             ),
@@ -209,7 +209,7 @@ ROLE_INTROS = {
                 "leads",
                 "Every job, every team",
                 "You see every tab every role has, and every lead whoever it belongs "
-                "to. You can reassign a lead to a different salesperson, and edit or "
+                "to. You can reassign a lead to a different sales executive, and edit or "
                 "remove one outright.",
             ),
             (

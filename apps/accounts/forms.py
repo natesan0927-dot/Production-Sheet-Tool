@@ -66,13 +66,24 @@ class EmployeeForm(forms.ModelForm):
 
 
 class FirstPasswordForm(PasswordChangeForm):
-    """The ordinary change-password form, dressed to match the rest of the app."""
+    """The change-password form, dressed to match the rest of the app.
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    On the forced first change there is no "current password" box. The person
+    signed in with the shared default seconds ago, so asking for it again proves
+    nothing and gives one more place to fail — a mistyped character, a browser
+    filling the box with some other saved password — after which the screen says
+    the password they were just given is wrong. Later changes, from the ordinary
+    page, still ask for it.
+    """
+
+    def __init__(self, user, *args, forced=False, **kwargs):
+        super().__init__(user, *args, **kwargs)
+        if forced:
+            del self.fields["old_password"]
+        else:
+            self.fields["old_password"].label = "Current password"
         for field in self.fields.values():
             field.widget.attrs.update(CONTROL)
-        self.fields["old_password"].label = "Current password"
         self.fields["new_password1"].label = "New password"
         self.fields["new_password2"].label = "New password again"
 

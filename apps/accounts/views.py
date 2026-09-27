@@ -91,9 +91,9 @@ def employee_remove(request, pk):
 def change_password(request):
     """Both the forced first change and any later one the person wants."""
     forced = request.user.must_change_password
-    form = FirstPasswordForm(request.user)
+    form = FirstPasswordForm(request.user, forced=forced)
     if request.method == "POST":
-        form = FirstPasswordForm(request.user, request.POST)
+        form = FirstPasswordForm(request.user, request.POST, forced=forced)
         if form.is_valid():
             form.save()
             # Changing the password would otherwise sign them straight out.

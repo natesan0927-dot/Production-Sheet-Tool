@@ -27,7 +27,7 @@
           <dt class="col-7">Total site sq ft</dt><dd class="col-5 text-end">{{ lead.total_sqft|default:"—" }}</dd>
           <dt class="col-7">Order value</dt><dd class="col-5 text-end">{{ lead.order_value|rupees }}</dd>
         </dl>
-        <p class="text-muted small">Entered by the salesperson when the order was confirmed.</p>
+        <p class="text-muted small">Entered by the sales executive when the order was confirmed.</p>
         {% if lead.ready_for_production %}
           <div class="alert alert-success py-2 small mb-3">
             <i class="fa-solid fa-circle-check me-1"></i>

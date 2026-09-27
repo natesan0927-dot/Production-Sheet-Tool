@@ -544,7 +544,7 @@ def stage_quotation(request, pk):
         messages.success(request, "Revised quotation uploaded and sent back to the sales executive.")
     else:
         notify_user(lead, f"Quotation {lead.quotation_number} uploaded for {lead.customer_name}", lead.assigned_to)
-        messages.success(request, "Quotation uploaded and forwarded to the salesperson.")
+        messages.success(request, "Quotation uploaded and forwarded to the sales executive.")
     return redirect(lead.get_absolute_url())
 
 

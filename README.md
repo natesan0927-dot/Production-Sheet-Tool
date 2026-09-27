@@ -16,12 +16,13 @@ carry through quotation, order, production, dispatch and warranty.
 
 | Role | Tabs | Owns |
 | --- | --- | --- |
-| Salesperson | Dashboard, Leads, Sales Pipeline, Sales Target, Follow-up, Lost Opportunities, Completed Projects | Lead Created, Won/Lost |
+| Sales Executive | Dashboard, Leads, Sales Pipeline, Sales Target, Follow-up, Lost Opportunities, Completed Projects | Lead Created, Won/Lost |
 | Measurement Staff | Rough Measurements, Final Measurements, Production Sheet Validation | Rough Measurement, CAF & Final Measurement, production sheet approval |
-| Accounts Department | Quotations, Confirmed Orders | Quotation |
+| Quotation Staff | Quotation Upload | Quotation |
+| Accounts Department | Accounts | Ledgers, invoice charges, statements |
 | Production Staff | Production, Site Fabrication Status | Production, Site Fabrication Status |
 | Field Manager | Warranty & Handover | Warranty & Handover |
-| Super Admin | every tab above | every stage, across all salespeople |
+| Super Admin | every tab above, plus Employees and Summary for the Day | every stage, across all sales executives |
 
 ## Quick start (Windows / PowerShell)
 
@@ -31,12 +32,16 @@ python -m venv venv
 .\venv\Scripts\pip install -r requirements.txt
 copy .env.example .env            # defaults work out of the box
 .\venv\Scripts\python manage.py migrate
-.\venv\Scripts\python manage.py seed_data     # demo users + sample leads
+.\venv\Scripts\python manage.py seed_employees   # the real staff, on ChangeMe@123
 .\venv\Scripts\python manage.py runserver
 ```
 
-Then open http://127.0.0.1:8000/ and sign in. The demo accounts are listed on the
-login page; the password for all of them is `Demo@123`.
+Then open http://127.0.0.1:8000/ and sign in with a name from the Employees list (`rahul`,
+`natesan`, `admin`…) — capitals do not matter. Everyone starts on `ChangeMe@123` and is asked to
+choose their own password the first time.
+
+For a throwaway machine with sample leads and demo logins instead, run `manage.py seed_data`
+(the demo password is `Demo@123`). Never run that on a live site.
 
 ## Layout
 
