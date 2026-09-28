@@ -7,9 +7,12 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .forms import DEFAULT_PASSWORD, EmployeeForm, FirstPasswordForm
+from . import recovery, sms
+from .forms import DEFAULT_PASSWORD, EmployeeForm, FirstPasswordForm, ForgotPasswordForm, ResetWithCodeForm
 from .models import Role, User
 
 
@@ -115,3 +118,58 @@ def change_password(request):
             "hide_chrome": forced,
         },
     )
+
+
+def forgot_password(request):
+    """Ask for a code. What comes back is the same whoever, or whatever, was typed."""
+    if request.user.is_authenticated:
+        return redirect("accounts:change_password")
+
+    form = ForgotPasswordForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        typed = form.cleaned_data["username"].strip()
+        user = recovery.find_user(typed)
+        if user:
+            recovery.request_code(user)
+        request.session["reset_username"] = typed
+        return redirect("accounts:reset_with_code")
+    return render(request, "accounts/forgot_password.html", {"form": form})
+
+
+def reset_with_code(request):
+    """Choose a new password with the code the Super Admin gave you."""
+    if request.user.is_authenticated:
+        return redirect("accounts:change_password")
+
+    form = ResetWithCodeForm(request.POST or None, initial={"username": request.session.get("reset_username", "")})
+    if request.method == "POST" and form.is_valid():
+        user = recovery.find_user(form.cleaned_data["username"])
+        if user and recovery.spend_code(user, form.cleaned_data["code"]):
+            user.set_password(form.cleaned_data["new_password1"])
+            user.must_change_password = False
+            user.save(update_fields=["password", "must_change_password"])
+            # Anything asked for earlier is dead now.
+            user.reset_codes.filter(used_at__isnull=True).update(used_at=timezone.now())
+            request.session.pop("reset_username", None)
+            return redirect(f"{reverse('accounts:login')}?reset=done")
+        form.add_error(None, "That code is not right, or it has expired. Check it, or go back and ask for a new one.")
+    return render(request, "accounts/reset_with_code.html", {"form": form})
+
+
+@super_admin_only
+@require_POST
+def employee_phone(request, pk):
+    """Register (or clear) a mobile number — the one a Super Admin's reset code is texted to."""
+    employee = get_object_or_404(User, pk=pk, is_active=True)
+    typed = request.POST.get("phone", "").strip()
+    number = sms.mobile_digits(typed)
+    if typed and not number:
+        messages.error(request, "That is not a 10-digit mobile number.")
+    else:
+        employee.phone = number
+        employee.save(update_fields=["phone"])
+        messages.success(
+            request,
+            f"{employee.display_name}'s mobile number saved." if number else f"{employee.display_name}'s mobile number removed.",
+        )
+    return redirect("accounts:employee_list")

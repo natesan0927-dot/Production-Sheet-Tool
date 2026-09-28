@@ -160,6 +160,13 @@ STORAGE_LIMIT_MB = env.int("STORAGE_LIMIT_MB", default=1000)
 STORAGE_WARN_PERCENT = env.int("STORAGE_WARN_PERCENT", default=80)
 STORAGE_CRITICAL_PERCENT = env.int("STORAGE_CRITICAL_PERCENT", default=95)
 
+# Texting the Super Admin a password-reset code. Without a provider the code is
+# written to the server log instead (see apps/accounts/sms.py), which on a host
+# like Render is readable only by whoever owns the hosting account.
+SMS_PROVIDER = env("SMS_PROVIDER", default="")            # "fast2sms", or empty
+FAST2SMS_API_KEY = env("FAST2SMS_API_KEY", default="")
+FAST2SMS_URL = env("FAST2SMS_URL", default="https://www.fast2sms.com/dev/bulkV2")
+
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 

@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 
 class Role(models.TextChoices):
@@ -45,3 +48,32 @@ class User(AbstractUser):
     @property
     def display_name(self):
         return self.get_full_name() or self.username
+
+
+class PasswordResetCode(models.Model):
+    """A one-time code that lets someone who forgot their password choose a new one.
+
+    Only a hash is kept, so reading the table does not hand out working codes.
+    A code is short-lived, gives five tries, and is spent the moment it is used.
+    """
+
+    LIFETIME = timedelta(minutes=15)
+    MAX_TRIES = 5
+    MAX_PER_HOUR = 3
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reset_codes")
+    code_hash = models.CharField(max_length=128)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    tries = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Reset code for {self.user.username} at {self.created_at:%d %b %H:%M}"
+
+    @property
+    def is_usable(self):
+        return self.used_at is None and self.expires_at > timezone.now() and self.tries < self.MAX_TRIES

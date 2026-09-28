@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Choose a new password{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="tw-gate">
+  <div class="tw-gate-panel">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <div class="auth-logo-ring" style="width:64px;height:64px">
+        <img src="{% static 'branding/titans_logo.png' %}" alt="Titans Windows">
+      </div>
+      <div>
+        <div class="tw-eyebrow">Titans Windows</div>
+        <h4 class="mb-0">Choose a new password</h4>
+      </div>
+    </div>
+
+    <div class="alert alert-info py-2 small">
+      If that username exists, a code has been sent. Staff: ask the Super Admin for it.
+      The Super Admin: it was texted to your registered number. It works for 15 minutes.
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors.0 }}</div>{% endif %}
+        </div>
+      {% endfor %}
+      <button class="btn btn-primary w-100"><i class="fa-solid fa-lock me-1"></i>Set my password</button>
+    </form>
+
+    <div class="text-center mt-3 d-flex justify-content-between small">
+      <a href="{% url 'accounts:login' %}">Back to sign in</a>
+      <a href="{% url 'accounts:forgot_password' %}">Ask for a new code</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

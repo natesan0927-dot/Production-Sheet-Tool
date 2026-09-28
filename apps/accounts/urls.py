@@ -26,6 +26,7 @@ class TitansLoginView(auth_views.LoginView):
         from .models import User
 
         context = super().get_context_data(**kwargs)
+        context["reset_done"] = self.request.GET.get("reset") == "done"
         # Only offered while the demo accounts are actually installed, so a
         # live site never shows a row of one-click logins.
         usernames = [username for username, *_ in DEMO_ACCOUNTS]
@@ -38,6 +39,9 @@ urlpatterns = [
     path("login/", TitansLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("password/", views.change_password, name="change_password"),
+    path("forgot/", views.forgot_password, name="forgot_password"),
+    path("forgot/reset/", views.reset_with_code, name="reset_with_code"),
+    path("employees/<int:pk>/phone/", views.employee_phone, name="employee_phone"),
     path("employees/", views.employee_list, name="employee_list"),
     path("employees/<int:pk>/reset/", views.employee_reset, name="employee_reset"),
     path("employees/<int:pk>/remove/", views.employee_remove, name="employee_remove"),

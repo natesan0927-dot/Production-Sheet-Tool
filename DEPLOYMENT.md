@@ -570,6 +570,48 @@ Supabase uses the path.
 
 ---
 
+## 7b. Forgotten passwords
+
+On the sign-in page, **Forgot your password?** asks for a username and then a code.
+
+- **Staff:** the code appears in the **Super Admin's bell** (and on the dashboard's updates). The
+  Super Admin gives it to the person once they are sure it is really them — a phone call, or standing
+  next to them. That check by a human is the point; the sign-in page alone can never reset anyone's
+  password. The code works for 15 minutes, gives five tries, and is spent when used. Nobody can ask for
+  more than three an hour.
+- **The Super Admin:** the code is **texted to the mobile number registered on their account**. Register
+  it under **Employees**, on the Super Admin's row.
+
+Texting needs an account with an SMS provider, which costs money and, in India, needs some
+registration. Until that is set up, the Super Admin's code is written to the **server log** instead,
+so a missing SMS account can never lock the Super Admin out. On Render that is the **Logs** tab of the
+service, readable only by whoever owns the Render account — the same person who could change the
+database directly, so this opens no door that was closed. Look for the line
+`PASSWORD RESET CODE for admin`.
+
+To turn texting on, sign up at **fast2sms.com**, top up a small balance, and add two settings to the
+host's environment:
+
+| Key | Value |
+| --- | --- |
+| `SMS_PROVIDER` | `fast2sms` |
+| `FAST2SMS_API_KEY` | the key from your Fast2SMS dashboard |
+
+Only Fast2SMS is supported, through its OTP route. That part is written from their public
+documentation and has **not been run against the real service**, so after setting it up, use *Forgot
+password* once for the Super Admin and confirm a text arrives. If it does not, the code is still in the
+log and nothing is lost.
+
+**If everything else fails** and the Super Admin cannot get in at all, from your own computer in the
+project folder, pointing at the live database:
+
+```powershell
+$env:DATABASE_URL = "postgresql://...the Neon string..."
+.\venv\Scripts\python manage.py changepassword admin
+```
+
+---
+
 ## 8. The first sign-in
 
 `seed_employees` runs on every deploy and creates anyone missing. It never touches an account that

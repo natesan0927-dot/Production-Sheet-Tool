@@ -3,7 +3,9 @@
 import re
 
 from django import forms
+from django.contrib.auth import password_validation
 from django.contrib.auth.forms import PasswordChangeForm
+from django.core.exceptions import ValidationError
 
 from .models import Role, User
 
@@ -92,3 +94,44 @@ class FirstPasswordForm(PasswordChangeForm):
         if chosen == DEFAULT_PASSWORD:
             raise forms.ValidationError("Pick something other than the password you were given.")
         return chosen
+
+
+NAME_BOX = {"class": "form-control", "autocomplete": "username", "autocapitalize": "none", "autocorrect": "off", "spellcheck": "false"}
+
+
+class ForgotPasswordForm(forms.Form):
+    username = forms.CharField(max_length=150, widget=forms.TextInput(attrs={**NAME_BOX, "autofocus": True}))
+
+
+class ResetWithCodeForm(forms.Form):
+    """The username, the code from the Super Admin, and the new password."""
+
+    username = forms.CharField(max_length=150, widget=forms.TextInput(attrs=NAME_BOX))
+    code = forms.RegexField(
+        r"^\s*\d{6}\s*$",
+        label="Code",
+        error_messages={"invalid": "The code is six digits."},
+        widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "numeric", "autocomplete": "one-time-code", "maxlength": "8"}),
+    )
+    new_password1 = forms.CharField(label="New password", strip=False, widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "new-password"}))
+    new_password2 = forms.CharField(label="New password again", strip=False, widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "new-password"}))
+
+    def clean(self):
+        data = super().clean()
+        first, second = data.get("new_password1"), data.get("new_password2")
+        if first and second and first != second:
+            self.add_error("new_password2", "The two passwords do not match.")
+        elif first:
+            if first == DEFAULT_PASSWORD:
+                self.add_error("new_password1", "Pick something other than the password you were given.")
+            else:
+                from .recovery import find_user
+
+                # Checked before the code is used, so a weak choice does not cost
+                # anyone their code. The account is looked up only so the rules can
+                # refuse a password that resembles its own name.
+                try:
+                    password_validation.validate_password(first, find_user(data.get("username")))
+                except ValidationError as problem:
+                    self.add_error("new_password1", problem)
+        return data
