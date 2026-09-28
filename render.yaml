@@ -11,7 +11,7 @@ services:
     runtime: python
     plan: free
     region: singapore          # closest Render region to India
-    buildCommand: "./scripts/render_build.sh"
+    buildCommand: "bash scripts/render_build.sh"
     # The free instance has 512 MB. Two processes, each running four threads,
     # serve eight requests at once for barely more memory than two would take
     # alone, so one person's scan does not make everyone else wait. A process is

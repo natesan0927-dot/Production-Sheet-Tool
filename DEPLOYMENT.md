@@ -362,7 +362,7 @@ Render dashboard → your service → **Settings → Build & Deploy**:
 
 | Setting | Set it to |
 | --- | --- |
-| Build Command | `./scripts/render_build.sh` |
+| Build Command | `bash scripts/render_build.sh` |
 | Start Command | `gunicorn titans_crm.wsgi:application --workers 2 --threads 4 --timeout 300 --max-requests 500 --max-requests-jitter 50` |
 
 Then add these under **Environment**, which move the data off Render's own disk and database
@@ -370,6 +370,7 @@ Then add these under **Environment**, which move the data off Render's own disk 
 
 | Key | Value |
 | --- | --- |
+| `PYTHON_VERSION` | `3.12.10` (without it Render uses its newest Python, and a library can fail to install) |
 | `DATABASE_URL` | the Neon connection string (replaces Render's own Postgres) |
 | `AWS_STORAGE_BUCKET_NAME` | `titans-documents` |
 | `AWS_S3_ENDPOINT_URL` | the Supabase S3 endpoint, ending `/storage/v1/s3` |
