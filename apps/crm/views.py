@@ -1,9 +1,10 @@
+from datetime import timedelta
 from decimal import Decimal
 from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -295,7 +296,17 @@ def lead_list(request):
         leads = leads.filter(assigned_to_id=selected_salesperson)
 
     status = request.GET.get("status") or ""
-    if status == "won":
+    if status in ("waiting", "unchased", "following"):
+        # The pipeline's stages, so each line there opens to exactly its leads.
+        open_leads = leads.filter(status=Lead.Status.OPEN)
+        quoted = open_leads.filter(quotation_uploaded_at__isnull=False)
+        chased = FollowUp.objects.filter(done=False, lead__in=quoted).values("lead_id")
+        leads = {
+            "waiting": open_leads.filter(quotation_uploaded_at__isnull=True),
+            "unchased": quoted.exclude(pk__in=chased),
+            "following": quoted.filter(pk__in=chased),
+        }[status]
+    elif status == "won":
         leads = leads.filter(status=Lead.Status.WON)
     elif status == "lost":
         leads = leads.filter(status=Lead.Status.LOST)
@@ -316,6 +327,9 @@ def lead_list(request):
             "selected_salesperson": selected_salesperson,
             "status": status,
             "status_choices": [
+                ("waiting", "Waiting for a quotation"),
+                ("unchased", "Quoted, no call booked"),
+                ("following", "In follow-up"),
                 ("followup", "Follow-up stage"),
                 ("won", "Won"),
                 ("lost", "Lost"),
@@ -1034,26 +1048,122 @@ def followup_done(request, pk):
 # ---------------------------------------------------------------------------
 
 
+def _days_since(when):
+    return (timezone.now() - when).days if when else None
+
+
 @role_required(Role.SALESPERSON)
 def pipeline(request):
+    """Where the open leads stand, as a funnel — a line a stage, the leads behind it on demand."""
     leads = visible_leads(request.user)
     selected_salesperson = request.GET.get("salesperson") or ""
     if request.user.is_super_admin and selected_salesperson:
         leads = leads.filter(assigned_to_id=selected_salesperson)
+
+    today = timezone.localdate()
+    month_start = today.replace(day=1)
     open_leads = leads.filter(status=Lead.Status.OPEN)
     quoted = open_leads.filter(quotation_uploaded_at__isnull=False)
-    columns = [
-        ("Quotation Pending", open_leads.filter(quotation_uploaded_at__isnull=True)),
-        ("Quotation Sent", quoted.filter(followups__isnull=True).distinct()),
-        ("Follow-up", quoted.filter(followups__isnull=False).distinct()),
-        ("Won", leads.filter(status=Lead.Status.WON)),
-        ("Lost", leads.filter(status=Lead.Status.LOST)),
+    chased = FollowUp.objects.filter(done=False, lead__in=quoted).values("lead_id")
+
+    waiting = open_leads.filter(quotation_uploaded_at__isnull=True)
+    following = quoted.filter(pk__in=chased)
+    unchased = quoted.exclude(pk__in=chased)
+    won = leads.filter(status=Lead.Status.WON, won_at__date__gte=month_start)
+    lost = leads.filter(status=Lead.Status.LOST, lost_at__date__gte=month_start)
+
+    def stage(key, title, hint, queryset, value_field, tone, meta, link):
+        totals = queryset.aggregate(n=Count("pk"), v=Sum(value_field))
+        top = queryset.select_related("assigned_to").order_by(F(value_field).desc(nulls_last=True), "-updated_at")[:6]
+        return {
+            "key": key,
+            "title": title,
+            "hint": hint,
+            "count": totals["n"] or 0,
+            "value": totals["v"] or Decimal("0"),
+            "tone": tone,
+            "link": link,
+            "top": [
+                {"lead": lead, "value": getattr(lead, value_field), "meta": meta(lead)}
+                for lead in top
+            ],
+        }
+
+    def ago(days):
+        return "today" if days == 0 else f"{days} day{'s' if days != 1 else ''} ago"
+
+    def waited(lead):
+        return f"added {ago(_days_since(lead.created_at))}"
+
+    def quoted_ago(lead):
+        return f"quoted {ago(_days_since(lead.quotation_uploaded_at))}"
+
+    def next_call(lead):
+        due = lead.open_followup
+        return f"call {due.date:%d %b}" if due else "no call booked"
+
+    stages = [
+        stage("waiting", "Waiting for a quotation", "Measured or requested, no price sent yet",
+              waiting, "expected_value", "gold", waited, "waiting"),
+        stage("unchased", "Quoted, no call booked", "A price is out and nothing is scheduled",
+              unchased, "expected_value", "amber", quoted_ago, "unchased"),
+        stage("following", "In follow-up", "A price is out and a call is booked",
+              following, "expected_value", "blue", next_call, "following"),
+        stage("won", "Won this month", "Orders confirmed since the 1st",
+              won, "order_value", "green", lambda l: f"won {l.won_at:%d %b}", "won"),
+        stage("lost", "Lost this month", "Did not come off since the 1st",
+              lost, "expected_value", "rose", lambda l: f"lost {l.lost_at:%d %b}", "lost"),
     ]
+    biggest = max((row["count"] for row in stages), default=0) or 1
+    for row in stages:
+        row["bar"] = max(4, round(row["count"] * 100 / biggest)) if row["count"] else 0
+
+    open_value = open_leads.aggregate(v=Sum("expected_value"))["v"] or Decimal("0")
+    decided = stages[3]["count"] + stages[4]["count"]
+    win_rate = round(stages[3]["count"] * 100 / decided) if decided else None
+
+    overdue_leads = (
+        FollowUp.objects.filter(done=False, date__lt=today, lead__in=open_leads).values("lead_id").distinct().count()
+    )
+    slow = waiting.filter(created_at__lte=timezone.now() - timedelta(days=3)).count()
+    attention = []
+    if overdue_leads:
+        attention.append({"count": overdue_leads, "text": "with a follow-up that is overdue", "link": "overdue"})
+    if stages[1]["count"]:
+        attention.append({"count": stages[1]["count"], "text": "quoted but no call booked", "link": "unchased"})
+    if slow:
+        attention.append({"count": slow, "text": "waiting on a quotation for over 3 days", "link": "waiting"})
+
+    by_executive = None
+    if request.user.is_super_admin and not selected_salesperson:
+        by_executive = []
+        for person in sales_executives():
+            mine = open_leads.filter(assigned_to=person)
+            by_executive.append(
+                {
+                    "person": person,
+                    "open": mine.count(),
+                    "value": mine.aggregate(v=Sum("expected_value"))["v"] or Decimal("0"),
+                    "overdue": FollowUp.objects.filter(done=False, date__lt=today, lead__in=mine).values("lead_id").distinct().count(),
+                    "won": won.filter(assigned_to=person).aggregate(v=Sum("order_value"))["v"] or Decimal("0"),
+                }
+            )
+        # Someone with nothing open and nothing won is only a line of zeros.
+        by_executive = [row for row in by_executive if row["open"] or row["won"]]
+        by_executive.sort(key=lambda row: -row["value"])
+
     return render(
         request,
         "crm/pipeline.html",
         {
-            "columns": columns,
+            "stages": stages,
+            "open_count": open_leads.count(),
+            "open_value": open_value,
+            "won_value": stages[3]["value"],
+            "win_rate": win_rate,
+            "attention": attention,
+            "by_executive": by_executive,
+            "month": month_start,
             "salespeople": sales_executives(),
             "selected_salesperson": selected_salesperson,
         },

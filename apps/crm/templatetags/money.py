@@ -34,3 +34,23 @@ def rupees(value, decimals=0):
     if decimals:
         text = f"{text}.{fraction or '00'}"
     return f"{sign}₹{text}"
+
+
+@register.filter
+def rupees_short(value):
+    """₹34.5 L, ₹1.2 Cr, ₹8,500 — the way a summary says a large amount aloud."""
+    if value is None or value == "":
+        return "—"
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return value
+    sign = "-" if amount < 0 else ""
+    amount = abs(amount)
+    if amount >= Decimal("10000000"):
+        text = f"{amount / Decimal('10000000'):.2f}".rstrip("0").rstrip(".") + " Cr"
+    elif amount >= Decimal("100000"):
+        text = f"{amount / Decimal('100000'):.1f}".rstrip("0").rstrip(".") + " L"
+    else:
+        text = _group_indian(str(int(amount)))
+    return f"{sign}₹{text}"

@@ -936,19 +936,62 @@ a:hover { text-decoration: none; }
 }
 .tw-pie-hole strong { font-family: var(--tw-font-display); font-size: 1.6rem; font-weight: 700; color: var(--tw-ink); line-height: 1; }
 
-/* ---------------------------------------------------------------- kanban */
-.kanban-col {
+/* ------------------------------------------------------ sales pipeline */
+/* A funnel of five lines, not a board of cards: the leads behind a line stay
+   folded until it is opened. */
+.pipe-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; }
+.pipe-kpi {
   background: var(--tw-surface-2); border: 1px solid var(--tw-border);
-  border-radius: var(--tw-r-lg); padding: .85rem; min-height: 130px;
+  border-radius: var(--tw-r); padding: .8rem 1rem;
 }
-.kanban-card {
-  background: var(--tw-surface-solid); border: 1px solid var(--tw-border);
-  border-radius: var(--tw-r); padding: .85rem; margin-bottom: .65rem;
-  transition: transform .2s cubic-bezier(.34, 1.4, .64, 1), box-shadow .2s ease, border-color .2s ease;
+.pipe-kpi-value { font-family: var(--tw-font-display); font-size: 1.55rem; font-weight: 700; color: var(--tw-ink); line-height: 1.1; }
+.pipe-kpi-label { font-size: .78rem; color: var(--tw-blue-400); margin-top: .15rem; }
+
+.pipe-funnel { padding: .35rem 0; }
+.pipe-row { border-bottom: 1px solid var(--tw-border); }
+.pipe-row:last-child { border-bottom: 0; }
+.pipe-head {
+  width: 100%; display: grid; align-items: center; gap: 1rem;
+  grid-template-columns: minmax(150px, 1.2fr) minmax(90px, 2fr) 2.6rem 5.2rem 1.2rem;
+  padding: .85rem 1.1rem; background: none; border: 0; color: inherit; text-align: left;
+  cursor: pointer; transition: background-color .15s ease;
 }
-.kanban-card:hover {
-  transform: translateY(-3px); border-color: var(--tw-border-strong);
-  box-shadow: 0 16px 30px -18px rgba(0, 0, 0, .8);
+.pipe-head:hover:not(:disabled) { background-color: var(--tw-surface-2); }
+.pipe-head:disabled { cursor: default; opacity: .6; }
+.pipe-name { font-weight: 700; color: var(--tw-ink); line-height: 1.2; }
+.pipe-name small { display: block; font-weight: 500; font-size: .74rem; color: var(--tw-blue-400); margin-top: .1rem; }
+.pipe-bar { height: 12px; border-radius: 99px; background-color: rgba(148, 163, 184, .16); overflow: hidden; }
+.pipe-bar > span { display: block; height: 100%; border-radius: 99px; transition: width .5s cubic-bezier(.22, 1, .36, 1); }
+.pipe-count { font-family: var(--tw-font-display); font-size: 1.25rem; font-weight: 700; color: var(--tw-ink); text-align: right; }
+.pipe-value { font-size: .86rem; font-weight: 600; color: var(--tw-ink); text-align: right; white-space: nowrap; }
+.pipe-chevron { font-size: .75rem; color: var(--tw-blue-400); transition: transform .2s ease; }
+.pipe-head[aria-expanded="true"] .pipe-chevron { transform: rotate(180deg); }
+.tone-gold .pipe-bar > span { background-image: var(--tw-grad-gold); }
+.tone-amber .pipe-bar > span { background-color: #F59E0B; }
+.tone-blue .pipe-bar > span { background-color: var(--tw-blue-500); }
+.tone-green .pipe-bar > span { background-color: var(--tw-emerald); }
+.tone-rose .pipe-bar > span { background-color: var(--tw-rose); }
+
+.pipe-leads { list-style: none; margin: 0; padding: .1rem 1.1rem .5rem; }
+.pipe-leads a {
+  display: grid; grid-template-columns: 1fr auto; grid-template-areas: "name value" "meta value";
+  gap: 0 1rem; padding: .5rem .7rem; border-radius: var(--tw-r-sm); color: inherit; text-decoration: none;
+}
+.pipe-leads a:hover { background-color: var(--tw-surface-2); }
+.pipe-lead-name { grid-area: name; font-weight: 600; color: var(--tw-ink); }
+.pipe-lead-meta { grid-area: meta; font-size: .76rem; color: var(--tw-blue-400); }
+.pipe-lead-value { grid-area: value; align-self: center; font-weight: 700; font-size: .9rem; color: var(--tw-ink); }
+.pipe-more { display: block; padding: .1rem 1.8rem 1rem; font-size: .84rem; font-weight: 600; }
+
+@media (max-width: 767.98px) {
+  .pipe-kpis { grid-template-columns: repeat(2, 1fr); }
+  .pipe-head { grid-template-columns: 1fr auto auto; grid-template-areas: "name count value" "bar bar bar"; gap: .5rem .8rem; padding: .8rem .9rem; }
+  .pipe-head .pipe-name { grid-area: name; }
+  .pipe-head .pipe-bar { grid-area: bar; }
+  .pipe-head .pipe-count { grid-area: count; }
+  .pipe-head .pipe-value { grid-area: value; }
+  .pipe-chevron { display: none; }
+  .pipe-name small { display: none; }
 }
 
 /* ---------------------------------------------------------- sign-in page */

@@ -247,8 +247,9 @@ PAGE_NOTES = {
     ),
     "crm:pipeline": (
         "Sales Pipeline",
-        "The same leads as cards, grouped by where they have got to — quotation "
-        "pending, quotation sent, follow-up, won and lost.",
+        "Five lines, from a lead waiting on a quotation to won and lost this month, each with "
+        "how many and how much. Tap a line to see the biggest few, and the box below lists "
+        "what needs chasing.",
     ),
     "crm:targets": (
         "Sales Target",
