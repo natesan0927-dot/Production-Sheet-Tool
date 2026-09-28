@@ -13,6 +13,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.accounts import recovery
 from apps.accounts.models import Role, User
 
 from . import aging, daysummary, monthly
@@ -266,6 +267,8 @@ def _sales_dashboard(request, updates):
         "selected_salesperson": selected_salesperson,
         "overdue_by_person": overdue_by_person,
         "updates": updates,
+        # Only the Super Admin can act on these, so only they are shown them.
+        "password_requests": list(recovery.open_requests()) if request.user.is_super_admin else [],
     }
     return render(request, "crm/dashboard.html", context)
 

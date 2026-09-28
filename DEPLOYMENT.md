@@ -533,7 +533,7 @@ sudo apt update && sudo apt upgrade -y && sudo reboot
 | *"Bad Request (400)"* | `ALLOWED_HOSTS` in `/srv/titans/app/.env` does not include the domain you typed |
 | CSS missing, page looks plain | `sudo -u titans /srv/titans/app/venv/bin/python /srv/titans/app/manage.py collectstatic --noinput` |
 | An upload fails on a big file | Raise `client_max_body_size` in `/etc/nginx/sites-available/titans`, then `sudo systemctl reload nginx` |
-| Someone forgot their password | Employees tab → **Reset password**. No server access needed |
+| Someone forgot their password | They use *Forgot your password?*; it appears at the top of the Employees tab for the Super Admin to answer — [section 7b](#7b-forgotten-passwords) |
 
 Useful commands:
 
@@ -572,15 +572,31 @@ Supabase uses the path.
 
 ## 7b. Forgotten passwords
 
-On the sign-in page, **Forgot your password?** asks for a username and then a code.
+On the sign-in page, **Forgot your password?** asks for a username. What happens next depends on who
+is asking. (Emailing a reset link was considered and dropped: Render's free plan blocks outgoing mail,
+and the free mail services that get around it want a domain of your own.)
 
-- **Staff:** the code appears in the **Super Admin's bell** (and on the dashboard's updates). The
-  Super Admin gives it to the person once they are sure it is really them — a phone call, or standing
-  next to them. That check by a human is the point; the sign-in page alone can never reset anyone's
-  password. The code works for 15 minutes, gives five tries, and is spent when used. Nobody can ask for
-  more than three an hour.
-- **The Super Admin:** the code is **texted to the mobile number registered on their account**. Register
-  it under **Employees**, on the Super Admin's row.
+**Staff.** They type their username and press **Send my request**. The Super Admin then sees it in
+three places at once:
+
+- a notification in the bell,
+- a notice at the top of the dashboard, and
+- a **Waiting for a new password** panel at the top of the **Employees** page (the Employees tab
+  also carries a number badge while anyone is waiting).
+
+Beside each name is a suggested password (something easy to read over the phone, like
+`SunnyRiver4821`). The Super Admin checks it really is that person — a call, or across the desk — then
+presses **Set password** and tells them what it is. The person signs in with it and is stopped at a
+choose-your-own-password screen before they can do anything else, so the one the Super Admin typed
+only ever lasts a minute. **Dismiss** closes a request without changing anything (for example, if they
+remembered it). Using **Reset password** or **Remove** on the same row also closes the request.
+
+The sign-in page never reveals whether a username exists or what happened to the request, and asking
+twice does not stack up requests — there is one waiting request per person.
+
+**The Super Admin** has nobody above them, so their code is **texted to the mobile number registered
+on their account**. Register it under **Employees**, on the Super Admin's row. The code works for 15
+minutes, gives five tries, is spent when used, and can be asked for three times an hour.
 
 Texting needs an account with an SMS provider, which costs money and, in India, needs some
 registration. Until that is set up, the Super Admin's code is written to the **server log** instead,

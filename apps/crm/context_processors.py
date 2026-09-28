@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts import recovery
 from apps.accounts.models import Role, User
 
 from . import guide as guide_content
@@ -49,7 +50,7 @@ FIELD_MANAGER_TABS = [
 ADMIN_TABS = [
     ("Summary for the Day", "crm:day_summary", "fa-calendar-day", None),
     ("Summary for the Month", "crm:month_summary", "fa-calendar-days", None),
-    ("Employees", "accounts:employee_list", "fa-users", None),
+    ("Employees", "accounts:employee_list", "fa-users", "passwords"),
     ("Stage Access", "crm:stage_access_list", "fa-user-shield", None),
 ]
 
@@ -142,6 +143,8 @@ def _pending_counts(keys, user):
         if user.role == Role.SALESPERSON:
             open_followups = open_followups.filter(lead__assigned_to=user)
         counts["followup"] = open_followups.count()
+    if "passwords" in keys:
+        counts["passwords"] = recovery.open_requests().count()
     if "warranty" in keys:
         counts["warranty"] = Lead.objects.filter(
             dispatched_at__isnull=False, completed_at__isnull=True

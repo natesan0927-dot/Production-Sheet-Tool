@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Request sent{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="tw-gate">
+  <div class="tw-gate-panel">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <div class="auth-logo-ring" style="width:64px;height:64px">
+        <img src="{% static 'branding/titans_logo.png' %}" alt="Titans Windows">
+      </div>
+      <div>
+        <div class="tw-eyebrow">Titans Windows</div>
+        <h4 class="mb-0">Request sent</h4>
+      </div>
+    </div>
+
+    <p class="text-muted">If that username exists, this is what happens next:</p>
+    <ul class="ps-3">
+      <li class="mb-2"><strong>Staff:</strong> the Super Admin has been told. They will set you a new password and let you know what it is. Sign in with it — you will be asked to choose your own straight away.</li>
+      <li class="mb-2"><strong>The Super Admin:</strong> a code has been texted to the mobile number registered on your account.
+        <a href="{% url 'accounts:reset_with_code' %}">Enter it here.</a></li>
+    </ul>
+    <p class="text-muted small">Nothing has changed on your account yet, and nobody can sign in as you.</p>
+
+    <a href="{% url 'accounts:login' %}" class="btn btn-primary w-100"><i class="fa-solid fa-arrow-left me-1"></i>Back to sign in</a>
+  </div>
+</div>
+{% endblock %}

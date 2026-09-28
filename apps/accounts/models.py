@@ -77,3 +77,27 @@ class PasswordResetCode(models.Model):
     @property
     def is_usable(self):
         return self.used_at is None and self.expires_at > timezone.now() and self.tries < self.MAX_TRIES
+
+
+class PasswordRequest(models.Model):
+    """Someone has forgotten their password and is waiting for the Super Admin to set a new one.
+
+    There is at most one open request per person, so asking twice does not pile up.
+    It closes when the Super Admin sets them a password, resets them to the default,
+    removes them, or dismisses it.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_requests")
+    created_at = models.DateTimeField(auto_now_add=True)
+    handled_at = models.DateTimeField(null=True, blank=True)
+    handled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} asked for a new password at {self.created_at:%d %b %H:%M}"
+
+    @property
+    def is_open(self):
+        return self.handled_at is None

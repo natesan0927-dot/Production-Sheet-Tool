@@ -49,6 +49,7 @@ def employee_list(request):
         if people:
             groups.append({"role": label, "people": people})
 
+    waiting = [{"request": item, "suggested": recovery.suggest_password()} for item in recovery.open_requests()]
     return render(
         request,
         "accounts/employee_list.html",
@@ -57,6 +58,7 @@ def employee_list(request):
             "form": form,
             "default_password": DEFAULT_PASSWORD,
             "total": User.objects.filter(is_active=True).count(),
+            "waiting": waiting,
         },
     )
 
@@ -69,10 +71,47 @@ def employee_reset(request, pk):
     employee.set_password(DEFAULT_PASSWORD)
     employee.must_change_password = True
     employee.save(update_fields=["password", "must_change_password"])
+    recovery.close_requests(employee, by=request.user)
     messages.success(
         request,
         f"{employee.display_name} is back on {DEFAULT_PASSWORD} and will be asked to change it.",
     )
+    return redirect("accounts:employee_list")
+
+
+@super_admin_only
+@require_POST
+def employee_set_password(request, pk):
+    """Set someone a new password after they asked, and tell the Super Admin what it is.
+
+    It is only a stepping stone: they are made to choose their own the moment
+    they sign in with it, so nothing the Super Admin types stays in use.
+    """
+    employee = get_object_or_404(User, pk=pk, is_active=True)
+    password = request.POST.get("password", "").strip()
+    if len(password) < recovery.MIN_PASSWORD:
+        messages.error(request, f"A temporary password needs at least {recovery.MIN_PASSWORD} characters.")
+        return redirect("accounts:employee_list")
+
+    employee.set_password(password)
+    employee.must_change_password = True
+    employee.save(update_fields=["password", "must_change_password"])
+    recovery.close_requests(employee, by=request.user)
+    messages.success(
+        request,
+        f"{employee.display_name} can now sign in as {employee.username} with the password {password}. "
+        "Tell them; they will be asked to choose their own straight away.",
+    )
+    return redirect("accounts:employee_list")
+
+
+@super_admin_only
+@require_POST
+def employee_dismiss_request(request, pk):
+    """Close a request without changing anything — they remembered, or asked by mistake."""
+    employee = get_object_or_404(User, pk=pk)
+    recovery.close_requests(employee, by=request.user)
+    messages.success(request, f"{employee.display_name}'s request is closed. Their password was not changed.")
     return redirect("accounts:employee_list")
 
 
@@ -86,6 +125,7 @@ def employee_remove(request, pk):
         return redirect("accounts:employee_list")
     employee.is_active = False
     employee.save(update_fields=["is_active"])
+    recovery.close_requests(employee, by=request.user)
     messages.success(request, f"{employee.display_name} can no longer sign in.")
     return redirect("accounts:employee_list")
 
@@ -121,7 +161,7 @@ def change_password(request):
 
 
 def forgot_password(request):
-    """Ask for a code. What comes back is the same whoever, or whatever, was typed."""
+    """Ask for help getting back in. What comes back is the same whoever, or whatever, was typed."""
     if request.user.is_authenticated:
         return redirect("accounts:change_password")
 
@@ -129,11 +169,20 @@ def forgot_password(request):
     if request.method == "POST" and form.is_valid():
         typed = form.cleaned_data["username"].strip()
         user = recovery.find_user(typed)
-        if user:
-            recovery.request_code(user)
+        if user and user.role == Role.SUPER_ADMIN:
+            recovery.request_code(user)          # texted to their registered number
+        elif user:
+            recovery.ask_for_new_password(user)  # waits for the Super Admin, in three places
         request.session["reset_username"] = typed
-        return redirect("accounts:reset_with_code")
+        return redirect("accounts:forgot_sent")
     return render(request, "accounts/forgot_password.html", {"form": form})
+
+
+def forgot_sent(request):
+    """The same page for everyone: it cannot tell you whether the account exists."""
+    if request.user.is_authenticated:
+        return redirect("accounts:change_password")
+    return render(request, "accounts/forgot_sent.html")
 
 
 def reset_with_code(request):

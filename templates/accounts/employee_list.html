@@ -37,6 +37,44 @@
   </div>
 
   <div class="col-lg-7 col-xl-8">
+    {% if waiting %}
+    <div class="card mb-3 tw-waiting" id="password-requests">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-key me-2"></i>Waiting for a new password</span>
+        <span class="badge bg-warning">{{ waiting|length }}</span>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for item in waiting %}
+        <div class="list-group-item">
+          <div class="d-flex justify-content-between flex-wrap gap-1 mb-2">
+            <div>
+              <strong>{{ item.request.user.display_name }}</strong>
+              <span class="text-muted small ms-1">{{ item.request.user.get_role_display }} · signs in as <code>{{ item.request.user.username }}</code></span>
+            </div>
+            <span class="text-muted small">asked {% with waited=item.request.created_at|timesince %}{% if waited|slice:":9" == "0 minutes" %}just now{% else %}{{ waited }} ago{% endif %}{% endwith %}</span>
+          </div>
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <form method="post" action="{% url 'accounts:employee_set_password' item.request.user.pk %}" class="d-flex gap-2 flex-grow-1" style="max-width:420px">
+              {% csrf_token %}
+              <input type="text" name="password" value="{{ item.suggested }}" class="form-control form-control-sm font-monospace"
+                     minlength="8" required autocomplete="off" spellcheck="false" aria-label="Temporary password for {{ item.request.user.display_name }}">
+              <button class="btn btn-sm btn-primary text-nowrap"><i class="fa-solid fa-check me-1"></i>Set password</button>
+            </form>
+            <form method="post" action="{% url 'accounts:employee_dismiss_request' item.request.user.pk %}">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-link text-muted" title="Close the request without changing their password">Dismiss</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="card-footer small text-muted">
+        Check it really is them first — a phone call is enough. The password above is a suggestion you can change.
+        They are asked to choose their own the moment they sign in with it.
+      </div>
+    </div>
+    {% endif %}
+
     {% for group in groups %}
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">

@@ -22,6 +22,17 @@
   </div>
 </div>
 
+{% if password_requests %}
+<div class="alert alert-warning d-flex align-items-center flex-wrap gap-2 mb-3" role="alert">
+  <i class="fa-solid fa-key"></i>
+  <div class="flex-grow-1">
+    <strong>{{ password_requests|length }} {% if password_requests|length == 1 %}person is{% else %}people are{% endif %} waiting for a new password:</strong>
+    {% for item in password_requests %}{{ item.user.display_name }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+  </div>
+  <a href="{% url 'accounts:employee_list' %}#password-requests" class="btn btn-sm btn-primary text-nowrap">Set their passwords <i class="fa-solid fa-arrow-right ms-1"></i></a>
+</div>
+{% endif %}
+
 {% if storage_usage %}
 <div class="card mb-3">
   <div class="card-body py-2">
