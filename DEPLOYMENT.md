@@ -313,26 +313,18 @@ You now have four values: endpoint, region, key id, secret.
    | `AWS_S3_REGION_NAME` | the Supabase region, e.g. `ap-southeast-1` |
    | `AWS_ACCESS_KEY_ID` | the Supabase key id |
    | `AWS_SECRET_ACCESS_KEY` | the Supabase secret |
-   | `CSRF_TRUSTED_ORIGINS` | leave blank for now — step 4 |
 
 3. It builds for five to ten minutes. Watch the log; it ends with the staff accounts being
    created.
 
-### Step 4 — The one value you can only fill in afterwards
+### Step 4 — Nothing to fill in afterwards
 
-Render has now given the service an address like `https://titans-crm-a1b2.onrender.com`. Copy it
-from the top of the service page, then:
+Render tells the app its own address, and the app trusts it, so there is no address to paste into
+`ALLOWED_HOSTS` or `CSRF_TRUSTED_ORIGINS`. (Forgetting one of those used to give "Bad Request (400)"
+on every page or "CSRF verification failed" on every sign-in.) They matter only if you later add a
+domain of your own.
 
-**Environment → `CSRF_TRUSTED_ORIGINS` → Edit**, and paste it **with the `https://`**:
-
-```
-https://titans-crm-a1b2.onrender.com
-```
-
-Save. Render redeploys itself. Without this, sign-in fails with *"CSRF verification failed"* — it
-is the single most common stumble on this route.
-
-### Step 5 — Sign in and prove the uploads work
+### Step 4 — Sign in and prove the uploads work
 
 Open the address. Sign in as `admin` / `ChangeMe@123`; it will make you change it.
 
@@ -385,6 +377,20 @@ the Employees list) with `ChangeMe@123`. Two things to check under **Environment
   data comes straight back.
 - The service must be deploying the **`main`** branch of your repository, with **Auto-Deploy** on.
   If the *Events* tab shows an old commit message, that is why nothing has changed.
+
+### Want it closer to India? Move to a Singapore service
+
+Render cannot move a service to another region, and a new service in **Singapore** is closest to
+you. If your existing one shows Oregon, Ohio or Frankfurt, make a new one instead of moving it:
+
+1. **New → Blueprint** → pick the TITANS repo → **Apply**. `render.yaml` already says Singapore.
+2. Paste the values it asks for (the Neon string and the Supabase keys — the same ones).
+3. When it is up and you have signed in and tested an upload, **delete the old service**, and the old
+   Render Postgres if it made one. Two free services in one account use up the 750 free hours twice
+   over.
+
+Put the Neon database in the same region as the service. Every page makes several queries, and each
+one crosses the distance between them.
 
 ### Living with the free plan
 

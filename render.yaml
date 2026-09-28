@@ -28,15 +28,9 @@ services:
         value: "False"
       - key: TIME_ZONE
         value: Asia/Kolkata
-      - key: ALLOWED_HOSTS
-        fromService:
-          type: web
-          name: titans-crm
-          property: host
-      # Needs the https:// prefix, which cannot be derived from the host above,
-      # so Render asks. It is https://<whatever>.onrender.com
-      - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+      # No ALLOWED_HOSTS or CSRF_TRUSTED_ORIGINS here on purpose: Render tells the
+      # app its own public address (RENDER_EXTERNAL_HOSTNAME) and settings.py
+      # trusts it. Add a custom domain to those two settings only if you get one.
       - key: SECURE_SSL_REDIRECT
         value: "True"
       - key: SESSION_COOKIE_SECURE

@@ -22,6 +22,18 @@ DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
+# Render tells every web service its own public address. Trusting it here means
+# the site works on its first deploy without anyone typing the address into two
+# settings by hand — and forgetting one gives a "400 Bad Request" on every page
+# or a "CSRF verification failed" on every sign-in. A custom domain is still
+# added through ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS as before.
+_render_host = env("RENDER_EXTERNAL_HOSTNAME", default="")
+if _render_host:
+    if _render_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_render_host)
+    if f"https://{_render_host}" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{_render_host}")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -40,6 +52,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First, so a health check is answered before anything checks who is asking.
+    "titans_crm.health.HealthCheckMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -158,9 +172,6 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 # trust its X-Forwarded-Proto header or SECURE_SSL_REDIRECT would loop forever.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=not DEBUG)
-# The host's own health check arrives over plain HTTP from inside its network;
-# redirecting it to HTTPS would read as the site being down.
-SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 SECURE_BROWSER_XSS_FILTER = True
