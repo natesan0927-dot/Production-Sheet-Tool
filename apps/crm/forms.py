@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 
-from .models import FollowUp, InvoiceCharge, Lead, Payment, SalesTarget, ServiceComplaint, Task
+from .models import FollowUp, InstallerPayment, InvoiceCharge, Lead, Payment, SalesTarget, ServiceComplaint, Task
 
 # ---------------------------------------------------------------------------
 # Sanity checks shared by every form. Each adds an error against the field
@@ -348,18 +348,43 @@ class ChecklistForm(forms.ModelForm):
             field.widget.attrs.setdefault("class", "form-check-input")
 
 
+class InstallerNameInput(forms.TextInput):
+    """A text box that suggests installers already on file, so one person is never two folders."""
+
+    def render(self, name, value, attrs=None, renderer=None):
+        from django.utils.html import format_html, format_html_join
+
+        from .installation import installer_names
+
+        attrs = {**(attrs or {}), "list": "installer-names", "autocomplete": "off"}
+        box = super().render(name, value, attrs, renderer)
+        options = format_html_join("", '<option value="{}">', ((known,) for known in installer_names()))
+        return format_html('{}<datalist id="installer-names">{}</datalist>', box, options)
+
+
 class DispatchForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Lead
-        fields = ["installation_person", "invoice_number", "invoice_date"]
-        widgets = {"invoice_date": forms.DateInput(attrs={"type": "date"})}
-        labels = {"installation_person": "Installation person name"}
+        fields = ["installation_person", "installation_charge", "invoice_number", "invoice_date"]
+        widgets = {
+            "invoice_date": forms.DateInput(attrs={"type": "date"}),
+            "installation_person": InstallerNameInput(),
+        }
+        labels = {"installation_person": "Installation person name", "installation_charge": "Installation charge (₹)"}
+        help_texts = {"installation_charge": "Optional now — what the installer is paid for this site. It can be set later from the Installation ledger."}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.required = True
+        for name, field in self.fields.items():
+            field.required = name != "installation_charge"
         limit_picker(self.fields["invoice_date"], not_after_today=True)
+        limit_number(self.fields["installation_charge"], 1)
+
+    def clean_installation_person(self):
+        from .installation import clean_name
+
+        # Same person, same spelling, so their sites share one folder.
+        return clean_name(self.cleaned_data["installation_person"])
 
     def clean(self):
         data = super().clean()
@@ -415,6 +440,57 @@ class PaymentForm(BootstrapMixin, forms.ModelForm):
                     f"That is more than the balance still due (₹{self.lead.balance_amount:,.2f}).",
                 )
         return data
+
+
+class InstallerPaymentForm(BootstrapMixin, forms.ModelForm):
+    """Money paid out to the outsourced installer for one site."""
+
+    class Meta:
+        model = InstallerPayment
+        fields = ["paid_on", "amount", "remarks", "file"]
+        widgets = {"paid_on": forms.DateInput(attrs={"type": "date"})}
+        labels = {"paid_on": "Payment date"}
+
+    def __init__(self, *args, lead=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lead = lead
+        limit_picker(self.fields["paid_on"], not_after_today=True)
+        limit_number(self.fields["amount"], 1)
+
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "amount", "Amount")
+        reject_future(self, "paid_on", "Payment date")
+        balance = self.lead.installer_balance if self.lead is not None else None
+        if self.lead is not None and balance is None:
+            raise forms.ValidationError("Set the total payable for this site first, so the balance means something.")
+        amount = data.get("amount")
+        if amount and balance is not None and amount > balance:
+            self.add_error("amount", f"That is more than the ₹{balance:,.2f} still owed to the installer.")
+        return data
+
+
+class InstallationChargeForm(BootstrapMixin, forms.ModelForm):
+    """What the installer is to be paid for this site in all."""
+
+    class Meta:
+        model = Lead
+        fields = ["installation_charge"]
+        labels = {"installation_charge": "Total payable to the installer (₹)"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["installation_charge"].required = True
+        limit_number(self.fields["installation_charge"], 1)
+
+    def clean_installation_charge(self):
+        charge = self.cleaned_data["installation_charge"]
+        if charge <= 0:
+            raise forms.ValidationError("The total payable must be more than zero.")
+        paid = self.instance.installer_paid
+        if charge < paid:
+            raise forms.ValidationError(f"₹{paid:,.2f} has already been paid, so the total cannot be lower than that.")
+        return charge
 
 
 class InvoiceChargeForm(BootstrapMixin, forms.ModelForm):

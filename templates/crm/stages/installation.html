@@ -1,0 +1,29 @@
+{% load money %}
+{% include "crm/_customer_card.html" %}
+
+{% if lead.dispatched_at and lead.installation_person %}
+  <dl class="row mb-3">
+    <dt class="col-sm-4">Installer</dt><dd class="col-sm-8"><strong>{{ lead.installation_person }}</strong></dd>
+    <dt class="col-sm-4">Site</dt><dd class="col-sm-8">{{ lead.site_name }}, {{ lead.site_location }}</dd>
+    <dt class="col-sm-4">Total site sq ft</dt><dd class="col-sm-8">{{ lead.total_sqft|default_if_none:"—" }}</dd>
+    <dt class="col-sm-4">Dispatched</dt><dd class="col-sm-8">{{ lead.dispatched_at|date:"d M Y" }}</dd>
+    {% if stage.can_act %}
+      <dt class="col-sm-4">Total payable</dt>
+      <dd class="col-sm-8">{% if lead.installation_charge is None %}<span class="badge bg-warning">Not set yet</span>{% else %}{{ lead.installation_charge|rupees }}{% endif %}</dd>
+      <dt class="col-sm-4">Paid so far</dt><dd class="col-sm-8">{{ lead.installer_paid|rupees }}</dd>
+      <dt class="col-sm-4">Balance payable</dt>
+      <dd class="col-sm-8">{% if lead.installer_balance is None %}—{% elif lead.installer_balance > 0 %}<strong>{{ lead.installer_balance|rupees }}</strong>{% else %}<span class="badge bg-success">Settled</span>{% endif %}</dd>
+    {% endif %}
+  </dl>
+  {% if stage.can_act %}
+    <a href="{% url 'crm:installer_ledger' lead.pk %}" class="btn btn-primary">
+      <i class="fa-solid fa-book me-1"></i>Open the installer ledger
+    </a>
+  {% else %}
+    <p class="text-muted small mb-0">What is paid to the installer is handled by accounts.</p>
+  {% endif %}
+{% else %}
+  <p class="text-muted mb-0">
+    <i class="fa-regular fa-hourglass-half me-1"></i>The installer is named when the site is dispatched. Their payments are tracked here after that.
+  </p>
+{% endif %}

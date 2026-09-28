@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import installation_views, views
 
 app_name = "crm"
 
@@ -50,6 +50,11 @@ urlpatterns = [
     path("queue/accounts/<int:pk>/statement/", views.ledger_pdf, name="ledger_pdf"),
     path("queue/accounts/outstanding/", views.outstanding_pdf, name="outstanding_pdf"),
     path("payments/<int:pk>/remove/", views.payment_delete, name="payment_delete"),
+    # Installation is outsourced: a folder per installer, a ledger per site
+    path("installation/", installation_views.installation_list, name="installation_list"),
+    path("installation/installer/<slug:slug>/", installation_views.installer_sites, name="installer_sites"),
+    path("installation/site/<int:pk>/", installation_views.installer_ledger, name="installer_ledger"),
+    path("installation/payments/<int:pk>/remove/", installation_views.installer_payment_delete, name="installer_payment_delete"),
     path("invoice-charges/<int:pk>/remove/", views.charge_delete, name="charge_delete"),
     path("queue/production/", views.queue_production, name="queue_production"),
     path("queue/fabrication/", views.queue_fabrication, name="queue_fabrication"),

@@ -153,6 +153,11 @@ class Lead(models.Model):
     chk_glass_installation = models.BooleanField("Glass Installation", default=False)
 
     installation_person = models.CharField(max_length=150, blank=True)
+    # Installation is outsourced: this is what the installer is owed for this site.
+    installation_charge = models.DecimalField(
+        "Installation charge", max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="What the installer is paid for this site.",
+    )
     invoice_number = models.CharField(max_length=60, blank=True)
     invoice_date = models.DateField(null=True, blank=True)
     dispatched_at = models.DateTimeField(null=True, blank=True)
@@ -222,6 +227,23 @@ class Lead(models.Model):
         if self.order_value is None:
             return None
         return self.invoice_total - self.collected
+
+    @property
+    def installer_paid(self):
+        """Everything paid to the installer for this site so far."""
+        return self.installer_payments.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+
+    @property
+    def installer_balance(self):
+        """Still owed to the installer, or None until a charge has been agreed."""
+        if self.installation_charge is None:
+            return None
+        return self.installation_charge - self.installer_paid
+
+    @property
+    def site_name(self):
+        """What the site is called on the installer's list."""
+        return self.project_name or self.customer_name
 
     @property
     def is_outstanding(self):
@@ -535,6 +557,24 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.lead.customer_name} — {self.amount}"
+
+
+class InstallerPayment(models.Model):
+    """Money paid to the outsourced installer for one site."""
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="installer_payments")
+    paid_on = models.DateField(default=timezone.localdate)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    remarks = models.CharField(max_length=255, blank=True)
+    file = models.FileField("Proof / receipt", upload_to="installers/%Y/%m/", blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["paid_on", "id"]
+
+    def __str__(self):
+        return f"{self.lead.installation_person} — {self.amount}"
 
 
 class Task(models.Model):

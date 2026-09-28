@@ -26,8 +26,8 @@ OPENING = (
 
 JOURNEY = (
     "journey",
-    "Eight steps, one lead",
-    "Every lead walks the same eight steps. You always see which step it is on "
+    "Nine steps, one lead",
+    "Every lead walks the same nine steps. You always see which step it is on "
     "and who it is waiting for, so nothing quietly stalls. You only work the "
     "steps that belong to your job — the rest are there for context.",
 )
@@ -297,6 +297,12 @@ PAGE_NOTES = {
         "invoice has been outstanding, and the total across all of them. Open one "
         "for its ledger, where you post payments and add transport or other "
         "charges to the invoice.",
+    ),
+    "crm:installation_list": (
+        "Installation",
+        "Installation is outsourced, so each installer has a folder named after them holding the "
+        "sites they were given. Open a folder for a ledger of those sites, and a site for what "
+        "you owe the installer and every payment made to them.",
     ),
     "crm:queue_production": (
         "Production",

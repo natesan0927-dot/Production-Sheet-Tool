@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ lead.site_name }} — Installer ledger{% endblock %}
+
+{% block content %}
+<a href="{% url 'crm:installer_sites' folder_slug %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>{{ lead.installation_person }}</a>
+<h4 class="mb-1 mt-1">{{ lead.site_name }}</h4>
+<p class="text-muted small mb-3">
+  {{ lead.site_location }} · {{ lead.total_sqft|default_if_none:"—" }} sq ft · installed by <strong>{{ lead.installation_person }}</strong>
+  {% if lead.project_name %} · customer {{ lead.display_name }}{% endif %}
+</p>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card stat-card tone-navy"><div class="card-body"><div>
+      <div class="stat-value">{% if lead.installation_charge is None %}Not set{% else %}{{ lead.installation_charge|rupees }}{% endif %}</div>
+      <div class="stat-label">Total payable</div>
+    </div></div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card tone-emerald"><div class="card-body"><div>
+      <div class="stat-value">{{ lead.installer_paid|rupees }}</div><div class="stat-label">Paid so far</div>
+    </div></div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card tone-rose"><div class="card-body"><div>
+      <div class="stat-value">{% if lead.installer_balance is None %}—{% else %}{{ lead.installer_balance|rupees }}{% endif %}</div>
+      <div class="stat-label">Balance payable</div>
+    </div></div></div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-book me-2"></i>Ledger with {{ lead.installation_person }}</div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Date</th><th style="min-width:190px">Particulars</th><th class="text-end">Payable</th><th class="text-end">Paid</th><th class="text-end">Balance</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td class="text-nowrap">{{ row.date|date:"d M Y"|default:"—" }}</td>
+              <td>
+                {{ row.label }}
+                {% if row.entry.file %}
+                  <a href="{{ row.entry.file.url }}" target="_blank" rel="noopener" class="badge bg-light text-decoration-none ms-1"><i class="fa-solid fa-paperclip me-1"></i>Proof</a>
+                {% endif %}
+                {% if row.entry.recorded_by %}<span class="text-muted small d-block">posted by {{ row.entry.recorded_by }}</span>{% endif %}
+              </td>
+              <td class="text-end">{% if row.payable %}{{ row.payable|rupees:2 }}{% endif %}</td>
+              <td class="text-end">{% if row.paid %}{{ row.paid|rupees:2 }}{% endif %}</td>
+              <td class="text-end fw-semibold">{{ row.balance|rupees:2 }}</td>
+              <td class="text-end">
+                {% if row.entry %}
+                <form method="post" action="{% url 'crm:installer_payment_delete' row.entry.pk %}" onsubmit="return confirm('Remove this payment entry?')">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-link text-danger" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Set the total payable to start this ledger.</td></tr>
+            {% endfor %}
+          </tbody>
+          {% if lead.installation_charge is not None %}
+          <tfoot class="table-light">
+            <tr><th colspan="2">Balance payable to {{ lead.installation_person }}</th><th></th><th></th><th class="text-end">{{ lead.installer_balance|rupees:2 }}</th><th></th></tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="fa-solid fa-plus me-2"></i>Post a payment</div>
+      <div class="card-body">
+        {% if payment_form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ payment_form.non_field_errors }}</div>{% endif %}
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% for field in payment_form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-primary w-100">Post payment</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><i class="fa-solid fa-pen me-2"></i>{% if lead.installation_charge is None %}Set{% else %}Correct{% endif %} the total payable</div>
+      <div class="card-body">
+        <p class="text-muted small">What {{ lead.installation_person }} is paid for this site in all. Payments are counted against it.</p>
+        <form method="post">
+          {% csrf_token %}
+          {% for field in charge_form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-outline-primary w-100" name="save_charge" value="1">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

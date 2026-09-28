@@ -30,6 +30,7 @@ QUOTATION_TABS = [
 
 ACCOUNTS_TABS = [
     ("Accounts", "crm:queue_accounts", "fa-indian-rupee-sign", None),
+    ("Installation", "crm:installation_list", "fa-helmet-safety", None),
 ]
 
 PRODUCTION_TABS = [

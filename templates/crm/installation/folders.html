@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Installation{% endblock %}
+
+{% block content %}
+<div class="tw-page-header mb-3">
+  <div>
+    <h4 class="mb-0">Installation</h4>
+    <div class="text-muted small">Installation is outsourced. Each installer has a folder holding the sites they were given.</div>
+  </div>
+</div>
+
+<div class="pipe-kpis mb-3" style="grid-template-columns: repeat(3, 1fr)">
+  <div class="pipe-kpi"><div class="pipe-kpi-value">{{ installers }}</div><div class="pipe-kpi-label">installer{{ installers|pluralize }}</div></div>
+  <div class="pipe-kpi"><div class="pipe-kpi-value">{{ sites }}</div><div class="pipe-kpi-label">site{{ sites|pluralize }} given out</div></div>
+  <div class="pipe-kpi"><div class="pipe-kpi-value">{{ owed|rupees_short }}</div><div class="pipe-kpi-label">still to pay them{% if unpriced %} · {{ unpriced }} site{{ unpriced|pluralize }} not priced yet{% endif %}</div></div>
+</div>
+
+<form method="get" class="d-flex gap-2 mb-3 flex-wrap">
+  <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="max-width:300px"
+         placeholder="Search an installer or a site" aria-label="Search installation">
+  <button class="btn btn-sm btn-outline-secondary">Search</button>
+  {% if q %}<a href="{% url 'crm:installation_list' %}" class="btn btn-sm btn-link">Clear</a>{% endif %}
+</form>
+
+<div class="inst-grid">
+  {% for folder in folders %}
+  <a class="inst-folder" href="{% url 'crm:installer_sites' folder.slug %}">
+    <span class="inst-icon"><i class="fa-solid fa-folder-open"></i></span>
+    <span class="inst-name">{{ folder.name }}</span>
+    <span class="inst-meta">{{ folder.sites }} site{{ folder.sites|pluralize }} · {{ folder.sqft|floatformat:"0" }} sq ft</span>
+    <span class="inst-figures">
+      <span><small>Payable</small>{{ folder.payable|rupees_short }}</span>
+      <span><small>Paid</small>{{ folder.paid|rupees_short }}</span>
+      <span class="{% if folder.balance > 0 %}inst-owed{% endif %}"><small>Balance</small>{{ folder.balance|rupees_short }}</span>
+    </span>
+    {% if folder.unpriced %}<span class="badge bg-warning inst-flag">{{ folder.unpriced }} not priced</span>{% endif %}
+  </a>
+  {% empty %}
+  <div class="card w-100"><div class="card-body text-center text-muted py-5">
+    <i class="fa-solid fa-helmet-safety fs-3 d-block mb-2 opacity-50"></i>
+    {% if q %}Nothing matches “{{ q }}”.{% else %}No site has been dispatched yet. When production dispatches one and names the installer, their folder appears here.{% endif %}
+  </div></div>
+  {% endfor %}
+</div>
+{% endblock %}

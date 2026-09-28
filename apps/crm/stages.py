@@ -1,4 +1,4 @@
-"""The eight-stage journey every lead follows, and who may act at each stage."""
+"""The nine-stage journey every lead follows, and who may act at each stage."""
 
 from apps.accounts.models import Role
 
@@ -11,6 +11,7 @@ DECISION = "decision"
 CAF = "caf"
 PRODUCTION = "production"
 FABRICATION = "fabrication"
+INSTALLATION = "installation"
 WARRANTY = "warranty"
 
 STAGE_DEFS = [
@@ -21,6 +22,7 @@ STAGE_DEFS = [
     (CAF, "CAF & Final Measurement", (Role.MEASUREMENT,)),
     (PRODUCTION, "Production", (Role.PRODUCTION,)),
     (FABRICATION, "Site Fabrication Status", (Role.PRODUCTION,)),
+    (INSTALLATION, "Installation", (Role.ACCOUNTS,)),
     (WARRANTY, "Warranty & Handover", (Role.FIELD_MANAGER,)),
 ]
 
@@ -35,7 +37,7 @@ DEFAULT_ROLE_STAGES = {
     Role.SUPER_ADMIN: ALL_STAGE_KEYS,
     Role.MEASUREMENT: [ROUGH, CAF, PRODUCTION],
     Role.QUOTATION: [QUOTATION],
-    Role.ACCOUNTS: [DECISION],
+    Role.ACCOUNTS: [DECISION, INSTALLATION],
     Role.PRODUCTION: [PRODUCTION, FABRICATION],
     Role.FIELD_MANAGER: [WARRANTY],
 }
@@ -70,6 +72,11 @@ def _is_done(lead, key):
     if key == PRODUCTION:
         return lead.production_approved_at is not None
     if key == FABRICATION:
+        return lead.dispatched_at is not None
+    if key == INSTALLATION:
+        # The installer is named at dispatch, so this is settled the moment the site
+        # goes out. Paying them carries on beside the job and never holds it up —
+        # handover must not wait on an outsourced team's invoice.
         return lead.dispatched_at is not None
     if key == WARRANTY:
         return lead.completed_at is not None
