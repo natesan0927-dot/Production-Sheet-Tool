@@ -54,3 +54,12 @@ def rupees_short(value):
     else:
         text = _group_indian(str(int(amount)))
     return f"{sign}₹{text}"
+
+
+@register.filter
+def absval(value):
+    """The size of a change without its sign, so an arrow can carry the direction."""
+    try:
+        return abs(float(value))
+    except (TypeError, ValueError):
+        return value

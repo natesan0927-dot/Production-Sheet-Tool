@@ -22,7 +22,7 @@ carry through quotation, order, production, dispatch and warranty.
 | Accounts Department | Accounts, Installation | Ledgers, invoice charges, statements; paying the outsourced installers |
 | Production Staff | Production, Site Fabrication Status | Production, Site Fabrication Status |
 | Field Manager | Warranty & Handover | Warranty & Handover |
-| Super Admin | every tab above, plus Employees and Summary for the Day | every stage, across all sales executives |
+| Super Admin | every tab above, plus Employees, Summary for the Day and Summary for the Month | every stage, across all sales executives |
 
 ## Quick start (Windows / PowerShell)
 

@@ -80,6 +80,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.crm.context_processors.navigation",
                 "apps.crm.context_processors.storage",
+                "apps.crm.context_processors.month_end",
             ],
         },
     },

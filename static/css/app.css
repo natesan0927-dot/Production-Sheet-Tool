@@ -1452,3 +1452,42 @@ body.tw-tour-on #tw-sidebar { z-index: 1086; }
 .inst-figures span { font-weight: 700; font-size: .92rem; color: var(--tw-ink); }
 .inst-owed { color: var(--tw-rose) !important; }
 .inst-flag { position: absolute; top: .9rem; right: .9rem; }
+
+/* --------------------------------------------------- summary for the month */
+.mo-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: .75rem; }
+.mo-delta { font-weight: 700; font-size: .72rem; margin-left: .25rem; white-space: nowrap; }
+.mo-delta.up { color: var(--tw-emerald); }
+.mo-delta.down { color: var(--tw-rose); }
+
+.mo-chart { position: relative; height: 270px; }
+.mo-chart-sm { height: 230px; }
+
+.mo-insights { list-style: none; margin: 0; padding: .35rem 0; }
+.mo-insights li { display: flex; gap: .8rem; align-items: flex-start; padding: .55rem 1.2rem; line-height: 1.4; }
+.mo-insights li + li { border-top: 1px solid var(--tw-border); }
+.mo-insights i { width: 1.1rem; text-align: center; margin-top: .2rem; flex: none; }
+.mo-insights .tone-good i { color: var(--tw-emerald); }
+.mo-insights .tone-warn i { color: #F59E0B; }
+.mo-insights .tone-info i { color: var(--tw-blue-400); }
+
+.mo-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.mo-facts > div { padding: .85rem 1.2rem; border-right: 1px solid var(--tw-border); border-bottom: 1px solid var(--tw-border); }
+.mo-facts small { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--tw-blue-400); }
+.mo-facts strong { display: block; font-size: 1.15rem; color: var(--tw-ink); }
+.mo-facts em { display: block; font-style: normal; font-size: .76rem; color: var(--tw-blue-400); }
+
+@media (max-width: 991.98px) { .mo-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 575.98px) { .mo-kpis { grid-template-columns: repeat(2, 1fr); } .mo-chart { height: 240px; } }
+
+/* On paper: no menus, no buttons, and ink on white rather than a night sky. */
+@media print {
+  #tw-sidebar, #tw-sidebar-toggle, #tw-sidebar-backdrop, .tw-topbar, .no-print, .toast-container { display: none !important; }
+  body, .tw-page { background: #fff !important; color: #111 !important; }
+  .tw-page { margin: 0 !important; padding: 0 !important; }
+  .card { break-inside: avoid; box-shadow: none !important; background: #fff !important; border: 1px solid #ccd !important; }
+  h1, h2, h3, h4, h5, h6, .tw-page-header, .tw-page-header *, .card *, .pipe-kpi *, .mo-facts * { color: #111 !important; -webkit-text-fill-color: #111 !important; }
+  .tw-eyebrow { color: #8a6a0a !important; -webkit-text-fill-color: #8a6a0a !important; }
+  .table > :not(caption) > * > * { background: transparent !important; }
+  .pipe-kpi { background: #fff !important; border: 1px solid #ccd !important; }
+  .mo-chart { height: 230px; }
+}

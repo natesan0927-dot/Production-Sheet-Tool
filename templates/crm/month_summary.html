@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% load money static %}
+{% block title %}Summary for the Month — {{ m.title }}{% endblock %}
+
+{% block content %}
+<div class="tw-page-header mb-3">
+  <div>
+    <div class="tw-eyebrow">Administration</div>
+    <h4 class="mb-0">Summary for the Month — {{ m.title }}</h4>
+    <div class="text-muted small">
+      {% if m.is_final %}<span class="badge bg-success">Final</span> The month is closed; these figures will not move except for late payments.
+      {% elif m.days_left == 0 %}<span class="badge bg-warning">Last day</span> Final figures tonight.
+      {% else %}<span class="badge bg-warning">In progress</span> {{ m.days_left }} day{{ m.days_left|pluralize }} left. Final figures on {{ m.last|date:"d M" }}.{% endif %}
+    </div>
+  </div>
+  <form method="get" class="d-flex align-items-end gap-2 no-print">
+    <a class="btn btn-sm btn-outline-secondary" href="?month={{ m.previous|date:'Y-m' }}" title="Previous month"><i class="fa-solid fa-chevron-left"></i></a>
+    <select name="month" class="form-select form-select-sm" style="min-width:150px" onchange="this.form.submit()" aria-label="Month">
+      {% for month in months %}<option value="{{ month|date:'Y-m' }}" {% if month == m.first %}selected{% endif %}>{{ month|date:"F Y" }}</option>{% endfor %}
+    </select>
+    {% if m.following %}<a class="btn btn-sm btn-outline-secondary" href="?month={{ m.following|date:'Y-m' }}" title="Next month"><i class="fa-solid fa-chevron-right"></i></a>{% endif %}
+    <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.print()"><i class="fa-solid fa-print me-1"></i>Print</button>
+  </form>
+</div>
+
+{# ------------------------------------------------------------- the five numbers #}
+{% with h=m.headline %}
+<div class="mo-kpis mb-3">
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-value">{{ h.orders_value|rupees_short }}</div>
+    <div class="pipe-kpi-label">orders taken · {{ h.orders_count }} order{{ h.orders_count|pluralize }}
+      {% if h.change_orders is not None %}<span class="mo-delta {% if h.change_orders >= 0 %}up{% else %}down{% endif %}">{% if h.change_orders >= 0 %}▲{% else %}▼{% endif %} {{ h.change_orders|absval|floatformat:0 }}%</span>{% endif %}</div>
+  </div>
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-value">{{ h.invoiced_value|rupees_short }}</div>
+    <div class="pipe-kpi-label">invoiced · {{ h.invoiced_count }} invoice{{ h.invoiced_count|pluralize }}
+      {% if h.change_invoiced is not None %}<span class="mo-delta {% if h.change_invoiced >= 0 %}up{% else %}down{% endif %}">{% if h.change_invoiced >= 0 %}▲{% else %}▼{% endif %} {{ h.change_invoiced|absval|floatformat:0 }}%</span>{% endif %}</div>
+  </div>
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-value">{{ h.collected|rupees_short }}</div>
+    <div class="pipe-kpi-label">collected{% if h.collected_share is not None %} · {{ h.collected_share|floatformat:0 }}% of invoiced{% endif %}
+      {% if h.change_collected is not None %}<span class="mo-delta {% if h.change_collected >= 0 %}up{% else %}down{% endif %}">{% if h.change_collected >= 0 %}▲{% else %}▼{% endif %} {{ h.change_collected|absval|floatformat:0 }}%</span>{% endif %}</div>
+  </div>
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-value">{{ h.due_today|rupees_short }}</div>
+    <div class="pipe-kpi-label">still to collect from this month's invoices{% if m.is_final %} · {{ h.due_at_month_end|rupees_short }} at month end{% endif %}</div>
+  </div>
+  <div class="pipe-kpi">
+    <div class="pipe-kpi-value">{% if h.win_rate is None %}—{% else %}{{ h.win_rate|floatformat:0 }}%{% endif %}</div>
+    <div class="pipe-kpi-label">win rate · {{ h.orders_count }} won, {{ h.lost_count }} lost</div>
+  </div>
+</div>
+{% endwith %}
+
+{# ------------------------------------------------------------- what stands out #}
+<div class="card mb-3">
+  <div class="card-header"><i class="fa-solid fa-lightbulb me-2"></i>What stands out</div>
+  <ul class="mo-insights">
+    {% for point in m.insights %}
+    <li class="tone-{{ point.tone }}"><i class="fa-solid {{ point.icon }}"></i><span>{{ point.text }}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+
+{# ------------------------------------------------------------- executives #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-user-tie me-2"></i>Orders taken by each sales executive</div>
+      <div class="card-body">
+        {% if m.charts.executives.labels %}<div class="mo-chart"><canvas id="chart-executives" aria-label="Orders by sales executive against target" role="img"></canvas></div>
+        {% else %}<div class="text-muted text-center py-5">No orders taken yet this month.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-table me-2"></i>Each person's month</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Executive</th><th class="text-end">Orders</th><th class="text-end">Value</th><th class="text-end tw-col-optional">Share</th>
+            <th class="text-end tw-col-optional">Target</th><th class="text-end">Reached</th><th class="text-end tw-col-optional">Leads in</th><th class="text-end tw-col-optional">Overdue</th>
+          </tr></thead>
+          <tbody>
+            {% for row in m.executives %}
+            <tr>
+              <td><strong>{{ row.user.display_name }}</strong></td>
+              <td class="text-end">{{ row.orders }}</td>
+              <td class="text-end">{{ row.value|rupees_short }}</td>
+              <td class="text-end tw-col-optional">{% if row.share is not None %}{{ row.share|floatformat:0 }}%{% else %}—{% endif %}</td>
+              <td class="text-end tw-col-optional">{% if row.target %}{{ row.target|rupees_short }}{% else %}—{% endif %}</td>
+              <td class="text-end">{% if row.reached is not None %}<span class="badge {% if row.reached >= 100 %}bg-success{% elif row.reached >= 60 %}bg-warning{% else %}bg-danger{% endif %}">{{ row.reached|floatformat:0 }}%</span>{% else %}—{% endif %}</td>
+              <td class="text-end tw-col-optional">{{ row.created }}</td>
+              <td class="text-end tw-col-optional">{% if row.overdue %}<span class="badge bg-danger">{{ row.overdue }}</span>{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center text-muted py-4">Nothing yet.</td></tr>
+            {% endfor %}
+          </tbody>
+          {% if m.executives %}
+          <tfoot class="table-light"><tr>
+            <th>Total</th><th class="text-end">{{ m.headline.orders_count }}</th><th class="text-end">{{ m.headline.orders_value|rupees_short }}</th><th class="tw-col-optional"></th>
+            <th class="text-end tw-col-optional">{% if m.total_target %}{{ m.total_target|rupees_short }}{% endif %}</th>
+            <th class="text-end">{% if m.team_reached is not None %}{{ m.team_reached|floatformat:0 }}%{% endif %}</th><th class="tw-col-optional"></th><th class="tw-col-optional"></th>
+          </tr></tfoot>
+          {% endif %}
+        </table>
+      </div>
+      <div class="card-footer small text-muted">An order is credited to whoever confirmed it, even if the lead has been reassigned since. Targets are set under Sales Target.</div>
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------- trend #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-chart-column me-2"></i>The last six months</div>
+      <div class="card-body"><div class="mo-chart"><canvas id="chart-trend" aria-label="Orders, invoiced and collected over six months" role="img"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-scale-balanced me-2"></i>Against the past</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Month</th><th class="text-end">Orders</th><th class="text-end">Invoiced</th><th class="text-end">Collected</th></tr></thead>
+          <tbody>
+            {% for month in m.trend reversed %}
+            <tr{% if month.first == m.first %} class="table-warning"{% endif %}>
+              <td>{{ month.label }}</td>
+              <td class="text-end">{{ month.orders_value|rupees_short }}<span class="text-muted small"> · {{ month.orders_count }}</span></td>
+              <td class="text-end">{{ month.invoiced_value|rupees_short }}</td>
+              <td class="text-end">{{ month.collected|rupees_short }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer small text-muted">
+        {% if m.headline.change_year is not None %}Orders are {% if m.headline.change_year >= 0 %}up{% else %}down{% endif %} {{ m.headline.change_year|absval|floatformat:0 }}% on {{ m.first|date:"F" }} last year.
+        {% else %}There is no {{ m.first|date:"F" }} from last year to compare with yet.{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------- lead sources #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-chart-pie me-2"></i>Which source won the orders</div>
+      <div class="card-body">
+        {% if m.charts.sources.labels %}<div class="mo-chart"><canvas id="chart-sources" aria-label="Order value by lead source" role="img"></canvas></div>
+        {% else %}<div class="text-muted text-center py-5">No orders yet, so no source has won anything.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-bullhorn me-2"></i>What each source is worth</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Source</th><th class="text-end">Leads</th><th class="text-end">Orders</th><th class="text-end">Value</th>
+            <th class="text-end tw-col-optional">Spent</th><th class="text-end tw-col-optional">Per order</th>
+            <th class="text-end" title="Rupees of orders won for every rupee spent">Return</th>
+          </tr></thead>
+          <tbody>
+            {% for row in m.sources %}
+            <tr>
+              <td><strong>{{ row.label }}</strong></td>
+              <td class="text-end">{{ row.leads }}</td>
+              <td class="text-end">{{ row.orders }}</td>
+              <td class="text-end">{{ row.value|rupees_short }}{% if row.share is not None and row.value %}<span class="text-muted small"> · {{ row.share|floatformat:0 }}%</span>{% endif %}</td>
+              <td class="text-end tw-col-optional">{% if row.spend %}{{ row.spend|rupees_short }}{% else %}—{% endif %}</td>
+              <td class="text-end tw-col-optional">{% if row.per_order %}{{ row.per_order|rupees_short }}{% else %}—{% endif %}</td>
+              <td class="text-end">{% if row.return is not None %}<span class="badge {% if row.return >= 10 %}bg-success{% elif row.return >= 1 %}bg-warning{% else %}bg-danger{% endif %}" title="₹{{ row.return|floatformat:1 }} of orders for every ₹1 spent">₹{{ row.return|floatformat:1 }}</span>{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No leads yet this month.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer no-print">
+        <a class="small fw-semibold" data-bs-toggle="collapse" href="#spend-form" role="button" aria-expanded="false" aria-controls="spend-form">
+          <i class="fa-solid fa-pen me-1"></i>{% if m.total_spend %}Change what was spent{% else %}Enter what was spent on each source{% endif %}
+        </a>
+        <span class="text-muted small ms-2">{% if m.total_spend %}{{ m.total_spend|rupees_short }} in all.{% else %}Without it the table can say what won, not what was worth the money.{% endif %}</span>
+        <div class="collapse mt-3" id="spend-form">
+          <form method="post" class="row g-2">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ m.first|date:'Y-m' }}">
+            {% for key, label, value in spend_rows %}
+            <div class="col-6 col-md-4">
+              <label class="form-label small mb-0" for="spend_{{ key }}">{{ label }}</label>
+              <input type="number" min="0" step="1" inputmode="numeric" id="spend_{{ key }}" name="spend_{{ key }}" value="{{ value|floatformat:0|default:'' }}" class="form-control form-control-sm" placeholder="₹ spent">
+            </div>
+            {% endfor %}
+            <div class="col-12"><button class="btn btn-sm btn-primary">Save</button> <span class="text-muted small ms-2">Leave a box empty for nothing spent.</span></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------- receivables #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-hourglass-half me-2"></i>Money owed today, by age</div>
+      <div class="card-body">
+        {% if m.receivables.total %}<div class="mo-chart mo-chart-sm"><canvas id="chart-aging" aria-label="Outstanding by how long unpaid" role="img"></canvas></div>
+        {% else %}<div class="text-muted text-center py-5"><i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Nothing is outstanding.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between"><span><i class="fa-solid fa-file-invoice-dollar me-2"></i>Outstanding: {{ m.receivables.total|rupees_short }}</span>
+        <a class="small no-print" href="{% url 'crm:queue_accounts' %}">Open Accounts</a></div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Unpaid for</th><th class="text-end">Invoices</th><th class="text-end">Amount</th></tr></thead>
+          <tbody>
+            {% for band in m.receivables.bands %}
+            <tr><td>{{ band.label }}</td><td class="text-end">{{ band.count }}</td><td class="text-end">{{ band.amount|rupees_short }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if m.receivables.debtors %}
+        <table class="table table-sm align-middle mb-0 border-top">
+          <thead class="table-light"><tr><th>Biggest balances</th><th class="text-end">Unpaid for</th><th class="text-end">Owes</th></tr></thead>
+          <tbody>
+            {% for lead, amount, days in m.receivables.debtors %}
+            <tr><td><a href="{% url 'crm:ledger' lead.pk %}">{{ lead.display_name }}</a></td><td class="text-end">{{ days }} day{{ days|pluralize }}</td><td class="text-end">{{ amount|rupees_short }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------- pace and operations #}
+{% with s=m.speed o=m.operations %}
+<div class="card mb-3">
+  <div class="card-header"><i class="fa-solid fa-gauge-high me-2"></i>Pace and operations</div>
+  <div class="mo-facts">
+    <div><small>Enquiry to order</small><strong>{% if s.cycle is not None %}{{ s.cycle|floatformat:"-1" }} days{% else %}—{% endif %}</strong></div>
+    <div><small>Measurement to quotation</small><strong>{% if s.quotation is not None %}{{ s.quotation|floatformat:"-1" }} days{% else %}—{% endif %}</strong></div>
+    <div><small>Order to dispatch</small><strong>{% if s.production is not None %}{{ s.production|floatformat:"-1" }} days{% else %}—{% endif %}</strong></div>
+    <div><small>Sites dispatched</small><strong>{{ o.dispatched }}</strong>{% if o.dispatched_sqft %}<em>{{ o.dispatched_sqft|floatformat:0 }} sq ft</em>{% endif %}</div>
+    <div><small>Projects completed</small><strong>{{ o.completed }}</strong></div>
+    <div><small>Extras billed</small><strong>{{ m.headline.extras|rupees_short }}</strong><em>transport and the like</em></div>
+    <div><small>Service requests</small><strong>{{ o.complaints_raised }} raised</strong><em>{{ o.complaints_resolved }} closed · {{ o.complaints_open }} open now</em></div>
+    <div><small>Paid to installers</small><strong>{{ o.installer_paid|rupees_short }}</strong><em>{{ o.installer_owed|rupees_short }} still owed</em></div>
+    <div><small>Follow-ups</small><strong>{{ o.followups_made }} set</strong><em>{{ o.followups_worked }} worked · {{ o.followups_rescheduled }} moved</em></div>
+    <div><small>Overdue follow-ups now</small><strong class="{% if o.overdue_now %}text-danger{% endif %}">{{ o.overdue_now }}</strong></div>
+  </div>
+</div>
+{% endwith %}
+
+{# ------------------------------------------------------------- lost #}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="fa-solid fa-circle-xmark me-2"></i>What got away: {{ m.lost.count }} lead{{ m.lost.count|pluralize }}, {{ m.lost.value|rupees_short }}{% if m.lost.on_price %} · {{ m.lost.on_price }} on price{% endif %}</span>
+    <span class="text-muted small">{{ m.lost.open_count }} open lead{{ m.lost.open_count|pluralize }} worth {{ m.lost.pipeline_value|rupees_short }} are still in play</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light"><tr><th>Customer</th><th class="tw-col-optional">Sales executive</th><th class="tw-col-optional">Source</th><th class="text-end">Expected</th><th class="text-end tw-col-optional">Went elsewhere for</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for lead in m.lost.biggest %}
+        <tr>
+          <td><a href="{{ lead.get_absolute_url }}"><strong>{{ lead.display_name }}</strong></a></td>
+          <td class="tw-col-optional">{{ lead.assigned_to }}</td>
+          <td class="tw-col-optional">{{ lead.get_lead_source_display }}</td>
+          <td class="text-end">{{ lead.expected_value|rupees_short }}</td>
+          <td class="text-end tw-col-optional">{% if lead.lost_price_elsewhere %}{{ lead.lost_price_elsewhere|rupees_short }}{% else %}—{% endif %}</td>
+          <td class="small">{{ lead.lost_reason|truncatewords:14|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Nothing was lost this month.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ m.charts|json_script:"mo-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'js/month.js' %}?v={{ css_version }}"></script>
+{% endblock %}

@@ -298,6 +298,13 @@ PAGE_NOTES = {
         "for its ledger, where you post payments and add transport or other "
         "charges to the invoice.",
     ),
+    "crm:month_summary": (
+        "Summary for the Month",
+        "The month in numbers: orders by each sales executive against their target, how it "
+        "compares with the last six months, what was invoiced and what is still to collect, "
+        "and which lead sources actually paid off. It is ready on the last day of every month, "
+        "and any earlier month can be opened to compare.",
+    ),
     "crm:installation_list": (
         "Installation",
         "Installation is outsourced, so each installer has a folder named after them holding the "

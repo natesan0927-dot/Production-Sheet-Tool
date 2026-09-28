@@ -577,6 +577,30 @@ class InstallerPayment(models.Model):
         return f"{self.lead.installation_person} — {self.amount}"
 
 
+class MarketingSpend(models.Model):
+    """What was spent to bring in leads from one source in one month.
+
+    Entered by the Super Admin on the monthly summary. Without it the report can
+    say which source brings the most orders; with it, it can say which is worth
+    the money.
+    """
+
+    month = models.DateField(help_text="The 1st of the month.")
+    source = models.CharField(max_length=20, choices=Lead.LEAD_SOURCES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        ordering = ["-month", "source"]
+        unique_together = [("month", "source")]
+
+    def __str__(self):
+        return f"{self.get_source_display()} {self.month:%b %Y}: {self.amount}"
+
+    def save(self, *args, **kwargs):
+        self.month = self.month.replace(day=1)
+        super().save(*args, **kwargs)
+
+
 class Task(models.Model):
     """A to-do. Anyone can assign one to anyone; it lands on that person's list."""
 

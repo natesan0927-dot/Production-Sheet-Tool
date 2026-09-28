@@ -75,6 +75,7 @@ urlpatterns = [
     path("settings/stage-access/<int:pk>/", views.stage_access_edit, name="stage_access_edit"),
     path("notifications/", views.notifications, name="notifications"),
     path("summary/", views.day_summary, name="day_summary"),
+    path("summary/month/", views.month_summary, name="month_summary"),
     path("summary/<int:pk>/", views.day_summary_person, name="day_summary_person"),
     path("guide/", views.guide, name="guide"),
     path("guide/seen/", views.guide_seen, name="guide_seen"),

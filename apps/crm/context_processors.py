@@ -1,11 +1,14 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 
-from apps.accounts.models import Role
+from apps.accounts.models import Role, User
 
 from . import guide as guide_content
-from . import storage_usage
+from . import monthly, storage_usage
 from .models import FollowUp, Lead, Notification, ServiceComplaint, Task
 
 SALES_TABS = [
@@ -45,6 +48,7 @@ FIELD_MANAGER_TABS = [
 
 ADMIN_TABS = [
     ("Summary for the Day", "crm:day_summary", "fa-calendar-day", None),
+    ("Summary for the Month", "crm:month_summary", "fa-calendar-days", None),
     ("Employees", "accounts:employee_list", "fa-users", None),
     ("Stage Access", "crm:stage_access_list", "fa-user-shield", None),
 ]
@@ -242,6 +246,30 @@ def storage(request):
     if not (user and user.is_authenticated and user.is_super_admin):
         return {}
     return {"storage_usage": storage_usage.current()}
+
+
+def month_end(request):
+    """On the last day of the month, tell the Super Admin the summary is ready. Once."""
+    user = getattr(request, "user", None)
+    if not (user and user.is_authenticated and user.is_super_admin):
+        return {}
+    today = timezone.localdate()
+    if not monthly.is_last_day(today):
+        return {}
+
+    from django.core.cache import cache
+
+    key = f"month-summary-reminded-{today:%Y-%m}"
+    if not cache.get(key):
+        message = f"Summary for the Month — {today:%B %Y} is ready under Administration."
+        # The message names the month, so finding it lately is enough to know it went out —
+        # even after a restart has emptied the cache.
+        recently = timezone.now() - timedelta(days=3)
+        already = Notification.objects.filter(message=message, created_at__gte=recently).values_list("user_id", flat=True)
+        admins = User.objects.filter(role=Role.SUPER_ADMIN, is_active=True).exclude(pk__in=list(already))
+        Notification.objects.bulk_create([Notification(user=admin, message=message) for admin in admins])
+        cache.set(key, True, 60 * 60 * 24)
+    return {}
 
 
 def _take_popups(user):

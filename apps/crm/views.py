@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role, User
 
-from . import aging, daysummary
+from . import aging, daysummary, monthly
 from . import guide as guide_content
 from . import stages as stage_flow
 from .context_processors import ALL_QUEUE_KEYS, _pending_counts, navigation
@@ -1885,6 +1885,37 @@ def day_summary(request):
             "day": day,
             "is_today": day == timezone.localdate(),
             "rows": daysummary.counts_for(people, day),
+        },
+    )
+
+
+@role_required(Role.SUPER_ADMIN)
+def month_summary(request):
+    """The month in numbers, for any month. Also where marketing spend is entered."""
+    if request.method == "POST":
+        first = monthly.parse_month(request.POST.get("month"))
+        monthly.save_spend(first, request.POST)
+        messages.success(request, f"What was spent in {first:%B %Y} is saved.")
+        return redirect(f"{reverse('crm:month_summary')}?month={first:%Y-%m}")
+
+    first = monthly.parse_month(request.GET.get("month"))
+    data = monthly.report(first)
+
+    # Every month from the first lead to this one, newest first, for the picker.
+    months, cursor, this_month = [], monthly.first_month_with_data(), monthly.month_start(timezone.localdate())
+    while cursor <= this_month:
+        months.append(cursor)
+        cursor = monthly.next_month(cursor)
+    months.reverse()
+
+    spent = {row["key"]: row["spend"] for row in data["sources"] if row["spend"]}
+    return render(
+        request,
+        "crm/month_summary.html",
+        {
+            "m": data,
+            "months": months,
+            "spend_rows": [(key, label, spent.get(key, "")) for key, label in Lead.LEAD_SOURCES],
         },
     )
 
