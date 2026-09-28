@@ -8,9 +8,20 @@
     <h4 class="mb-1">Accounts</h4>
     <p class="text-muted small mb-3">Confirmed orders. Open one to post payments against its ledger. <strong>Overdue By</strong> counts the days since the invoice date on anything still unpaid.</p>
   </div>
-  <a href="{% url 'crm:outstanding_pdf' %}" target="_blank" rel="noopener" class="btn btn-outline-primary">
-    <i class="fa-solid fa-file-pdf me-1"></i>Outstanding statement
-  </a>
+  <div class="btn-group">
+    <a href="{% url 'crm:outstanding_pdf' %}{% if range_key != 'all' %}?range={{ range_key }}{% endif %}" target="_blank" rel="noopener" class="btn btn-outline-primary">
+      <i class="fa-solid fa-file-pdf me-1"></i>Outstanding statement
+    </a>
+    <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+      <span class="visually-hidden">Choose how overdue</span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><h6 class="dropdown-header">Statement of invoices overdue by</h6></li>
+      {% for key, label in ranges %}
+      <li><a class="dropdown-item" target="_blank" rel="noopener" href="{% url 'crm:outstanding_pdf' %}{% if key != 'all' %}?range={{ key }}{% endif %}">{{ label }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
 </div>
 
 <div class="row g-3 mb-3">
@@ -44,6 +55,18 @@
   </div>
 </div>
 
+<form method="get" class="d-flex gap-2 mb-3 flex-wrap">
+  <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="max-width:300px"
+         placeholder="Search a customer — name, number, invoice" aria-label="Search accounts">
+  <select name="range" class="form-select form-select-sm" style="max-width:220px" onchange="this.form.submit()" aria-label="Overdue by">
+    {% for key, label in ranges %}
+      <option value="{{ key }}" {% if range_key == key %}selected{% endif %}>{% if key == 'all' %}Any age{% else %}Overdue {{ label|lower }}{% endif %}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-sm btn-outline-secondary">Search</button>
+  {% if q or range_key != 'all' %}<a href="{% url 'crm:queue_accounts' %}" class="btn btn-sm btn-link">Clear</a>{% endif %}
+</form>
+
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
@@ -57,7 +80,7 @@
         {% for lead in leads %}
         <tr onclick="window.location='{% url 'crm:ledger' lead.pk %}'" style="cursor:pointer">
           <td class="text-muted">{{ forloop.counter }}</td>
-          <td><strong>{{ lead.customer_name }}</strong></td>
+          <td><strong>{{ lead.display_name }}</strong></td>
           <td class="tw-col-optional">{{ lead.quotation_number|default:"—" }}</td>
           <td>
             {{ lead.invoice_total|rupees }}
@@ -79,7 +102,7 @@
           <td class="tw-col-optional">{{ lead.assigned_to }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="text-center text-muted py-4">No confirmed orders yet.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">{% if q or range_key != 'all' %}Nothing matches that.{% else %}No confirmed orders yet.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

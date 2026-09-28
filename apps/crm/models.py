@@ -30,6 +30,12 @@ class Lead(models.Model):
         READY = "ready", "Ready for Dispatch"
         DISPATCHED = "dispatched", "Dispatched"
 
+    class Salutation(models.TextChoices):
+        MR = "Mr.", "Mr."
+        MRS = "Mrs.", "Mrs."
+        MS = "Ms.", "Ms."
+        FIRM = "M/s", "M/s (a company)"
+
     LEAD_SOURCES = [
         ("walk_in", "Walk-in"),
         ("reference", "Reference"),
@@ -54,6 +60,7 @@ class Lead(models.Model):
 
     # --- Stage 1: lead created -------------------------------------------
     lead_number = models.CharField(max_length=20, unique=True, editable=False)
+    salutation = models.CharField("Title", max_length=6, choices=Salutation.choices, blank=True)
     customer_name = models.CharField(max_length=150)
     phone = models.CharField("Customer number", max_length=20)
     project_name = models.CharField(max_length=150, blank=True)
@@ -185,6 +192,11 @@ class Lead(models.Model):
 
     def get_absolute_url(self):
         return reverse("crm:lead_detail", args=[self.pk])
+
+    @property
+    def display_name(self):
+        """How the customer is addressed on paper: "Mr. Ravi Shankar"."""
+        return f"{self.salutation} {self.customer_name}".strip()
 
     # --- derived values -----------------------------------------------------
     @property

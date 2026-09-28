@@ -98,13 +98,14 @@
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>
-          <i class="fa-solid fa-phone-volume me-2"></i>Lead follow-up
+          <i class="fa-solid fa-phone-volume me-2"></i>Lead follow-up reminders
+          <span class="text-muted small ms-1">· overdue and due today</span>
           {% if overdue_by_person %}<span class="text-muted small ms-1">· your own leads</span>{% endif %}
         </span>
-        <a href="{% url 'crm:followups' %}" class="small">View all</a>
+        <a href="{% url 'crm:followups' %}" class="small">All follow-ups</a>
       </div>
       <div class="list-group list-group-flush">
-        {# Everything still open, whatever its date — it stays here until marked done. #}
+        {# Overdue ones nobody has updated, plus today's. Later ones wait on the Follow-up tab. #}
         {% for followup in open_followups %}
           <a href="{{ followup.lead.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
             <span>
@@ -120,7 +121,7 @@
           </a>
         {% empty %}
           <div class="text-center text-muted py-5">
-            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>No follow-ups pending.
+            <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Nothing overdue and nothing due today.
           </div>
         {% endfor %}
       </div>

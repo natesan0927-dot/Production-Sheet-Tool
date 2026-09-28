@@ -101,6 +101,7 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Lead
         fields = [
+            "salutation",
             "customer_name",
             "phone",
             "project_name",
@@ -119,6 +120,10 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["assigned_to"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        # Statements and certificates address the customer as Mr., Mrs. and so on,
+        # so it is asked for once, here, and not guessed from a name.
+        self.fields["salutation"].required = True
+        self.fields["salutation"].choices = [("", "Choose…")] + list(Lead.Salutation.choices)
         self.fields["lead_source_other"].widget.attrs["placeholder"] = "Where did this lead come from?"
         self.fields["phone"].widget.attrs.update({"inputmode": "tel", "placeholder": "10-digit mobile number"})
         self.fields["project_name"].widget.attrs["placeholder"] = "Optional — printed on the CAF"

@@ -20,6 +20,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from . import aging
 from .templatetags.money import _group_indian
 
 NAVY = colors.HexColor("#192265")
@@ -149,7 +150,7 @@ def render_customer_ledger(lead, rows):
     """One customer's account: every charge, every receipt, the balance."""
     style = _styles()
     story = [
-        Paragraph(lead.customer_name, style["title"]),
+        Paragraph(lead.display_name, style["title"]),
         Paragraph(lead.site_location, style["sub"]),
         Spacer(1, 7 * mm),
     ]
@@ -224,17 +225,26 @@ def render_customer_ledger(lead, rows):
     return _respond(buffer, doc, story, filename)
 
 
-def render_outstanding_statement(leads):
-    """Everything still owed, oldest debt first, with the totals underneath."""
+def render_outstanding_statement(leads, range_key="all"):
+    """Everything still owed, oldest debt first, with the totals underneath.
+
+    `range_key` narrows it to invoices of a certain age. The whole list also
+    carries an ageing summary; a single range does not, since it is one row of it.
+    """
     style = _styles()
+    range_key = aging.clean_key(range_key)
+    everyone = list(leads)
     outstanding = sorted(
-        (lead for lead in leads if lead.is_outstanding),
+        aging.only_in_range(everyone, range_key),
         key=lambda lead: lead.overdue_days,
         reverse=True,
     )
 
+    title = "Outstanding Statement"
+    if range_key != "all":
+        title += f" — overdue {aging.label(range_key).lower()}"
     story = [
-        Paragraph("Outstanding Statement", style["title"]),
+        Paragraph(title, style["title"]),
         Paragraph("Invoiced orders with money still due, longest overdue first.", style["sub"]),
         Spacer(1, 7 * mm),
     ]
@@ -255,7 +265,7 @@ def render_outstanding_statement(leads):
         data.append(
             [
                 Paragraph(str(index), style["cell"]),
-                Paragraph(f"{lead.customer_name}<br/><font color='#6b7280' size='7'>{lead.site_location}</font>", style["cell"]),
+                Paragraph(f"{lead.display_name}<br/><font color='#6b7280' size='7'>{lead.site_location}</font>", style["cell"]),
                 Paragraph(lead.invoice_number or "—", style["cell"]),
                 Paragraph(f"{lead.invoice_date:%d %b %y}" if lead.invoice_date else "—", style["cell"]),
                 Paragraph(money(lead.invoice_total, prefix=False), style["cellr"]),
@@ -305,7 +315,15 @@ def render_outstanding_statement(leads):
     )
     story.append(summary)
 
-    filename = f"Outstanding-{timezone.localdate():%Y-%m-%d}.pdf"
+    if range_key == "all":
+        story += [Spacer(1, 8 * mm), Paragraph("<b>Ageing summary</b>", style["cell"]), Spacer(1, 2 * mm)]
+        rows = [[Paragraph("Overdue by", style["head"]), Paragraph("Customers", style["headr"]), Paragraph("Amount due", style["headr"])]]
+        for name, count, amount in aging.by_band(everyone):
+            rows.append([Paragraph(name, style["cell"]), Paragraph(str(count), style["cellr"]), Paragraph(money(amount), style["cellr"])])
+        story.append(_grid(rows, [50 * mm, 30 * mm, 45 * mm], style, right_from=1))
+
+    suffix = "" if range_key == "all" else f"-{range_key}-days"
+    filename = f"Outstanding{suffix}-{timezone.localdate():%Y-%m-%d}.pdf"
     buffer, doc = _document(filename)
     return _respond(buffer, doc, story, filename)
 

@@ -5,17 +5,21 @@
 {% block content %}
 <div class="tw-page-header">
   <h4 class="mb-0">Lost Opportunities</h4>
-  {% if user.is_super_admin %}
-  <form method="get">
-    <select name="salesperson" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:240px">
-      <option value="">All sales executives</option>
-      {% for person in salespeople %}
-        <option value="{{ person.pk }}" {% if selected_salesperson == person.pk|stringformat:'s' %}selected{% endif %}>{{ person }}</option>
-      {% endfor %}
-    </select>
-  </form>
-  {% endif %}
 </div>
+<form method="get" class="d-flex gap-2 mb-3 flex-wrap">
+  <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="max-width:300px"
+         placeholder="Search a customer — name, number, place" aria-label="Search lost opportunities">
+  {% if user.is_super_admin %}
+  <select name="salesperson" class="form-select form-select-sm" style="max-width:240px" onchange="this.form.submit()">
+    <option value="">All sales executives</option>
+    {% for person in salespeople %}
+      <option value="{{ person.pk }}" {% if selected_salesperson == person.pk|stringformat:'s' %}selected{% endif %}>{{ person }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+  <button class="btn btn-sm btn-outline-secondary">Search</button>
+  {% if q %}<a href="{% url 'crm:lost_opportunities' %}" class="btn btn-sm btn-link">Clear</a>{% endif %}
+</form>
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
@@ -32,7 +36,7 @@
           <td class="text-muted small tw-col-optional">{{ lead.lost_at|date:"d M Y" }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No lost leads.</td></tr>
+        <tr><td colspan="7" class="text-center text-muted py-4">{% if q %}No lost lead matches “{{ q }}”.{% else %}No lost leads.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

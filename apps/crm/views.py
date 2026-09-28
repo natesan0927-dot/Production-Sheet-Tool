@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role, User
 
-from . import daysummary
+from . import aging, daysummary
 from . import guide as guide_content
 from . import stages as stage_flow
 from .context_processors import ALL_QUEUE_KEYS, _pending_counts, navigation
@@ -133,6 +133,22 @@ def scan_to_pdf(request, pk):
     return response
 
 
+def search_leads(leads, query):
+    """Narrow a list of leads to one customer: by name, number, place or reference."""
+    query = (query or "").strip()
+    if not query:
+        return leads
+    return leads.filter(
+        Q(customer_name__icontains=query)
+        | Q(phone__icontains=query)
+        | Q(site_location__icontains=query)
+        | Q(project_name__icontains=query)
+        | Q(lead_number__icontains=query)
+        | Q(quotation_number__icontains=query)
+        | Q(invoice_number__icontains=query)
+    )
+
+
 def safe_next(request, fallback):
     target = request.POST.get("next") or request.GET.get("next")
     if target and url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}):
@@ -231,6 +247,9 @@ def _sales_dashboard(request, updates):
     if request.user.is_super_admin and not selected_salesperson:
         panel_followups = followups.filter(lead__assigned_to=request.user)
         overdue_by_person = _overdue_by_person(today)
+    # A reminder is for what needs doing now: everything overdue that nobody has
+    # updated, and what is due today. Later ones wait on the Follow-up tab.
+    panel_followups = panel_followups.filter(date__lte=today)
 
     context = {
         "lead_bank": leads.count(),
@@ -239,7 +258,6 @@ def _sales_dashboard(request, updates):
         "won_count": leads.filter(status=Lead.Status.WON).count(),
         "lost_count": leads.filter(status=Lead.Status.LOST).count(),
         "pending_quotations": leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=True).count(),
-        # Every follow-up that is still open, whatever its date, until it is done.
         "open_followups": panel_followups,
         "today": today,
         "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
@@ -272,12 +290,7 @@ def lead_list(request):
     leads = visible_leads(request.user)
     query = request.GET.get("q", "").strip()
     selected_salesperson = request.GET.get("salesperson") or ""
-    if query:
-        leads = leads.filter(
-            Q(customer_name__icontains=query)
-            | Q(phone__icontains=query)
-            | Q(site_location__icontains=query)
-        )
+    leads = search_leads(leads, query)
     if request.user.is_super_admin and selected_salesperson:
         leads = leads.filter(assigned_to_id=selected_salesperson)
 
@@ -1115,6 +1128,8 @@ def targets(request):
 @role_required(Role.SALESPERSON)
 def lost_opportunities(request):
     leads = visible_leads(request.user).filter(status=Lead.Status.LOST)
+    query = request.GET.get("q", "").strip()
+    leads = search_leads(leads, query)
     selected_salesperson = request.GET.get("salesperson") or ""
     if request.user.is_super_admin and selected_salesperson:
         leads = leads.filter(assigned_to_id=selected_salesperson)
@@ -1122,6 +1137,7 @@ def lost_opportunities(request):
         request,
         "crm/lost_list.html",
         {
+            "q": query,
             "leads": leads,
             "salespeople": sales_executives(),
             "selected_salesperson": selected_salesperson,
@@ -1132,7 +1148,8 @@ def lost_opportunities(request):
 @role_required(Role.SALESPERSON)
 def completed_projects(request):
     leads = visible_leads(request.user).filter(completed_at__isnull=False).prefetch_related("payments", "complaints")
-    return render(request, "crm/completed_list.html", {"leads": leads})
+    query = request.GET.get("q", "").strip()
+    return render(request, "crm/completed_list.html", {"leads": search_leads(leads, query), "q": query})
 
 
 # ---------------------------------------------------------------------------
@@ -1218,7 +1235,21 @@ def queue_accounts(request):
         .select_related("assigned_to")
         .prefetch_related("payments", "invoice_charges")
     )
-    return render(request, "crm/queues/accounts.html", {"leads": leads, "totals": _accounts_totals()})
+    query = request.GET.get("q", "").strip()
+    leads = search_leads(leads, query)
+    range_key = aging.clean_key(request.GET.get("range"))
+    shown = aging.only_in_range(leads, range_key) if range_key != "all" else leads
+    return render(
+        request,
+        "crm/queues/accounts.html",
+        {
+            "leads": shown,
+            "totals": _accounts_totals(),
+            "q": query,
+            "range_key": range_key,
+            "ranges": [(key, label) for key, label, *_ in aging.RANGES],
+        },
+    )
 
 
 @role_required(Role.ACCOUNTS)
@@ -1337,7 +1368,7 @@ def outstanding_pdf(request):
         .select_related("assigned_to")
         .prefetch_related("payments", "invoice_charges")
     )
-    return render_outstanding_statement(leads)
+    return render_outstanding_statement(leads, request.GET.get("range"))
 
 
 @role_required(Role.ACCOUNTS)
