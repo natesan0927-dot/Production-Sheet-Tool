@@ -12,8 +12,12 @@ services:
     plan: free
     region: singapore          # closest Render region to India
     buildCommand: "./scripts/render_build.sh"
-    # Two workers, not three: the free instance has 512 MB of memory.
-    startCommand: "gunicorn titans_crm.wsgi:application --workers 2 --timeout 120"
+    # The free instance has 512 MB. Two processes, each running four threads,
+    # serve eight requests at once for barely more memory than two would take
+    # alone, so one person's scan does not make everyone else wait. A process is
+    # replaced after about 500 requests, which stops slow memory growth ever
+    # adding up to the limit.
+    startCommand: "gunicorn titans_crm.wsgi:application --workers 2 --threads 4 --timeout 300 --max-requests 500 --max-requests-jitter 50"
     healthCheckPath: /healthz/   # touches no database, so Neon can sleep
     envVars:
       - key: PYTHON_VERSION

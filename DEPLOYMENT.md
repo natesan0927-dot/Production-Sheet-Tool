@@ -363,7 +363,7 @@ Render dashboard → your service → **Settings → Build & Deploy**:
 | Setting | Set it to |
 | --- | --- |
 | Build Command | `./scripts/render_build.sh` |
-| Start Command | `gunicorn titans_crm.wsgi:application --workers 2 --timeout 120` |
+| Start Command | `gunicorn titans_crm.wsgi:application --workers 2 --threads 4 --timeout 300 --max-requests 500 --max-requests-jitter 50` |
 
 Then add these under **Environment**, which move the data off Render's own disk and database
 (both are wiped or expire on the free plan). Get the values from steps 1 and 2 of this section:
@@ -416,10 +416,30 @@ hitting the same URL every 10 minutes between 8am and 8pm.
 gets close, either Supabase Pro (100 GB, about ₹2,000/month) or move the bucket to Cloudflare R2
 (10 GB free, needs a card) by changing the same four values. Nothing in the app changes either way.
 
-**Backups.** Neon keeps point-in-time recovery for 24 hours on the free plan, which is not a
-backup. Once a month, download one: Neon dashboard → your branch → **Backup**, or run
-`pg_dump "<the DATABASE_URL>" > titans.sql` from any machine with PostgreSQL installed. Keep it
-somewhere that is not Neon.
+**Backups.** Neon keeps a short rewind window on the free plan (a matter of hours), which is
+for mistakes, not for backups. Take a real one **once a week, and before any big change**. On your own
+computer, in the project folder, with the Neon connection string as `DATABASE_URL`:
+
+```powershell
+$env:DATABASE_URL = "postgresql://...the Neon string..."
+.\venv\Scripts\python manage.py dumpdata --natural-foreign --natural-primary -e contenttypes -e auth.permission -e admin.logentry -e sessions --indent 1 -o "titans-backup-$(Get-Date -Format yyyy-MM-dd).json"
+```
+
+That saves every lead, order, payment, follow-up and login, with passwords still scrambled, into one
+file. Keep it somewhere that is not this computer alone — a Google Drive folder is fine. It is tested:
+loaded into an empty database it brought back every record, the exact balances, and each person's own
+password.
+
+To restore it into a fresh database (a new Neon project, or after a disaster):
+
+```powershell
+$env:DATABASE_URL = "postgresql://...the new string..."
+.\venv\Scripts\python manage.py migrate
+.\venv\Scripts\python manage.py loaddata titans-backup-2026-10-05.json
+```
+
+The uploaded documents are not in that file. They live in the Supabase bucket, which keeps its own
+copies, so a lost database does not lose them — but do not delete the bucket or the project.
 
 **Updating it.** Push to `main` on GitHub. Render rebuilds and restarts by itself, migrations
 included. There is nothing else to do.
