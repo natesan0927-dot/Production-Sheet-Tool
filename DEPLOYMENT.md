@@ -365,6 +365,18 @@ Render dashboard → your service → **Settings → Build & Deploy**:
 | Build Command | `./scripts/render_build.sh` |
 | Start Command | `gunicorn titans_crm.wsgi:application --workers 2 --timeout 120` |
 
+Then add these under **Environment**, which move the data off Render's own disk and database
+(both are wiped or expire on the free plan). Get the values from steps 1 and 2 of this section:
+
+| Key | Value |
+| --- | --- |
+| `DATABASE_URL` | the Neon connection string (replaces Render's own Postgres) |
+| `AWS_STORAGE_BUCKET_NAME` | `titans-documents` |
+| `AWS_S3_ENDPOINT_URL` | the Supabase S3 endpoint, ending `/storage/v1/s3` |
+| `AWS_S3_REGION_NAME` | the Supabase region, e.g. `ap-southeast-1` |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | the Supabase access key pair |
+| `AWS_S3_ADDRESSING_STYLE` | `path` |
+
 Then **Manual Deploy → Deploy latest commit**. When it finishes, sign in as `rahul` (or any name on
 the Employees list) with `ChangeMe@123`. Two things to check under **Environment**:
 

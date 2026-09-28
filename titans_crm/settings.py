@@ -128,6 +128,10 @@ if AWS_STORAGE_BUCKET_NAME:
     # R2 and B2 address a bucket as a subdomain; Supabase puts it in the path.
     # Pointing boto3 the wrong way makes every upload fail to resolve a host.
     AWS_S3_ADDRESSING_STYLE = env("AWS_S3_ADDRESSING_STYLE", default="virtual")
+    # Signed links are how a private bucket hands a file to a signed-in person.
+    # R2, B2, Supabase and S3 itself all speak version 4; naming it here stops
+    # boto3 choosing an older scheme for a custom endpoint, which some refuse.
+    AWS_S3_SIGNATURE_VERSION = env("AWS_S3_SIGNATURE_VERSION", default="s3v4")
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None
     # Links are signed and short-lived, so a bucket can stay private.
