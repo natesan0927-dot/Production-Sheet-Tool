@@ -158,6 +158,9 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 # trust its X-Forwarded-Proto header or SECURE_SSL_REDIRECT would loop forever.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=not DEBUG)
+# The host's own health check arrives over plain HTTP from inside its network;
+# redirecting it to HTTPS would read as the site being down.
+SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 SECURE_BROWSER_XSS_FILTER = True

@@ -14,7 +14,7 @@ services:
     buildCommand: "./scripts/render_build.sh"
     # Two workers, not three: the free instance has 512 MB of memory.
     startCommand: "gunicorn titans_crm.wsgi:application --workers 2 --timeout 120"
-    healthCheckPath: /accounts/login/
+    healthCheckPath: /healthz/   # touches no database, so Neon can sleep
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.10"

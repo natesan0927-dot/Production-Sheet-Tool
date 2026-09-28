@@ -3,9 +3,11 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 
+from .health import healthz
 from .media import serve_upload
 
 urlpatterns = [
+    path("healthz/", healthz, name="healthz"),
     path("admin/", admin.site.urls),
     path("accounts/", include("apps.accounts.urls")),
     # The service worker has to be served from the site root, or it can only

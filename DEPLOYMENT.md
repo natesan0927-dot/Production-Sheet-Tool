@@ -388,9 +388,29 @@ the Employees list) with `ChangeMe@123`. Two things to check under **Environment
 ### Living with the free plan
 
 **It sleeps.** After 15 minutes with nobody on it, Render stops the service; the next request
-wakes it in about 50 seconds. In practice the first person each morning waits, and nobody else
-notices. If that becomes irritating, **Render Starter is about ₹600/month** and removes it — one
-card, one account, no re-architecting.
+wakes it in about 50 seconds. You can stop that by having a free monitor visit the site every few
+minutes:
+
+1. **uptimerobot.com** → sign up with an email → **Add New Monitor**.
+2. Type **HTTP(s)**, URL `https://<your-app>.onrender.com/healthz/`, interval **5 minutes**.
+
+Point it at `/healthz/` and nothing else. That page touches no database. The login page does, and
+a ping to it every five minutes would keep Neon awake all day and use up its free monthly
+allowance (about 100 compute-hours, as of writing) in roughly two weeks, after which the database
+stops until the month rolls over. Also set **Settings → Health Check Path** on the Render service
+to `/healthz/`, for the same reason.
+
+Two limits worth knowing:
+
+- Render gives a workspace **750 free instance-hours a month**. One service awake all month is
+  about 744, so it fits, but a second free web service in the same workspace will not. Render then
+  suspends the free services until the month ends.
+- Render's free tier is meant for testing, and it can change how idle services are treated. A ping
+  is a widely used workaround, not something Render promises. If the first page each morning ever
+  becomes a real problem, **Render Starter, about ₹600 a month**, removes it properly.
+
+To let it sleep overnight and save instance-hours, use **cron-job.org** instead (also free): a job
+hitting the same URL every 10 minutes between 8am and 8pm.
 
 **1 GB of files.** Roughly 55 finished jobs. Watch it at **Supabase → Storage → Usage**. When it
 gets close, either Supabase Pro (100 GB, about ₹2,000/month) or move the bucket to Cloudflare R2
