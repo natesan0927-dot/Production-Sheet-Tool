@@ -419,9 +419,21 @@ Two limits worth knowing:
 To let it sleep overnight and save instance-hours, use **cron-job.org** instead (also free): a job
 hitting the same URL every 10 minutes between 8am and 8pm.
 
-**1 GB of files.** Roughly 55 finished jobs. Watch it at **Supabase → Storage → Usage**. When it
-gets close, either Supabase Pro (100 GB, about ₹2,000/month) or move the bucket to Cloudflare R2
-(10 GB free, needs a card) by changing the same four values. Nothing in the app changes either way.
+**1 GB of files.** Roughly 55 finished jobs. The app watches it for you: the Super Admin's dashboard
+shows a bar of how much is used, and at **80%** a yellow banner appears on every page and a
+notification lands in the bell; at **95%** the banner turns red and a second, more urgent one is
+sent. Each level repeats weekly while it stays that full. It reads the bucket's real size at most
+once an hour, only for the Super Admin, and if the bucket cannot be reached it simply shows nothing
+rather than slowing or breaking a page.
+
+The limit it measures against is `STORAGE_LIMIT_MB`, which defaults to `1000` — Supabase's free
+1 GB. **When you upgrade or move to a bigger bucket, set it on Render to the new size in
+megabytes** (100 GB is `100000`), or the bar will go on warning about a limit you no longer have.
+`STORAGE_WARN_PERCENT` and `STORAGE_CRITICAL_PERCENT` move the two thresholds if you want them
+earlier. Supabase also emails the account's owner as usage approaches its limits, so keep that inbox
+one someone reads — but the in-app warning is the one to rely on. When it does fill, either upgrade
+(Supabase Pro, about ₹2,100 a month, 100 GB) or move to another bucket by changing the same
+environment settings; the app does not change.
 
 **Backups.** Neon keeps a short rewind window on the free plan (a matter of hours), which is
 for mistakes, not for backups. Take a real one **once a week, and before any big change**. On your own

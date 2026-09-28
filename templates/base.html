@@ -122,6 +122,15 @@
   {% endif %}
 
   <div class="tw-page">
+    {% if storage_usage and storage_usage.level != 'ok' %}
+    <div class="alert alert-{% if storage_usage.level == 'critical' %}danger{% else %}warning{% endif %}" role="alert">
+      <i class="fa-solid fa-hard-drive me-2"></i>
+      <strong>Document storage is {{ storage_usage.percent|floatformat:0 }}% full</strong>
+      ({{ storage_usage.used_label }} of {{ storage_usage.limit_label }}).
+      {% if storage_usage.level == 'critical' %}Uploads will stop when it is full. Upgrade the plan or move to a bigger bucket now.
+      {% else %}When it is full, uploads stop. Time to plan an upgrade or a bigger bucket.{% endif %}
+    </div>
+    {% endif %}
     {% for message in messages %}
     <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
       {{ message }}

@@ -22,6 +22,22 @@
   </div>
 </div>
 
+{% if storage_usage %}
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center small mb-1">
+      <span><i class="fa-solid fa-hard-drive me-1"></i>Uploaded documents</span>
+      <span class="text-muted">{{ storage_usage.used_label }} of {{ storage_usage.limit_label }} · {{ storage_usage.files }} file{{ storage_usage.files|pluralize }}</span>
+    </div>
+    <div class="progress" style="height:6px" role="progressbar" aria-label="Document storage used"
+         aria-valuenow="{{ storage_usage.percent_bar }}" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar {% if storage_usage.level == 'critical' %}bg-danger{% elif storage_usage.level == 'warn' %}bg-warning{% else %}bg-success{% endif %}"
+           style="width: {{ storage_usage.percent_bar }}%"></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-3">
   <div class="col-6 col-md-4 col-xl-2">
     <a class="card stat-card tone-navy h-100" href="{% url 'crm:lead_list' %}">

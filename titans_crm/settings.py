@@ -79,6 +79,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.crm.context_processors.navigation",
+                "apps.crm.context_processors.storage",
             ],
         },
     },
@@ -151,6 +152,13 @@ if AWS_STORAGE_BUCKET_NAME:
     # Links are signed and short-lived, so a bucket can stay private.
     AWS_QUERYSTRING_AUTH = True
     AWS_QUERYSTRING_EXPIRE = env.int("AWS_QUERYSTRING_EXPIRE", default=3600)
+
+# How much room the bucket has, so the Super Admin is warned before it is full.
+# 1000 is Supabase's free 1 GB; after upgrading, set STORAGE_LIMIT_MB on the host
+# to the new size (100 GB is 100000). The warning starts at 80% and turns red at 95%.
+STORAGE_LIMIT_MB = env.int("STORAGE_LIMIT_MB", default=1000)
+STORAGE_WARN_PERCENT = env.int("STORAGE_WARN_PERCENT", default=80)
+STORAGE_CRITICAL_PERCENT = env.int("STORAGE_CRITICAL_PERCENT", default=95)
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

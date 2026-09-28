@@ -5,6 +5,7 @@ from django.urls import reverse
 from apps.accounts.models import Role
 
 from . import guide as guide_content
+from . import storage_usage
 from .models import FollowUp, Lead, Notification, ServiceComplaint, Task
 
 SALES_TABS = [
@@ -232,6 +233,14 @@ def navigation(request):
     if user.intro_seen_at is None:
         context["intro"] = guide_content.intro_for(user)
     return context
+
+
+def storage(request):
+    """How full the document bucket is — for the Super Admin, and no one else."""
+    user = getattr(request, "user", None)
+    if not (user and user.is_authenticated and user.is_super_admin):
+        return {}
+    return {"storage_usage": storage_usage.current()}
 
 
 def _take_popups(user):
