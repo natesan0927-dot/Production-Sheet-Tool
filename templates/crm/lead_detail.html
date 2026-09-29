@@ -142,6 +142,7 @@
           {% if lead.production_sheet_at %}<li><span>{{ lead.production_sheet_at|date:"d M Y, H:i" }}</span> {% if lead.production_revisions.exists %}Latest production sheet{% else %}Production sheet{% endif %} uploaded by {{ lead.production_sheet_by|default:"—" }}</li>{% endif %}
           {% if lead.production_approved_at %}<li><span>{{ lead.production_approved_at|date:"d M Y, H:i" }}</span> Production sheet approved by {{ lead.production_approved_by|default:"—" }}</li>{% endif %}
           {% if lead.dispatched_at %}<li><span>{{ lead.dispatched_at|date:"d M Y, H:i" }}</span> Dispatched by {{ lead.dispatched_by|default:"—" }} — invoice {{ lead.invoice_number }}</li>{% endif %}
+          {% if lead.installation_completed_on %}<li><span>{{ lead.installation_completed_on|date:"d M Y" }}</span> Installation marked complete by {{ lead.installation_completed_by|default:"—" }}</li>{% endif %}
           {% if lead.handover_signed_at %}<li><span>{{ lead.handover_signed_at|date:"d M Y, H:i" }}</span> Signed handover certificate uploaded by {{ lead.handover_signed_by|default:"—" }}</li>{% endif %}
           {% if lead.completed_at %}<li><span>{{ lead.completed_at|date:"d M Y, H:i" }}</span> Project completed by {{ lead.completed_by|default:"—" }}</li>{% endif %}
         </ul>

@@ -105,13 +105,14 @@
 </div>
 
 <div class="row g-3 mt-1">
+  {% if not user.is_super_admin %}
+  {# The Super Admin monitors rather than follows up: they get the overdue by sales executive instead. #}
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>
           <i class="fa-solid fa-phone-volume me-2"></i>Lead follow-up reminders
           <span class="text-muted small ms-1">· overdue and due today</span>
-          {% if overdue_by_person %}<span class="text-muted small ms-1">· your own leads</span>{% endif %}
         </span>
         <a href="{% url 'crm:followups' %}" class="small">All follow-ups</a>
       </div>
@@ -138,8 +139,9 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
-  {% if overdue_by_person %}
+  {% if overdue_by_person is not None %}
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header"><i class="fa-solid fa-triangle-exclamation me-2"></i>Overdue by sales executive</div>

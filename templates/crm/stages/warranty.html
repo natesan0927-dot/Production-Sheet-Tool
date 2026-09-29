@@ -3,7 +3,7 @@
 {% if lead.handover_signed_at %}
   <p class="mb-2 text-success"><i class="fa-solid fa-check me-1"></i>Signed certificate uploaded on {{ lead.handover_signed_at|date:"d M Y" }}</p>
   {% for upload in lead.handover_files %}
-    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+    <a href="{{ upload.download_url }}" download class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% endfor %}
 {% endif %}
 
@@ -20,12 +20,12 @@
 
     <div class="row g-2 mb-3">
       <div class="col-sm-6">
-        <a href="{% url 'crm:warranty_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-outline-primary w-100">
+        <a href="{% url 'crm:warranty_download' lead.pk %}" download class="btn btn-outline-primary w-100">
           <i class="fa-solid fa-file-shield me-1"></i>Warranty Certificate
         </a>
       </div>
       <div class="col-sm-6">
-        <a href="{% url 'crm:handover_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-outline-primary w-100">
+        <a href="{% url 'crm:handover_download' lead.pk %}" download class="btn btn-outline-primary w-100">
           <i class="fa-solid fa-file-signature me-1"></i>Handover Certificate
         </a>
       </div>

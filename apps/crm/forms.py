@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 
-from .models import FollowUp, InstallerPayment, InvoiceCharge, Lead, Payment, SalesTarget, ServiceComplaint, Task
+from .models import FollowUp, InstallerPayment, InvoiceCharge, Lead, Payment, SalesTarget, ServiceComplaint, Task, plain
 
 # ---------------------------------------------------------------------------
 # Sanity checks shared by every form. Each adds an error against the field
@@ -85,10 +85,8 @@ def limit_uploads(form):
 
 
 def sales_executive_choices():
-    """Everyone a lead or a target can sit under — the Super Admin works leads of their own."""
-    return User.objects.filter(role__in=[Role.SALESPERSON, Role.SUPER_ADMIN], is_active=True).order_by(
-        "role", "first_name", "username"
-    )
+    """Everyone a lead or a target can be given to. The Super Admin only monitors."""
+    return User.objects.filter(role=Role.SALESPERSON, is_active=True).order_by("first_name", "username")
 
 
 class BootstrapMixin:
@@ -111,15 +109,20 @@ class MultipleFileInput(forms.ClearableFileInput):
 
 
 class MultipleFileField(forms.FileField):
+    """A file box that takes one file or several. Always cleans to a list."""
+
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault("widget", MultipleFileInput())
+        kwargs.setdefault("widget", MultipleFileInput(attrs={"class": "form-control"}))
         super().__init__(*args, **kwargs)
 
     def clean(self, data, initial=None):
+        items = [item for item in (data if isinstance(data, (list, tuple)) else [data]) if item]
+        if not items:
+            if self.required:
+                raise forms.ValidationError(self.error_messages["required"], code="required")
+            return []
         single = super().clean
-        if isinstance(data, (list, tuple)):
-            return [single(item, initial) for item in data]
-        return [single(data, initial)]
+        return [single(item, initial) for item in items]
 
 
 class LeadForm(BootstrapMixin, forms.ModelForm):
@@ -159,6 +162,13 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
         if user and user.role == Role.SALESPERSON:
             self.fields["assigned_to"].initial = user
             self.fields["assigned_to"].disabled = True
+        # Ticked, the project is simply called after the customer.
+        self.fields["project_same_as_customer"] = forms.BooleanField(
+            label="Same as customer name", required=False,
+            widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        )
+        if self.instance.pk and self.instance.project_name and self.instance.project_name == self.instance.customer_name:
+            self.fields["project_same_as_customer"].initial = True
 
     def clean_phone(self):
         digits = re.sub(r"\D", "", self.cleaned_data["phone"])
@@ -172,6 +182,9 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        if data.get("project_same_as_customer") and data.get("customer_name"):
+            data["project_name"] = data["customer_name"]
+            self.instance.project_name = data["customer_name"]
         if data.get("lead_source") == "other" and not data.get("lead_source_other"):
             self.add_error("lead_source_other", "Tell us where this lead came from.")
         elif data.get("lead_source") != "other":
@@ -186,7 +199,7 @@ class MeasurementBoxForm(forms.Form):
     """Stage 1's measurements box: upload, type it out, or ask the measurement team."""
 
     mode = forms.ChoiceField(choices=Lead.MeasurementMode.choices, widget=forms.RadioSelect)
-    file = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
+    file = MultipleFileField(required=False)
     notes = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 4, "class": "form-control", "placeholder": "Type the measurements here"}),
@@ -232,7 +245,7 @@ class MeasurementBoxForm(forms.Form):
 class RoughMeasurementForm(forms.Form):
     """What the measurement staff submits for a requested rough measurement."""
 
-    file = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
+    file = MultipleFileField(required=False)
     notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 4, "class": "form-control"}))
 
     def __init__(self, *args, **kwargs):
@@ -254,9 +267,8 @@ class QuotationForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter the quotation number"}),
     )
     files = MultipleFileField(label="Quotation file(s)")
-    elevation = forms.FileField(
+    elevation = MultipleFileField(
         label="Elevation report",
-        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
         help_text="Goes to the measurement staff for the final measurement.",
     )
 
@@ -355,12 +367,8 @@ class LostForm(BootstrapMixin, forms.ModelForm):
 class CafFinalForm(forms.Form):
     """Stage 5 — the signed CAF and the final measurement, uploaded together."""
 
-    caf_signed = forms.FileField(
-        label="Signed CAF", required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"})
-    )
-    final_measurement = forms.FileField(
-        label="Final measurement file", required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"})
-    )
+    caf_signed = MultipleFileField(label="Signed CAF", required=False)
+    final_measurement = MultipleFileField(label="Final measurement file", required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -378,8 +386,10 @@ class CafFinalForm(forms.Form):
         return data
 
 
-class SingleFileForm(forms.Form):
-    file = forms.FileField(widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
+class FilesForm(forms.Form):
+    """One upload box that takes one file or several — a production sheet, a signed handover."""
+
+    file = MultipleFileField(label="Files")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -414,20 +424,26 @@ class InstallerNameInput(forms.TextInput):
 class DispatchForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Lead
-        fields = ["installation_person", "installation_charge", "invoice_number", "invoice_date"]
+        fields = ["installation_person", "installation_rate", "invoice_number", "invoice_date"]
         widgets = {
             "invoice_date": forms.DateInput(attrs={"type": "date"}),
             "installation_person": InstallerNameInput(),
         }
-        labels = {"installation_person": "Installation person name", "installation_charge": "Installation charge (₹)"}
-        help_texts = {"installation_charge": "Optional now — what the installer is paid for this site. It can be set later from the Installation ledger."}
+        labels = {"installation_person": "Installation person name", "installation_rate": "Installation rate per sq ft (₹)"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
-            field.required = name != "installation_charge"
+            field.required = name != "installation_rate"
+        sqft = self.instance.total_sqft
+        self.fields["installation_rate"].help_text = (
+            f"Optional now — the installer is paid this much for each of the site's {plain(sqft)} sq ft. "
+            "It can be set later from the Installation ledger." if sqft else
+            "Optional now — the installer is paid this much per sq ft of the site. "
+            "It can be set later from the Installation ledger."
+        )
         limit_picker(self.fields["invoice_date"], not_after_today=True)
-        limit_number(self.fields["installation_charge"], 1)
+        limit_number(self.fields["installation_rate"], 0.01)
 
     def clean_installation_person(self):
         from .installation import clean_name
@@ -439,6 +455,7 @@ class DispatchForm(BootstrapMixin, forms.ModelForm):
         data = super().clean()
         reject_future(self, "invoice_date", "Invoice date")
         reject_before_order(self, "invoice_date", "Invoice date", self.instance)
+        require_positive(self, "installation_rate", "Installation rate")
         return data
 
 
@@ -466,9 +483,11 @@ class FollowUpForm(BootstrapMixin, forms.ModelForm):
 
 
 class PaymentForm(BootstrapMixin, forms.ModelForm):
+    files = MultipleFileField(label="Proof / receipt", required=False)
+
     class Meta:
         model = Payment
-        fields = ["paid_on", "amount", "remarks", "file"]
+        fields = ["paid_on", "amount", "remarks"]
         widgets = {"paid_on": forms.DateInput(attrs={"type": "date"})}
         labels = {"paid_on": "Payment date"}
 
@@ -497,9 +516,11 @@ class PaymentForm(BootstrapMixin, forms.ModelForm):
 class InstallerPaymentForm(BootstrapMixin, forms.ModelForm):
     """Money paid out to the outsourced installer for one site."""
 
+    files = MultipleFileField(label="Proof / receipt", required=False)
+
     class Meta:
         model = InstallerPayment
-        fields = ["paid_on", "amount", "remarks", "file"]
+        fields = ["paid_on", "amount", "remarks"]
         widgets = {"paid_on": forms.DateInput(attrs={"type": "date"})}
         labels = {"paid_on": "Payment date"}
 
@@ -523,27 +544,50 @@ class InstallerPaymentForm(BootstrapMixin, forms.ModelForm):
         return data
 
 
-class InstallationChargeForm(BootstrapMixin, forms.ModelForm):
-    """What the installer is to be paid for this site in all."""
+class InstallationRateForm(BootstrapMixin, forms.ModelForm):
+    """The installer's rate per sq ft. What they are owed is the rate times the site's sq ft.
+
+    The sq ft is the one recorded when the order was won. Only a site with none
+    on record asks for it here.
+    """
 
     class Meta:
         model = Lead
-        fields = ["installation_charge"]
-        labels = {"installation_charge": "Total payable to the installer (₹)"}
+        fields = ["installation_rate", "total_sqft"]
+        labels = {"installation_rate": "Rate per sq ft (₹)", "total_sqft": "Total site sq ft"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["installation_charge"].required = True
-        limit_number(self.fields["installation_charge"], 1)
+        self.fields["installation_rate"].required = True
+        limit_number(self.fields["installation_rate"], 0.01)
+        if self.instance.total_sqft:
+            del self.fields["total_sqft"]
+        else:
+            self.fields["total_sqft"].required = True
+            limit_number(self.fields["total_sqft"], 1)
 
-    def clean_installation_charge(self):
-        charge = self.cleaned_data["installation_charge"]
-        if charge <= 0:
-            raise forms.ValidationError("The total payable must be more than zero.")
-        paid = self.instance.installer_paid
-        if charge < paid:
-            raise forms.ValidationError(f"₹{paid:,.2f} has already been paid, so the total cannot be lower than that.")
-        return charge
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "installation_rate", "The rate")
+        require_positive(self, "total_sqft", "Total site sq ft")
+        rate = data.get("installation_rate")
+        sqft = data.get("total_sqft") or self.instance.total_sqft
+        if rate and rate > 0 and sqft and sqft > 0:
+            total = installation_total(rate, sqft)
+            paid = self.instance.installer_paid
+            if total < paid:
+                self.add_error(
+                    "installation_rate",
+                    f"That comes to ₹{total:,.2f}, but ₹{paid:,.2f} has already been paid to the installer.",
+                )
+        return data
+
+
+def installation_total(rate, sqft):
+    """What the installer is owed for a site: the rate times its sq ft, to the paisa."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    return (Decimal(rate) * Decimal(sqft)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 class InvoiceChargeForm(BootstrapMixin, forms.ModelForm):

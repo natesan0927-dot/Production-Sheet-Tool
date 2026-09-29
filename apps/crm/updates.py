@@ -25,10 +25,11 @@ CAF = "caf"              # the signed CAF and the final measurement
 SHEET = "sheet"          # a production sheet, first or redone
 APPROVAL = "approval"    # a production sheet approved or sent back
 FLOOR = "floor"          # an approved job made and dispatched
-HANDOVER = "handover"    # a dispatched job handed over
+INSTALL = "installation" # a dispatched site marked installed
+HANDOVER = "handover"    # an installed job handed over
 
 # Nothing about a lead is waiting any more once it is lost.
-LEAD_WORK = (ROUGH, QUOTATION, DECISION, CAF, SHEET, APPROVAL, FLOOR, HANDOVER)
+LEAD_WORK = (ROUGH, QUOTATION, DECISION, CAF, SHEET, APPROVAL, FLOOR, INSTALL, HANDOVER)
 
 LENGTH = Notification._meta.get_field("message").max_length
 

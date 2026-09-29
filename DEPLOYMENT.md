@@ -686,6 +686,11 @@ bubblewrap build          # produces app-release-signed.apk
 Bubblewrap needs the Android SDK and a JDK, and creates a signing key — **keep that key**, because
 Android will not accept an update signed with a different one.
 
+When it asks about orientation, leave it on **default**. "Any" makes Android turn the screen with the
+phone even when the phone's rotation lock is on; "default" follows the phone's own setting. (The
+web app's manifest no longer asks for "any" either. A phone that installed the app from Chrome picks
+that up by itself within a day or two; removing the app and installing it again applies it at once.)
+
 To stop the address bar showing inside the app, copy the `assetlinks.json` it prints onto the
 server at `/srv/titans/assetlinks.json` — nginx already serves that path as
 `/.well-known/assetlinks.json`. Check it with:

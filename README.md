@@ -19,8 +19,8 @@ carry through quotation, order, production, dispatch and warranty.
 | Sales Executive | Dashboard, Leads, Sales Pipeline, Sales Target, Follow-up, Lost Opportunities, Completed Projects | Lead Created, Won/Lost |
 | Measurement Staff | Rough Measurements, Final Measurements, Production Sheet Validation | Rough Measurement, CAF & Final Measurement, production sheet approval |
 | Quotation Staff | Quotation Upload | Quotation |
-| Accounts Department | Accounts, Installation | Ledgers, invoice charges, statements; paying the outsourced installers |
-| Production Staff | Production, Site Fabrication Status | Production, Site Fabrication Status |
+| Accounts Department | Accounts | Ledgers, invoice charges, statements |
+| Production Staff | Production, Site Fabrication Status, Installation (Awaiting Installation, Installation Ledger) | Production, Site Fabrication Status, Installation; paying the outsourced installers by the sq ft |
 | Field Manager | Warranty & Handover | Warranty & Handover |
 | Super Admin | every tab above, plus Employees, Summary for the Day and Summary for the Month | every stage, across all sales executives |
 

@@ -9,11 +9,20 @@
       {% csrf_token %}
       <div class="row g-3">
         {% for field in form %}
+        {% if field.name != 'project_same_as_customer' %}
         <div class="col-md-6{% if field.name == 'lead_source_other' %} d-none{% endif %}" id="wrap-{{ field.name }}">
-          <label class="form-label">{{ field.label }}</label>
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
+          {% if field.name == 'project_name' %}
+            {# One tick instead of typing the name twice. #}
+            <div class="form-check mt-1">
+              {{ form.project_same_as_customer }}
+              <label class="form-check-label small" for="{{ form.project_same_as_customer.id_for_label }}">{{ form.project_same_as_customer.label }}</label>
+            </div>
+          {% endif %}
           {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
         </div>
+        {% endif %}
         {% endfor %}
       </div>
       <div class="mt-4">
@@ -35,5 +44,18 @@
   }
   source.addEventListener("change", toggleOther);
   toggleOther();
+
+  // "Same as customer name": the project takes the customer's name, and keeps it
+  // while the name is still being typed.
+  const customer = document.getElementById("{{ form.customer_name.id_for_label }}");
+  const project = document.getElementById("{{ form.project_name.id_for_label }}");
+  const same = document.getElementById("{{ form.project_same_as_customer.id_for_label }}");
+  function copyName() {
+    if (same.checked) project.value = customer.value;
+    project.readOnly = same.checked;
+  }
+  same.addEventListener("change", copyName);
+  customer.addEventListener("input", copyName);
+  copyName();
 </script>
 {% endblock %}

@@ -81,6 +81,7 @@ TEMPLATES = [
                 "apps.crm.context_processors.navigation",
                 "apps.crm.context_processors.storage",
                 "apps.crm.context_processors.month_end",
+                "apps.crm.context_processors.reminders",
             ],
         },
     },
@@ -206,6 +207,9 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 # The largest single document anyone can upload. A scanned PDF or a drawing is
 # well under this; a phone video is not, and would eat the storage bucket.
 MAX_UPLOAD_MB = env.int("MAX_UPLOAD_MB", default=25)
+
+# How often, at most, the calendar reminders (a late installation) are looked for.
+REMINDER_CHECK_SECONDS = env.int("REMINDER_CHECK_SECONDS", default=600)
 
 # ---------------------------------------------------------------------------
 # Logging: errors always go to file so nothing is lost silently.

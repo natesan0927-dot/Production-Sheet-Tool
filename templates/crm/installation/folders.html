@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Installation{% endblock %}
+{% block title %}Installation Ledger{% endblock %}
 
 {% block content %}
 <div class="tw-page-header mb-3">
   <div>
-    <h4 class="mb-0">Installation</h4>
-    <div class="text-muted small">Installation is outsourced. Each installer has a folder holding the sites they were given.</div>
+    <h4 class="mb-0">Installation Ledger</h4>
+    <div class="text-muted small">Installation is outsourced. Each installer has a folder holding the sites they were given, and what they are owed for each: their rate per sq ft times the site's sq ft.</div>
   </div>
+  <a href="{% url 'crm:installation_pending' %}" class="btn btn-sm btn-outline-primary text-nowrap"><i class="fa-solid fa-helmet-safety me-1"></i>Awaiting Installation</a>
 </div>
 
 <div class="pipe-kpis mb-3" style="grid-template-columns: repeat(3, 1fr)">
   <div class="pipe-kpi"><div class="pipe-kpi-value">{{ installers }}</div><div class="pipe-kpi-label">installer{{ installers|pluralize }}</div></div>
   <div class="pipe-kpi"><div class="pipe-kpi-value">{{ sites }}</div><div class="pipe-kpi-label">site{{ sites|pluralize }} given out</div></div>
-  <div class="pipe-kpi"><div class="pipe-kpi-value">{{ owed|rupees_short }}</div><div class="pipe-kpi-label">still to pay them{% if unpriced %} · {{ unpriced }} site{{ unpriced|pluralize }} not priced yet{% endif %}</div></div>
+  <div class="pipe-kpi"><div class="pipe-kpi-value">{{ owed|rupees_short }}</div><div class="pipe-kpi-label">still to pay them{% if unpriced %} · {{ unpriced }} site{{ unpriced|pluralize }} with no rate yet{% endif %}</div></div>
 </div>
 
 <form method="get" class="d-flex gap-2 mb-3 flex-wrap">
@@ -34,7 +35,7 @@
       <span><small>Paid</small>{{ folder.paid|rupees_short }}</span>
       <span class="{% if folder.balance > 0 %}inst-owed{% endif %}"><small>Balance</small>{{ folder.balance|rupees_short }}</span>
     </span>
-    {% if folder.unpriced %}<span class="badge bg-warning inst-flag">{{ folder.unpriced }} not priced</span>{% endif %}
+    {% if folder.unpriced %}<span class="badge bg-warning inst-flag">{{ folder.unpriced }} with no rate</span>{% endif %}
   </a>
   {% empty %}
   <div class="card w-100"><div class="card-body text-center text-muted py-5">

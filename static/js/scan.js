@@ -113,6 +113,10 @@
         .then(function (result) {
           var file = new File([result.blob], result.name, { type: "application/pdf" });
           var carrier = new DataTransfer();
+          // A box that takes several files keeps what was already chosen, and the scan joins them.
+          if (target.multiple) {
+            Array.prototype.forEach.call(target.files, function (chosen) { carrier.items.add(chosen); });
+          }
           carrier.items.add(file);
           target.files = carrier.files;
           // Anything watching the file box (validation, previews) should see this.

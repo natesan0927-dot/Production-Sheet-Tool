@@ -68,9 +68,27 @@ def floor():
     return Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=True)
 
 
+def installation():
+    """Dispatched and not yet marked installed."""
+    return Lead.objects.filter(
+        status=Lead.Status.WON, dispatched_at__isnull=False, installation_completed_on__isnull=True
+    )
+
+
 def handover():
-    """Dispatched and waiting for the signed handover."""
-    return Lead.objects.filter(dispatched_at__isnull=False, completed_at__isnull=True)
+    """Installed and waiting for the signed handover."""
+    return Lead.objects.filter(installation_completed_on__isnull=False, completed_at__isnull=True)
+
+
+def installation_people():
+    """Everyone who works the installation step: production, the Super Admin, and
+    anyone given the step under Stage Access. They mark sites installed, keep the
+    installer ledger, and are told when a site is late."""
+    from apps.accounts.models import User
+
+    from . import stages
+
+    return [user for user in User.objects.filter(is_active=True) if stages.can_act(user, stages.INSTALLATION)]
 
 
 def complaints():

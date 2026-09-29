@@ -115,7 +115,6 @@ def quotation_sections(user, day):
 def accounts_sections(user, day):
     posted = Payment.objects.filter(recorded_by=user, created_at__date=day).select_related("lead")
     charged = InvoiceCharge.objects.filter(added_by=user, added_at__date=day).select_related("lead")
-    paid_out = InstallerPayment.objects.filter(recorded_by=user, created_at__date=day).select_related("lead")
     return [
         _section(
             "Payments posted", "fa-indian-rupee-sign",
@@ -129,23 +128,27 @@ def accounts_sections(user, day):
               "detail": rupees(c.amount), "note": c.description} for c in charged],
             value=charged.aggregate(total=Sum("amount"))["total"],
         ),
-        _section(
-            "Paid to installers", "fa-helmet-safety",
-            [{"lead": p.lead, "label": p.lead.customer_name,
-              "detail": f"{rupees(p.amount)} to {p.lead.installation_person or 'the installer'}", "note": p.remarks}
-             for p in paid_out],
-            value=paid_out.aggregate(total=Sum("amount"))["total"],
-        ),
     ]
 
 
 def production_sections(user, day):
     sheets = _leads("production_sheet_by", user, "production_sheet_at", day)
     dispatched = _leads("dispatched_by", user, "dispatched_at", day)
+    installed = _leads("installation_completed_by", user, "installation_completed_at", day)
+    paid_out = InstallerPayment.objects.filter(recorded_by=user, created_at__date=day).select_related("lead")
     return [
         _section("Production sheets uploaded", "fa-industry", _lead_rows(sheets)),
         _section("Orders dispatched", "fa-truck",
                  _lead_rows(dispatched, lambda lead: lead.invoice_number)),
+        _section("Sites marked installed", "fa-helmet-safety",
+                 _lead_rows(installed, lambda lead: lead.installation_person)),
+        _section(
+            "Paid to installers", "fa-hand-holding-dollar",
+            [{"lead": p.lead, "label": p.lead.customer_name,
+              "detail": f"{rupees(p.amount)} to {p.lead.installation_person or 'the installer'}", "note": p.remarks}
+             for p in paid_out],
+            value=paid_out.aggregate(total=Sum("amount"))["total"],
+        ),
     ]
 
 

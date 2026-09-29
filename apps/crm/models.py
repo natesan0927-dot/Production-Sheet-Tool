@@ -20,6 +20,14 @@ def _total(related, field="amount"):
     return rows.aggregate(total=models.Sum(field))["total"] or Decimal("0")
 
 
+def plain(number):
+    """A quantity as people write it: 180, 180.5 — not 180.00."""
+    if number is None:
+        return ""
+    text = format(Decimal(number).normalize(), "f")
+    return text
+
+
 def credited_q(person, prefix=""):
     """The orders that count towards `person`'s sales.
 
@@ -183,17 +191,32 @@ class Lead(models.Model):
     chk_glass_installation = models.BooleanField("Glass Installation", default=False)
 
     installation_person = models.CharField(max_length=150, blank=True)
-    # Installation is outsourced: this is what the installer is owed for this site.
+    # Installation is outsourced and paid by the square foot: the rate is agreed,
+    # and what the installer is owed is the rate times the site's total sq ft
+    # (recorded when the order was won). The total is kept alongside the rate.
+    installation_rate = models.DecimalField(
+        "Installation rate per sq ft", max_digits=10, decimal_places=2, null=True, blank=True,
+    )
     installation_charge = models.DecimalField(
         "Installation charge", max_digits=12, decimal_places=2, null=True, blank=True,
-        help_text="What the installer is paid for this site.",
+        help_text="What the installer is paid for this site: the rate times the site's sq ft.",
     )
     invoice_number = models.CharField(max_length=60, blank=True)
     invoice_date = models.DateField(null=True, blank=True)
     dispatched_at = models.DateTimeField(null=True, blank=True)
     dispatched_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
-    # --- Stage 8: warranty & handover ---------------------------------------
+    # --- Stage 8: installation ----------------------------------------------
+    # Marked by hand once the installer has finished; handover waits on it.
+    installation_completed_on = models.DateField("Installation completed on", null=True, blank=True)
+    installation_completed_at = models.DateTimeField(null=True, blank=True)
+    installation_completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    # The last day a "not marked complete" reminder went out, so it goes once a day.
+    installation_reminded_on = models.DateField(null=True, blank=True)
+
+    # --- Stage 9: warranty & handover ---------------------------------------
     # The warranty certificate is handed to the customer; the handover
     # certificate is the one they sign and we keep.
     handover_signed_at = models.DateTimeField(null=True, blank=True)
@@ -422,6 +445,11 @@ class LeadFile(models.Model):
     def filename(self):
         return self.file.name.rsplit("/", 1)[-1]
 
+    @property
+    def download_url(self):
+        """Handed over as a download, so it opens in the phone's own PDF app, not inside ours."""
+        return reverse("crm:lead_file", args=[self.pk])
+
 
 def nine_am():
     return time(9, 0)
@@ -624,7 +652,6 @@ class Payment(models.Model):
     paid_on = models.DateField(default=timezone.localdate)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     remarks = models.CharField(max_length=255, blank=True)
-    file = models.FileField("Proof / receipt", upload_to="payments/%Y/%m/", blank=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -642,7 +669,6 @@ class InstallerPayment(models.Model):
     paid_on = models.DateField(default=timezone.localdate)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     remarks = models.CharField(max_length=255, blank=True)
-    file = models.FileField("Proof / receipt", upload_to="installers/%Y/%m/", blank=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -651,6 +677,42 @@ class InstallerPayment(models.Model):
 
     def __str__(self):
         return f"{self.lead.installation_person} — {self.amount}"
+
+
+class PaymentReceipt(models.Model):
+    """A proof or receipt for a customer payment. A payment can carry several."""
+
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name="receipts")
+    file = models.FileField("Proof / receipt", upload_to="payments/%Y/%m/")
+
+    class Meta:
+        ordering = ["id"]
+
+    @property
+    def filename(self):
+        return self.file.name.rsplit("/", 1)[-1]
+
+    @property
+    def download_url(self):
+        return reverse("crm:payment_receipt", args=[self.pk])
+
+
+class InstallerReceipt(models.Model):
+    """A proof or receipt for a payment to an installer. A payment can carry several."""
+
+    payment = models.ForeignKey(InstallerPayment, on_delete=models.CASCADE, related_name="receipts")
+    file = models.FileField("Proof / receipt", upload_to="installers/%Y/%m/")
+
+    class Meta:
+        ordering = ["id"]
+
+    @property
+    def filename(self):
+        return self.file.name.rsplit("/", 1)[-1]
+
+    @property
+    def download_url(self):
+        return reverse("crm:installer_receipt", args=[self.pk])
 
 
 class MarketingSpend(models.Model):

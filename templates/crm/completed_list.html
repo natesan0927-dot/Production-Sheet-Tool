@@ -54,16 +54,16 @@
             <div class="fw-semibold small mb-2">Site documents — {{ lead.customer_name }}</div>
             <div class="d-flex flex-wrap gap-2">
               {% for upload in lead.site_documents %}
-                <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
+                <a href="{{ upload.download_url }}" download class="btn btn-sm btn-outline-secondary">
                   <i class="fa-solid fa-file-lines me-1"></i>{{ upload.get_kind_display }}
                   <span class="text-muted ms-1">{{ upload.filename }}</span>
                 </a>
               {% endfor %}
               {% if lead.dispatched_at %}
-                <a href="{% url 'crm:warranty_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                <a href="{% url 'crm:warranty_download' lead.pk %}" download class="btn btn-sm btn-outline-primary">
                   <i class="fa-solid fa-file-shield me-1"></i>Warranty Certificate
                 </a>
-                <a href="{% url 'crm:handover_download' lead.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                <a href="{% url 'crm:handover_download' lead.pk %}" download class="btn btn-sm btn-outline-primary">
                   <i class="fa-solid fa-file-signature me-1"></i>Handover Certificate
                 </a>
               {% endif %}

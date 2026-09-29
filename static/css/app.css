@@ -1113,6 +1113,12 @@ body.auth-page .tw-gate { min-height: 100vh; }
 .tw-reveal.tw-in { animation: tw-fade-up .5s cubic-bezier(.22, 1, .36, 1) both; }
 
 .tw-page > *, .tw-page .row { animation: tw-fade-up .4s ease both; }
+/* The fade leaves every block in a layer of its own, so a menu opened in one
+   would slide under the blocks after it. Whichever block holds an open menu
+   comes to the front. */
+.tw-page > *:has(.dropdown-menu.show),
+.tw-page .row:has(.dropdown-menu.show),
+.tw-page .card:has(.dropdown-menu.show) { position: relative; z-index: 1035; }
 
 @keyframes tw-bell-ring {
   0%, 100% { transform: rotate(0); }
@@ -1462,6 +1468,39 @@ body.tw-tour-on #tw-sidebar { z-index: 1086; }
 .inst-figures span { font-weight: 700; font-size: .92rem; color: var(--tw-ink); }
 .inst-owed { color: var(--tw-rose) !important; }
 .inst-flag { position: absolute; top: .9rem; right: .9rem; }
+
+/* Awaiting installation: a card a site, so it works one-handed on a phone. */
+.inst-pending { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: .9rem; }
+.inst-pending-card.is-late { border-color: rgba(244, 63, 94, .55); }
+.inst-pending-facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: .45rem .9rem; margin: .8rem 0; }
+.inst-pending-facts dt { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--tw-blue-400); font-weight: 700; }
+.inst-pending-facts dd { margin: 0; font-weight: 600; color: var(--tw-ink); }
+.inst-pending-form { display: flex; gap: .5rem; align-items: center; }
+.inst-pending-form .form-control { min-width: 0; }
+.min-w-0 { min-width: 0; }
+
+/* A table that becomes a stack of labelled rows on a phone, so no column is
+   cut off: each cell shows its heading beside it (from data-label). */
+@media (max-width: 575.98px) {
+  .tw-stack thead { display: none; }
+  .tw-stack, .tw-stack tbody, .tw-stack tfoot { display: block; width: 100%; }
+  .tw-stack tr { display: block; padding: .7rem .9rem; border-bottom: 1px solid var(--tw-border); }
+  .tw-stack tbody tr:last-child { border-bottom: 0; }
+  .tw-stack td, .tw-stack tfoot th {
+    display: flex !important; justify-content: space-between; align-items: baseline; gap: 1rem;
+    padding: .18rem 0 !important; border: 0 !important; text-align: right !important; background: transparent !important;
+  }
+  .tw-stack td::before, .tw-stack tfoot th::before {
+    content: attr(data-label); flex-shrink: 0; text-align: left;
+    font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--tw-blue-400);
+  }
+  .tw-stack td[data-label=""]::before, .tw-stack tfoot th[data-label=""]::before { content: none; }
+  .tw-stack td[data-label=""], .tw-stack tfoot th[data-label=""] { justify-content: flex-end; }
+  .tw-stack td > .tw-cell { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  .tw-stack tfoot tr { border-top: 2px solid var(--tw-border-strong); }
+  /* A cell with nothing in it, or hidden on phones, has no line of its own. */
+  .tw-stack td:empty, .tw-stack th:empty, .tw-stack td.d-none, .tw-stack th.d-none { display: none !important; }
+}
 
 /* --------------------------------------------------- summary for the month */
 .mo-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: .75rem; }

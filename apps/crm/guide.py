@@ -169,8 +169,16 @@ ROLE_INTROS = {
             (
                 "fabrication",
                 "Dispatch",
-                "Record who is installing, the invoice number and the invoice date. "
-                "That closes your part and opens handover for the field manager.",
+                "Record who is installing, their rate per sq ft, the invoice number and "
+                "the invoice date. The site then waits under Installation.",
+            ),
+            (
+                "fabrication",
+                "Installation",
+                "Mark each site installed when the installer finishes — that opens "
+                "handover for the field manager. Anything not marked three days after "
+                "dispatch is flagged, and you are reminded daily. The Installation Ledger "
+                "keeps what each installer is owed and every payment made to them.",
             ),
             CLOSING,
         ],
@@ -308,11 +316,19 @@ PAGE_NOTES = {
         "and which lead sources actually paid off. It is ready on the last day of every month, "
         "and any earlier month can be opened to compare.",
     ),
+    "crm:installation_pending": (
+        "Awaiting Installation",
+        "Every site dispatched and not yet installed, oldest first. Mark each one installed when "
+        "the installer finishes — handover opens for the field manager after that. A site still "
+        "not marked three days after dispatch is flagged, and everyone on this step is reminded "
+        "each day until it is.",
+    ),
     "crm:installation_list": (
-        "Installation",
+        "Installation Ledger",
         "Installation is outsourced, so each installer has a folder named after them holding the "
         "sites they were given. Open a folder for a ledger of those sites, and a site for what "
-        "you owe the installer and every payment made to them.",
+        "the installer is owed — their rate per sq ft times the site's sq ft — and every "
+        "payment made to them.",
     ),
     "crm:queue_production": (
         "Production",
@@ -376,11 +392,20 @@ def intro_for(user):
     }
 
 
+def _pages(items):
+    """Every page the sidebar leads to, a tab's own pages straight after it."""
+    for item in items:
+        yield item
+        for child in item.get("children") or []:
+            if child.get("url_name"):
+                yield child
+
+
 def tour_for(nav_groups):
     """One step per tab the sidebar is showing, in the order it shows them."""
     steps = []
     for _section, _accent, items in nav_groups:
-        for item in items:
+        for item in _pages(items):
             note = PAGE_NOTES.get(item.get("url_name"))
             if not note:
                 continue
@@ -395,7 +420,7 @@ def written_guide(nav_groups):
     for section, _accent, items in nav_groups:
         entries = [
             {"label": item["label"], "url": item["url"], "note": PAGE_NOTES[item["url_name"]][1]}
-            for item in items
+            for item in _pages(items)
             if item.get("url_name") in PAGE_NOTES
         ]
         if entries:

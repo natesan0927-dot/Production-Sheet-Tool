@@ -4,17 +4,17 @@ files are offered as the quotation; earlier ones are kept, marked as replaced, s
 nobody sends a customer yesterday's price.
 {% endcomment %}
 {% for upload in lead.current_quotation_files %}
-  <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+  <a href="{{ upload.download_url }}" download class="btn btn-sm btn-outline-primary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
 {% endfor %}
 {% if with_elevation and lead.current_elevation %}
-  <a href="{{ lead.current_elevation.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-drafting-compass me-1"></i>{{ lead.current_elevation.filename }}</a>
+  <a href="{{ lead.current_elevation.download_url }}" download class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-drafting-compass me-1"></i>{{ lead.current_elevation.filename }}</a>
 {% endif %}
 {% with earlier=lead.earlier_quotation_files %}
 {% if earlier %}
   <div class="small text-muted mb-2">
     Replaced by the revision:
     {% for upload in earlier %}
-      <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="text-muted text-decoration-line-through me-2">{{ upload.filename }}</a>
+      <a href="{{ upload.download_url }}" download class="text-muted text-decoration-line-through me-2">{{ upload.filename }}</a>
     {% endfor %}
   </div>
 {% endif %}

@@ -6,7 +6,7 @@ from urllib.parse import quote, urlencode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, F, Q, Sum
-from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_date
@@ -37,10 +37,11 @@ from .forms import (
     RoughMeasurementForm,
     SalesTargetForm,
     ServiceComplaintForm,
-    SingleFileForm,
+    FilesForm,
     StageAccessForm,
     TaskForm,
     WonForm,
+    installation_total,
 )
 from .models import (
     FollowUp,
@@ -49,6 +50,7 @@ from .models import (
     LeadFile,
     Notification,
     Payment,
+    PaymentReceipt,
     InvoiceCharge,
     ProductionRevision,
     QuotationRevision,
@@ -81,13 +83,14 @@ def role_required(*roles):
 
 
 def sales_executives():
-    """Everyone a lead can sit under — the Super Admin works leads of their own.
+    """The sales executives, for the filters and the per-person figures.
 
-    Someone since removed stays on the list while open leads are still in their
-    name, so those can be found and handed to someone else.
+    The Super Admin only monitors and follows no leads. Anyone else still holding
+    open leads — someone since removed, say — stays on the list, so those leads
+    can be found and handed to someone else.
     """
-    working = Q(role__in=[Role.SALESPERSON, Role.SUPER_ADMIN], is_active=True)
-    left_behind = Q(is_active=False, leads__status=Lead.Status.OPEN)
+    working = Q(role=Role.SALESPERSON, is_active=True)
+    left_behind = Q(leads__status=Lead.Status.OPEN) & ~Q(role=Role.SALESPERSON, is_active=True)
     return User.objects.filter(working | left_behind).distinct()
 
 
@@ -209,8 +212,36 @@ def guard_stage(request, lead, stage_key, check_role=True):
     return None
 
 
-def save_upload(lead, kind, uploaded_file, user):
-    return LeadFile.objects.create(lead=lead, kind=kind, file=uploaded_file, uploaded_by=user)
+def save_uploads(lead, kind, uploaded_files, user):
+    """Store every file chosen in one box — one or several — against the lead."""
+    return [LeadFile.objects.create(lead=lead, kind=kind, file=uploaded, uploaded_by=user) for uploaded in uploaded_files]
+
+
+def download(stored, filename=None):
+    """A stored document handed over as a download.
+
+    Never shown inside the app: on a phone the download opens in whatever PDF
+    or image app the person uses, and the app stays exactly where it was.
+    """
+    try:
+        handle = stored.open("rb")
+    except (FileNotFoundError, OSError, ValueError):
+        raise Http404("That file is no longer in storage.")
+    return FileResponse(handle, as_attachment=True, filename=filename or stored.name.rsplit("/", 1)[-1])
+
+
+@login_required
+def lead_file(request, pk):
+    """Any document on a lead, for whoever can open the lead."""
+    upload = get_object_or_404(LeadFile.objects.select_related("lead"), pk=pk)
+    get_lead(request, upload.lead_id)
+    return download(upload.file)
+
+
+@role_required(Role.ACCOUNTS)
+def payment_receipt(request, pk):
+    receipt = get_object_or_404(PaymentReceipt, pk=pk)
+    return download(receipt.file)
 
 
 # ---------------------------------------------------------------------------
@@ -231,6 +262,7 @@ def _queue_cards(user, counts):
         Role.PRODUCTION: [
             ("Sheets to Prepare", "production", "crm:queue_production", "fa-industry", "tone-navy"),
             ("On the Factory Floor", "fabrication", "crm:queue_fabrication", "fa-screwdriver-wrench", "tone-violet"),
+            ("Awaiting Installation", "installation", "crm:installation_pending", "fa-helmet-safety", "tone-amber"),
         ],
         Role.FIELD_MANAGER: [
             ("Awaiting Handover", "warranty", "crm:queue_warranty", "fa-shield-halved", "tone-emerald"),
@@ -280,17 +312,19 @@ def _sales_dashboard(request, todays_updates):
         lead__in=leads, lead__status=Lead.Status.OPEN, done=False
     ).select_related("lead")
 
-    # The Super Admin's own panel lists their own leads and the calls they booked
-    # themselves, the way a salesperson's does; everyone else's overdue work is
-    # summarised beside it. The figures across the top stay company-wide.
-    panel_followups = followups
+    # The Super Admin monitors rather than follows up, so instead of a reminder
+    # list they see each sales executive's overdue work. The figures across the
+    # top stay company-wide.
     overdue_by_person = None
-    if request.user.is_super_admin and not selected_salesperson:
-        panel_followups = followups.filter(Q(lead__assigned_to=request.user) | Q(created_by=request.user))
+    if request.user.is_super_admin:
+        panel_followups = FollowUp.objects.none()
         overdue_by_person = _overdue_by_person()
-    # A reminder is for what needs doing now: everything overdue that nobody has
-    # updated, and what is due today. Later ones wait on the Follow-up tab.
-    panel_followups = panel_followups.filter(date__lte=today)
+        if selected_salesperson:
+            overdue_by_person = [row for row in overdue_by_person if str(row["person"].pk) == selected_salesperson]
+    else:
+        # A reminder is for what needs doing now: everything overdue that nobody
+        # has updated, and what is due today. Later ones wait on the Follow-up tab.
+        panel_followups = followups.filter(date__lte=today)
 
     # Each card opens a list of exactly what it counts, for the same person.
     def lead_list(**params):
@@ -565,10 +599,10 @@ def lead_detail(request, pk):
         "rough_form": RoughMeasurementForm(),
         "quotation_form": QuotationForm(),
         "caf_form": CafFinalForm(),
-        "production_form": SingleFileForm(),
+        "production_form": FilesForm(),
         "checklist_form": ChecklistForm(instance=lead),
         "dispatch_form": DispatchForm(instance=lead),
-        "warranty_form": SingleFileForm(),
+        "warranty_form": FilesForm(),
         "followup_form": FollowUpForm(),
     }
     return render(request, "crm/lead_detail.html", context)
@@ -586,6 +620,11 @@ def stage_measurements(request, pk):
     blocked = guard_stage(request, lead, stage_flow.LEAD)
     if blocked:
         return blocked
+    # A new lead is chased from day one: its first follow-up is booked before it
+    # moves on to measurements.
+    if not lead.followups.exists():
+        messages.error(request, "Book the first follow-up for this lead before moving on to measurements.")
+        return stage_redirect(lead, stage_flow.LEAD)
 
     form = MeasurementBoxForm(request.POST, request.FILES)
     if not form.is_valid():
@@ -618,8 +657,7 @@ def stage_measurements(request, pk):
             notify(lead, message, Role.MEASUREMENT, topic=updates.ROUGH)
             messages.success(request, "Rough measurement request sent to the measurement team.")
     else:
-        if form.cleaned_data.get("file"):
-            save_upload(lead, LeadFile.Kind.ROUGH_MEASUREMENT, form.cleaned_data["file"], request.user)
+        save_uploads(lead, LeadFile.Kind.ROUGH_MEASUREMENT, form.cleaned_data["file"], request.user)
         lead.measurement_notes = form.cleaned_data.get("notes", "")
         # Measurements already in hand, so the rough measurement stage is complete.
         lead.measurement_done_at = now
@@ -648,8 +686,7 @@ def stage_rough(request, pk):
         messages.error(request, form_problems(form))
         return stage_redirect(lead, stage_flow.ROUGH)
 
-    if form.cleaned_data.get("file"):
-        save_upload(lead, LeadFile.Kind.ROUGH_MEASUREMENT, form.cleaned_data["file"], request.user)
+    save_uploads(lead, LeadFile.Kind.ROUGH_MEASUREMENT, form.cleaned_data["file"], request.user)
     if form.cleaned_data.get("notes"):
         lead.measurement_notes = form.cleaned_data["notes"]
     lead.measurement_done_at = timezone.now()
@@ -686,15 +723,15 @@ def stage_quotation(request, pk):
     # sales executive sends is always the latest one. Marked only once the new files
     # are safely stored, so a failed upload never leaves a lead with no quotation.
     now = timezone.now()
-    added = [save_upload(lead, LeadFile.Kind.QUOTATION, uploaded, request.user) for uploaded in form.cleaned_data["files"]]
+    added = save_uploads(lead, LeadFile.Kind.QUOTATION, form.cleaned_data["files"], request.user)
     lead.uploads.filter(kind=LeadFile.Kind.QUOTATION, replaced_at__isnull=True).exclude(
         pk__in=[upload.pk for upload in added]
     ).update(replaced_at=now)
     if form.cleaned_data.get("elevation"):
-        elevation = save_upload(lead, LeadFile.Kind.ELEVATION, form.cleaned_data["elevation"], request.user)
-        lead.uploads.filter(kind=LeadFile.Kind.ELEVATION, replaced_at__isnull=True).exclude(pk=elevation.pk).update(
-            replaced_at=now
-        )
+        elevations = save_uploads(lead, LeadFile.Kind.ELEVATION, form.cleaned_data["elevation"], request.user)
+        lead.uploads.filter(kind=LeadFile.Kind.ELEVATION, replaced_at__isnull=True).exclude(
+            pk__in=[upload.pk for upload in elevations]
+        ).update(replaced_at=now)
     lead.quotation_number = form.cleaned_data["quotation_number"]
     lead.quotation_uploaded_at = timezone.now()
     lead.quotation_uploaded_by = request.user
@@ -828,10 +865,10 @@ def stage_caf_final(request, pk):
 
     now = timezone.now()
     if form.cleaned_data.get("caf_signed"):
-        save_upload(lead, LeadFile.Kind.CAF_SIGNED, form.cleaned_data["caf_signed"], request.user)
+        save_uploads(lead, LeadFile.Kind.CAF_SIGNED, form.cleaned_data["caf_signed"], request.user)
         lead.caf_signed_at = now
     if form.cleaned_data.get("final_measurement"):
-        save_upload(lead, LeadFile.Kind.FINAL_MEASUREMENT, form.cleaned_data["final_measurement"], request.user)
+        save_uploads(lead, LeadFile.Kind.FINAL_MEASUREMENT, form.cleaned_data["final_measurement"], request.user)
         lead.final_measurement_at = now
     lead.caf_final_by = request.user
     lead.save()
@@ -860,16 +897,17 @@ def stage_production_sheet(request, pk):
     if blocked:
         return blocked
 
-    form = SingleFileForm(request.POST, request.FILES)
+    form = FilesForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, "Choose the production sheet file to upload.")
+        messages.error(request, form_problems(form) or "Choose the production sheet file to upload.")
         return stage_redirect(lead, stage_flow.PRODUCTION)
 
-    # The superseded sheet goes, so nobody works from the wrong drawing.
-    for stale in lead.production_sheet_files:
+    # The superseded sheet goes, so nobody works from the wrong drawing — once the
+    # new one is safely stored.
+    sheets = save_uploads(lead, LeadFile.Kind.PRODUCTION_SHEET, form.cleaned_data["file"], request.user)
+    for stale in lead.production_sheet_files.exclude(pk__in=[sheet.pk for sheet in sheets]):
         stale.file.delete(save=False)
         stale.delete()
-    save_upload(lead, LeadFile.Kind.PRODUCTION_SHEET, form.cleaned_data["file"], request.user)
     lead.production_sheet_at = timezone.now()
     lead.production_sheet_by = request.user
     lead.production_approved_at = None
@@ -1075,11 +1113,18 @@ def dispatch(request, pk):
             lead.fabrication_column = Lead.Fabrication.DISPATCHED
             lead.dispatched_at = timezone.now()
             lead.dispatched_by = request.user
+            # The installer is paid by the sq ft: the rate times the site's area.
+            if lead.installation_rate and lead.total_sqft:
+                lead.installation_charge = installation_total(lead.installation_rate, lead.total_sqft)
             lead.save()
             updates.clear(updates.FLOOR, lead=lead)
-            notify(lead, f"Dispatched — warranty & handover pending for {lead.customer_name}",
-                   Role.FIELD_MANAGER, topic=updates.HANDOVER)
-            messages.success(request, "Dispatched. Warranty & handover is now open for the field manager.")
+            others = [person for person in queues.installation_people() if person.pk != request.user.pk]
+            updates.send(others, f"Dispatched — installation pending for {lead.customer_name}, {lead.site_location}",
+                         lead=lead, topic=updates.INSTALL)
+            messages.success(
+                request,
+                "Dispatched. It waits under Installation until the site is marked installed; handover opens after that.",
+            )
             return safe_next(request, lead.get_absolute_url())
     else:
         form = DispatchForm(instance=lead)
@@ -1125,12 +1170,12 @@ def handover_upload(request, pk):
     if blocked:
         return blocked
 
-    form = SingleFileForm(request.POST, request.FILES)
+    form = FilesForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, "Choose the signed handover certificate to upload.")
+        messages.error(request, form_problems(form) or "Choose the signed handover certificate to upload.")
         return stage_redirect(lead, stage_flow.WARRANTY)
 
-    save_upload(lead, LeadFile.Kind.HANDOVER_SIGNED, form.cleaned_data["file"], request.user)
+    save_uploads(lead, LeadFile.Kind.HANDOVER_SIGNED, form.cleaned_data["file"], request.user)
     lead.handover_signed_at = timezone.now()
     lead.handover_signed_by = request.user
     lead.save()
@@ -1592,7 +1637,7 @@ def queue_accounts(request):
 def ledger(request, pk):
     """A confirmed order's payment ledger — post entries and correct the figures."""
     lead = get_object_or_404(
-        Lead.objects.prefetch_related("payments", "invoice_charges"), pk=pk, status=Lead.Status.WON
+        Lead.objects.prefetch_related("payments__receipts", "invoice_charges"), pk=pk, status=Lead.Status.WON
     )
     payment_form = PaymentForm(lead=lead)
     ledger_form = LedgerForm(instance=lead)
@@ -1623,6 +1668,8 @@ def ledger(request, pk):
                 payment.lead = lead
                 payment.recorded_by = request.user
                 payment.save()
+                for upload in payment_form.cleaned_data["files"]:
+                    PaymentReceipt.objects.create(payment=payment, file=upload)
                 messages.success(request, "Payment entry posted.")
                 return redirect("crm:ledger", pk=lead.pk)
 
@@ -1715,7 +1762,13 @@ def outstanding_pdf(request):
 def payment_delete(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
     lead_pk = payment.lead_id
+    stored = [receipt.file for receipt in payment.receipts.all()]
     payment.delete()
+    for file in stored:
+        try:
+            file.delete(save=False)
+        except Exception:
+            pass
     messages.success(request, "Payment entry removed.")
     return redirect("crm:ledger", pk=lead_pk)
 
@@ -1863,7 +1916,7 @@ def queue_warranty(request):
         "crm/queues/simple.html",
         leads,
         "Warranty & Handover",
-        "Dispatched orders waiting for the signed handover certificate.",
+        "Installed sites waiting for the signed handover certificate.",
     )
 
 

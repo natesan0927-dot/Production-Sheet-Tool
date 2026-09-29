@@ -12,9 +12,10 @@
       <input type="hidden" name="next" value="{{ next }}">
       <div class="row g-3">
         {% for field in form %}
-        <div class="col-md-4">
-          <label class="form-label">{{ field.label }}</label>
+        <div class="col-md-6">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
           {% if field.errors %}<div class="text-danger small">{{ field.errors.0 }}</div>{% endif %}
         </div>
         {% endfor %}

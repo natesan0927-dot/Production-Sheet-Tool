@@ -22,7 +22,7 @@ STAGE_DEFS = [
     (CAF, "CAF & Final Measurement", (Role.MEASUREMENT,)),
     (PRODUCTION, "Production", (Role.PRODUCTION,)),
     (FABRICATION, "Site Fabrication Status", (Role.PRODUCTION,)),
-    (INSTALLATION, "Installation", (Role.ACCOUNTS,)),
+    (INSTALLATION, "Installation", (Role.PRODUCTION,)),
     (WARRANTY, "Warranty & Handover", (Role.FIELD_MANAGER,)),
 ]
 
@@ -37,9 +37,9 @@ DEFAULT_ROLE_STAGES = {
     Role.SUPER_ADMIN: ALL_STAGE_KEYS,
     Role.MEASUREMENT: [ROUGH, CAF, PRODUCTION],
     Role.QUOTATION: [QUOTATION],
-    Role.ACCOUNTS: [DECISION, INSTALLATION],
-    Role.PRODUCTION: [PRODUCTION, FABRICATION],
-    Role.FIELD_MANAGER: [WARRANTY],
+    Role.ACCOUNTS: [DECISION],
+    Role.PRODUCTION: [PRODUCTION, FABRICATION, INSTALLATION],
+    Role.FIELD_MANAGER: [INSTALLATION, WARRANTY],
 }
 
 # Order values, advances and balances are only for the people who deal in them.
@@ -74,10 +74,9 @@ def _is_done(lead, key):
     if key == FABRICATION:
         return lead.dispatched_at is not None
     if key == INSTALLATION:
-        # The installer is named at dispatch, so this is settled the moment the site
-        # goes out. Paying them carries on beside the job and never holds it up —
-        # handover must not wait on an outsourced team's invoice.
-        return lead.dispatched_at is not None
+        # Marked by hand once the installer has finished; handover waits on it.
+        # Paying the installer carries on beside the job and never holds it up.
+        return lead.installation_completed_on is not None
     if key == WARRANTY:
         return lead.completed_at is not None
     return False
@@ -118,7 +117,7 @@ def build_stages(lead, user=None):
                 "label": label,
                 "state": state,
                 "roles": roles,
-                "can_act": bool(user and user.has_role(*roles)),
+                "can_act": bool(user and can_act(user, key)),
                 "role_names": ", ".join(Role(r).label for r in roles),
             }
         )
@@ -126,4 +125,13 @@ def build_stages(lead, user=None):
 
 
 def can_act(user, stage_key):
-    return user.has_role(*STAGE_ROLES[stage_key])
+    """The stage's own role — and, for installation, anyone the Super Admin has given it."""
+    if user.has_role(*STAGE_ROLES[stage_key]):
+        return True
+    return stage_key in GRANTABLE and stage_key in (user.visible_stages or [])
+
+
+# Stages that Stage Access can hand to someone outside their role, to act on as
+# well as to see. Installation: whoever the Super Admin gives it to can mark sites
+# installed, keeps the installer ledger, and is reminded when a site is late.
+GRANTABLE = {INSTALLATION}

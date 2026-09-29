@@ -18,7 +18,7 @@
   <div class="tw-note"><strong>Measurements:</strong><br>{{ lead.measurement_notes|linebreaksbr }}</div>
 {% endif %}
 {% for upload in lead.rough_measurement_files %}
-  <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+  <a href="{{ upload.download_url }}" download class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
 {% endfor %}
 
 {% if stage.state == 'current' and stage.can_act %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Awaiting Installation{% endblock %}
+
+{% block content %}
+<div class="tw-page-header mb-3">
+  <div>
+    <h4 class="mb-0">Awaiting Installation</h4>
+    <div class="text-muted small">
+      Dispatched sites not yet marked installed, oldest first. Mark each one when the installer finishes;
+      handover opens for the field manager after that. A site still waiting {{ late_after }} days after dispatch is flagged,
+      and everyone on this step is reminded each day until it is marked.
+    </div>
+  </div>
+</div>
+
+<div class="inst-pending">
+  {% for site in sites %}
+  {% with lead=site.lead %}
+  <div class="card inst-pending-card{% if site.late %} is-late{% endif %}">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div class="min-w-0">
+          <a href="{{ lead.get_absolute_url }}?stage=installation" class="fw-bold text-reset d-block text-truncate">{{ lead.display_name }}</a>
+          <div class="text-muted small">{{ lead.site_location }}</div>
+        </div>
+        {% if site.late %}
+          <span class="badge bg-danger text-nowrap">{{ site.days }} days</span>
+        {% elif site.days == 0 %}
+          <span class="badge bg-secondary text-nowrap">Today</span>
+        {% else %}
+          <span class="badge bg-secondary text-nowrap">{{ site.days }} day{{ site.days|pluralize }}</span>
+        {% endif %}
+      </div>
+      <dl class="inst-pending-facts">
+        <div><dt>Installer</dt><dd>{{ lead.installation_person|default:"—" }}</dd></div>
+        <div><dt>Dispatched</dt><dd>{{ site.dispatched_on|date:"d M Y" }}</dd></div>
+        <div><dt>Sq ft</dt><dd>{{ lead.total_sqft|plain }}</dd></div>
+        <div><dt>Invoice</dt><dd>{{ lead.invoice_number|default:"—" }}</dd></div>
+      </dl>
+      <form method="post" action="{% url 'crm:installation_complete' lead.pk %}" class="inst-pending-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <label class="visually-hidden" for="done-{{ lead.pk }}">Finished on</label>
+        <input type="date" id="done-{{ lead.pk }}" name="completed_on" class="form-control form-control-sm"
+               value="{{ today|date:'Y-m-d' }}" min="{{ site.dispatched_on|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+        <button class="btn btn-sm btn-success text-nowrap"><i class="fa-solid fa-circle-check me-1"></i>Mark installed</button>
+      </form>
+    </div>
+  </div>
+  {% endwith %}
+  {% empty %}
+  <div class="card"><div class="card-body text-center text-muted py-5">
+    <i class="fa-regular fa-circle-check fs-3 d-block mb-2 opacity-50"></i>Every dispatched site is marked installed.
+  </div></div>
+  {% endfor %}
+</div>
+{% endblock %}

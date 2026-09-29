@@ -47,7 +47,7 @@
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="fa-solid fa-book me-2"></i>Ledger</span>
-        <a href="{% url 'crm:ledger_pdf' lead.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+        <a href="{% url 'crm:ledger_pdf' lead.pk %}" download class="btn btn-sm btn-outline-primary">
           <i class="fa-solid fa-file-pdf me-1"></i>Download ledger
         </a>
       </div>
@@ -67,10 +67,12 @@
                 {% if row.kind == 'charge' %}<i class="fa-solid fa-plus text-warning me-1"></i>{% endif %}
                 {{ row.label }}
                 {% if row.kind == 'charge' %}<span class="badge bg-warning ms-1">Added to invoice</span>{% endif %}
-                {% if row.entry.file %}
-                  <a href="{{ row.entry.file.url }}" target="_blank" rel="noopener" class="badge bg-light text-decoration-none ms-1">
-                    <i class="fa-solid fa-paperclip me-1"></i>Proof
-                  </a>
+                {% if row.kind == 'payment' %}
+                  {% for receipt in row.entry.receipts.all %}
+                    <a href="{{ receipt.download_url }}" download class="badge bg-light text-decoration-none ms-1" title="{{ receipt.filename }}">
+                      <i class="fa-solid fa-paperclip me-1"></i>Proof{% if row.entry.receipts.all|length > 1 %} {{ forloop.counter }}{% endif %}
+                    </a>
+                  {% endfor %}
                 {% endif %}
                 {% if row.entry.recorded_by %}<span class="text-muted small d-block">posted by {{ row.entry.recorded_by }}</span>{% endif %}
                 {% if row.entry.added_by %}<span class="text-muted small d-block">added by {{ row.entry.added_by }}</span>{% endif %}

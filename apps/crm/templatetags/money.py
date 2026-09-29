@@ -57,6 +57,14 @@ def rupees_short(value):
 
 
 @register.filter
+def plain(value):
+    """A quantity as people write it: 180 sq ft, not 180.00."""
+    from apps.crm.models import plain as as_written
+
+    return as_written(value) if value not in (None, "") else "—"
+
+
+@register.filter
 def absval(value):
     """The size of a change without its sign, so an arrow can carry the direction."""
     try:

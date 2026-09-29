@@ -1,42 +1,46 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}{{ folder.name }} — Installation{% endblock %}
+{% block title %}{{ folder.name }} — Installation Ledger{% endblock %}
 
 {% block content %}
-<a href="{% url 'crm:installation_list' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Installation</a>
+<a href="{% url 'crm:installation_list' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Installation Ledger</a>
 <div class="d-flex align-items-center gap-3 mt-2 mb-3">
   <span class="inst-icon inst-icon-lg"><i class="fa-solid fa-folder-open"></i></span>
-  <div>
-    <h4 class="mb-0">{{ folder.name }}</h4>
+  <div class="min-w-0">
+    <h4 class="mb-0 text-truncate">{{ folder.name }}</h4>
     <div class="text-muted small">{{ folder.sites }} site{{ folder.sites|pluralize }} · {{ folder.sqft|floatformat:"0" }} sq ft in all</div>
   </div>
 </div>
 
 <div class="card">
   <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
+    <table class="table table-hover align-middle mb-0 tw-stack">
       <thead class="table-light">
         <tr>
-          <th>S.No</th><th>Site</th><th class="tw-col-optional">Area</th><th class="text-end tw-col-optional">Total sq ft</th>
-          <th class="text-end">Total payable</th><th class="text-end tw-col-optional">Paid</th><th class="text-end">Balance payable</th>
+          <th>S.No</th><th>Site</th><th>Area</th><th class="text-end">Total sq ft</th><th class="text-end">Rate / sq ft</th>
+          <th class="text-end">Total payable</th><th class="text-end">Paid</th><th class="text-end">Balance payable</th>
         </tr>
       </thead>
       <tbody>
         {% for site in folder.leads %}
         <tr onclick="window.location='{% url 'crm:installer_ledger' site.pk %}'" style="cursor:pointer">
-          <td class="text-muted">{{ forloop.counter }}</td>
-          <td>
-            <strong>{{ site.site_name }}</strong>
-            {% if site.project_name %}<div class="text-muted small">{{ site.display_name }}</div>{% endif %}
+          <td class="text-muted" data-label="S.No">{{ forloop.counter }}</td>
+          <td data-label="Site">
+            <span class="tw-cell">
+              <strong>{{ site.site_name }}</strong>
+              {% if site.project_name %}<span class="text-muted small d-block">{{ site.display_name }}</span>{% endif %}
+            </span>
           </td>
-          <td class="tw-col-optional">{{ site.site_location }}</td>
-          <td class="text-end tw-col-optional">{{ site.total_sqft|default_if_none:"—" }}</td>
-          <td class="text-end">
-            {% if site.installation_charge is None %}<span class="badge bg-warning">Not set</span>
-            {% else %}{{ site.installation_charge|rupees:2 }}{% endif %}
+          <td data-label="Area"><span class="tw-cell">{{ site.site_location }}</span></td>
+          <td class="text-end" data-label="Total sq ft">{{ site.total_sqft|plain }}</td>
+          <td class="text-end" data-label="Rate / sq ft">
+            {% if site.installation_rate %}{{ site.installation_rate|rupees:2 }}{% else %}<span class="badge bg-warning">Not set</span>{% endif %}
           </td>
-          <td class="text-end tw-col-optional">{{ site.installer_paid|rupees:2 }}</td>
-          <td class="text-end fw-semibold">
+          <td class="text-end" data-label="Total payable">
+            {% if site.installation_charge is None %}—{% else %}{{ site.installation_charge|rupees:2 }}{% endif %}
+          </td>
+          <td class="text-end" data-label="Paid">{{ site.installer_paid|rupees:2 }}</td>
+          <td class="text-end fw-semibold" data-label="Balance payable">
             {% if site.installer_balance is None %}<span class="text-muted">—</span>
             {% elif site.installer_balance > 0 %}{{ site.installer_balance|rupees:2 }}
             {% else %}<span class="badge bg-success">Settled</span>{% endif %}
@@ -46,16 +50,16 @@
       </tbody>
       <tfoot class="table-light">
         <tr>
-          <th colspan="2">Total</th>
-          <th class="tw-col-optional"></th>
-          <th class="text-end tw-col-optional">{{ folder.sqft|floatformat:"0" }}</th>
-          <th class="text-end">{{ folder.payable|rupees:2 }}</th>
-          <th class="text-end tw-col-optional">{{ folder.paid|rupees:2 }}</th>
-          <th class="text-end">{{ folder.balance|rupees:2 }}</th>
+          <th colspan="3" data-label="">Total</th>
+          <th class="text-end" data-label="Total sq ft">{{ folder.sqft|floatformat:"0" }}</th>
+          <th data-label=""></th>
+          <th class="text-end" data-label="Total payable">{{ folder.payable|rupees:2 }}</th>
+          <th class="text-end" data-label="Paid">{{ folder.paid|rupees:2 }}</th>
+          <th class="text-end" data-label="Balance payable">{{ folder.balance|rupees:2 }}</th>
         </tr>
       </tfoot>
     </table>
   </div>
 </div>
-<p class="text-muted small mt-2 mb-0">Open a site to post a payment to {{ folder.name }} or to correct what is payable.</p>
+<p class="text-muted small mt-2 mb-0">Open a site to post a payment to {{ folder.name }} or to set their rate.</p>
 {% endblock %}

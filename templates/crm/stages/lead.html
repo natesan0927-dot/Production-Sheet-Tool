@@ -4,7 +4,7 @@
     <div class="tw-note"><strong>Measurements:</strong><br>{{ lead.measurement_notes|linebreaksbr }}</div>
   {% endif %}
   {% for upload in lead.rough_measurement_files %}
-    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
+    <a href="{{ upload.download_url }}" download class="btn btn-sm btn-outline-secondary mt-2 me-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
   {% endfor %}
 {% endif %}
 
@@ -13,7 +13,13 @@
   <hr>
 {% endif %}
 
-{% if stage.state == 'current' and stage.can_act %}
+{% if stage.state == 'current' and stage.can_act and not lead.followups.exists %}
+  {# A new lead is chased from day one: its first follow-up comes before anything else. #}
+  <div class="alert alert-warning d-flex align-items-center gap-2 mb-0">
+    <i class="fa-solid fa-lock"></i>
+    <div>Book the first follow-up above to move on to the measurements.</div>
+  </div>
+{% elif stage.state == 'current' and stage.can_act %}
   <div class="row g-3">
     <div class="col-lg-7">
       <form method="post" action="{% url 'crm:stage_measurements' lead.pk %}" enctype="multipart/form-data" class="tw-measure-box h-100">

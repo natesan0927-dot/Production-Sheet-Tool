@@ -50,7 +50,15 @@ urlpatterns = [
     path("queue/accounts/<int:pk>/statement/", views.ledger_pdf, name="ledger_pdf"),
     path("queue/accounts/outstanding/", views.outstanding_pdf, name="outstanding_pdf"),
     path("payments/<int:pk>/remove/", views.payment_delete, name="payment_delete"),
-    # Installation is outsourced: a folder per installer, a ledger per site
+    # Documents are handed over as downloads, to open in the phone's own apps
+    path("files/lead/<int:pk>/", views.lead_file, name="lead_file"),
+    path("files/payment/<int:pk>/", views.payment_receipt, name="payment_receipt"),
+    path("files/installer/<int:pk>/", installation_views.installer_receipt, name="installer_receipt"),
+    # Installation, under Production: sites awaiting installation, and the ledger
+    # (a folder per installer, a ledger per site) for paying the installers
+    path("installation/awaiting/", installation_views.installation_pending, name="installation_pending"),
+    path("installation/site/<int:pk>/installed/", installation_views.installation_complete, name="installation_complete"),
+    path("installation/site/<int:pk>/not-installed/", installation_views.installation_reopen, name="installation_reopen"),
     path("installation/", installation_views.installation_list, name="installation_list"),
     path("installation/installer/<slug:slug>/", installation_views.installer_sites, name="installer_sites"),
     path("installation/site/<int:pk>/", installation_views.installer_ledger, name="installer_ledger"),

@@ -147,8 +147,9 @@ def _as_pdf(writer, filename):
     output = BytesIO()
     writer.write(output)
     response = HttpResponse(output.getvalue(), content_type="application/pdf")
+    # A download, so a phone opens it in its own PDF app and the app stays where it was.
     # Spelled out for any alphabet: a Tamil name would otherwise reach the browser garbled.
-    response["Content-Disposition"] = content_disposition_header(False, filename)
+    response["Content-Disposition"] = content_disposition_header(True, filename)
     return response
 
 

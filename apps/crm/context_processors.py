@@ -45,12 +45,22 @@ QUOTATION_TABS = [
 
 ACCOUNTS_TABS = [
     ("Accounts", "crm:queue_accounts", "fa-indian-rupee-sign", None),
-    ("Installation", "crm:installation_list", "fa-helmet-safety", None),
 ]
+
+# A tab that opens into pages of its own: (label, None, icon, badge key, children),
+# each child being (label, url name, badge key).
+INSTALLATION_TAB = (
+    "Installation", None, "fa-helmet-safety", "installation",
+    [
+        ("Awaiting Installation", "crm:installation_pending", "installation"),
+        ("Installation Ledger", "crm:installation_list", None),
+    ],
+)
 
 PRODUCTION_TABS = [
     ("Production", "crm:queue_production", "fa-industry", "production"),
     ("Site Fabrication Status", "crm:queue_fabrication", "fa-screwdriver-wrench", "fabrication"),
+    INSTALLATION_TAB,
 ]
 
 FIELD_MANAGER_TABS = [
@@ -83,6 +93,8 @@ ACCOUNTS_GROUP = ("Accounts", "payments", ACCOUNTS_TABS)
 PRODUCTION_GROUP = ("Production", "production", PRODUCTION_TABS)
 FIELD_GROUP = ("Handover", "aftersales", FIELD_MANAGER_TABS)
 ADMIN_GROUP = ("Administration", "insights", ADMIN_TABS)
+# For anyone outside production the Super Admin has given the Installation step.
+INSTALLATION_GROUP = ("Installation", "production", [INSTALLATION_TAB])
 
 ROLE_GROUPS = {
     Role.SALESPERSON: [SALES_GROUP, SALES_TODO_GROUP],
@@ -107,7 +119,7 @@ ROLE_GROUPS = {
 
 ALL_QUEUE_KEYS = {
     "rough", "final", "validation", "quotation", "production",
-    "fabrication", "warranty", "complaints", "todo", "followup",
+    "fabrication", "installation", "warranty", "complaints", "todo", "followup",
 }
 
 
@@ -126,6 +138,8 @@ def _pending_counts(keys, user):
         counts["production"] = queues.production().count()
     if "fabrication" in keys:
         counts["fabrication"] = queues.floor().count()
+    if "installation" in keys:
+        counts["installation"] = queues.installation().count()
     if "complaints" in keys:
         counts["complaints"] = queues.complaints().count()
     if "todo" in keys:
@@ -166,6 +180,39 @@ def _fabrication_children(request, url):
     ]
 
 
+def _groups_for(user):
+    """The sidebar's sections for this person — their role's, plus any step handed to them."""
+    from . import stages
+
+    groups = list(ROLE_GROUPS.get(user.role, []))
+    has_installation = any(tab is INSTALLATION_TAB for _, _, tabs in groups for tab in tabs)
+    if not has_installation and stages.can_act(user, stages.INSTALLATION):
+        groups.insert(max(len(groups) - 1, 0), INSTALLATION_GROUP)
+    return groups
+
+
+def _parent_item(request, label, icon, pending, children, counts):
+    """A tab that opens in place to show its own pages, like Installation."""
+    built = [
+        {"label": child_label, "url": reverse(child_url), "url_name": child_url, "count": counts.get(child_key)}
+        for child_label, child_url, child_key in children
+    ]
+    # The page open now belongs to whichever child's address it starts with, most specific first.
+    here = max((child for child in built if request.path.startswith(child["url"])),
+               key=lambda child: len(child["url"]), default=None)
+    for child in built:
+        child["active"] = child is here
+    return {
+        "label": label,
+        "url": built[0]["url"],
+        "url_name": None,
+        "icon": icon,
+        "pending": pending,
+        "active": here is not None,
+        "children": built,
+    }
+
+
 ASSETS = [
     settings.BASE_DIR / "static" / "css" / "app.css",
     settings.BASE_DIR / "static" / "js" / "app.js",
@@ -192,14 +239,23 @@ def navigation(request, take_popups=True):
     if not user:
         return context
 
-    groups = ROLE_GROUPS.get(user.role, [])
-    wanted = {key for _, _, tabs in groups for *_, key in tabs if key}
+    groups = _groups_for(user)
+    wanted = set()
+    for _, _, tabs in groups:
+        for tab in tabs:
+            wanted.add(tab[3])
+            wanted.update(child[2] for child in (tab[4] if len(tab) > 4 else []))
+    wanted.discard(None)
     counts = _pending_counts(wanted, user)
 
     nav_groups = []
     for section, accent, tabs in groups:
         items = []
-        for label, urlname, icon, key in tabs:
+        for tab in tabs:
+            label, urlname, icon, key = tab[:4]
+            if len(tab) > 4:
+                items.append(_parent_item(request, label, icon, counts.get(key), tab[4], counts))
+                continue
             url = reverse(urlname)
             item = {
                 "label": label,
@@ -267,6 +323,20 @@ def month_end(request):
         admins = User.objects.filter(role=Role.SUPER_ADMIN, is_active=True).exclude(pk__in=list(already))
         updates.send(admins, message, topic=updates.month(first), link=updates.month_link(first))
         cache.set(key, True, 60 * 60 * 24)
+    return {}
+
+
+def reminders(request):
+    """Reminders that are due by the calendar — a late installation — go out as people use the app."""
+    if _for_a_person(request):
+        from . import reminders as due
+
+        try:
+            due.check()
+        except Exception:  # a reminder must never break the page someone opened
+            import logging
+
+            logging.getLogger(__name__).warning("Could not send due reminders", exc_info=True)
     return {}
 
 
