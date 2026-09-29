@@ -11,6 +11,8 @@ from apps.accounts.models import Role
 
 from .models import (
     FollowUp,
+    InstallerPayment,
+    InvoiceCharge,
     Lead,
     LeadAssignment,
     Payment,
@@ -52,8 +54,9 @@ def sales_sections(user, day):
     won = _leads("won_by", user, "won_at", day)
     lost = _leads("lost_by", user, "lost_at", day)
     booked = FollowUp.objects.filter(created_by=user, created_at__date=day).select_related("lead")
+    # Worked by this person: not rescheduled, not closed because the lead was won or lost.
     closed = FollowUp.objects.filter(
-        lead__assigned_to=user, done=True, superseded=False, done_at__date=day
+        lead__assigned_to=user, done=True, superseded=False, closed_with_lead=False, done_at__date=day
     ).select_related("lead")
     asked = QuotationRevision.objects.filter(requested_by=user, requested_at__date=day).select_related("lead")
 
@@ -111,12 +114,27 @@ def quotation_sections(user, day):
 
 def accounts_sections(user, day):
     posted = Payment.objects.filter(recorded_by=user, created_at__date=day).select_related("lead")
+    charged = InvoiceCharge.objects.filter(added_by=user, added_at__date=day).select_related("lead")
+    paid_out = InstallerPayment.objects.filter(recorded_by=user, created_at__date=day).select_related("lead")
     return [
         _section(
             "Payments posted", "fa-indian-rupee-sign",
             [{"lead": p.lead, "label": p.lead.customer_name,
               "detail": rupees(p.amount), "note": p.remarks} for p in posted],
             value=posted.aggregate(total=Sum("amount"))["total"],
+        ),
+        _section(
+            "Charges added to invoices", "fa-file-invoice-dollar",
+            [{"lead": c.lead, "label": c.lead.customer_name,
+              "detail": rupees(c.amount), "note": c.description} for c in charged],
+            value=charged.aggregate(total=Sum("amount"))["total"],
+        ),
+        _section(
+            "Paid to installers", "fa-helmet-safety",
+            [{"lead": p.lead, "label": p.lead.customer_name,
+              "detail": f"{rupees(p.amount)} to {p.lead.installation_person or 'the installer'}", "note": p.remarks}
+             for p in paid_out],
+            value=paid_out.aggregate(total=Sum("amount"))["total"],
         ),
     ]
 

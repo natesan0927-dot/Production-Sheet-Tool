@@ -24,8 +24,8 @@ from .views import role_required
 def installation_list(request):
     """A folder for each installer, named after them."""
     query = request.GET.get("q", "").strip()
-    folders = installation.folders(query)
     everyone = installation.folders()
+    folders = installation.matching(everyone, query)
     return render(
         request,
         "crm/installation/folders.html",

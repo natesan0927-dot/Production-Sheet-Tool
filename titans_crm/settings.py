@@ -203,6 +203,9 @@ SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
 # File upload limits (site photos / drawings can be large)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
+# The largest single document anyone can upload. A scanned PDF or a drawing is
+# well under this; a phone video is not, and would eat the storage bucket.
+MAX_UPLOAD_MB = env.int("MAX_UPLOAD_MB", default=25)
 
 # ---------------------------------------------------------------------------
 # Logging: errors always go to file so nothing is lost silently.

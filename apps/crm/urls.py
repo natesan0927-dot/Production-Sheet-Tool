@@ -64,6 +64,7 @@ urlpatterns = [
     # Service complaints, raised after handover
     path("service-requests/", views.complaint_list, name="complaint_list"),
     path("service-requests/<int:pk>/resolve/", views.complaint_resolve, name="complaint_resolve"),
+    path("service-requests/new/", views.complaint_register, name="complaint_register"),
     path("leads/<int:pk>/complaint/", views.complaint_create, name="complaint_create"),
     # Shared to-do list
     path("to-do/", views.todo_list, name="todo_list"),

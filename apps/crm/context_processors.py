@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -9,8 +8,20 @@ from apps.accounts import recovery
 from apps.accounts.models import Role, User
 
 from . import guide as guide_content
-from . import monthly, storage_usage
-from .models import FollowUp, Lead, Notification, ServiceComplaint, Task
+from . import monthly, queues, storage_usage, updates
+from .models import FollowUp, Lead, Notification, Task
+
+# Fetched by the browser in the background, never looked at by a person. Rendering
+# them must not use up pop-ups or run the Super Admin's reminders.
+BACKGROUND_PATHS = ("/sw.js", "/offline/")
+
+
+def _for_a_person(request):
+    """The signed-in user, unless this request is one the browser makes on its own."""
+    user = getattr(request, "user", None)
+    if not (user and user.is_authenticated) or request.path in BACKGROUND_PATHS:
+        return None
+    return user
 
 SALES_TABS = [
     ("Dashboard", "crm:dashboard", "fa-gauge-high", None),
@@ -101,54 +112,34 @@ ALL_QUEUE_KEYS = {
 
 
 def _pending_counts(keys, user):
-    """How many leads are waiting on each queue, for the sidebar badges."""
+    """How many are waiting on each queue — the same lists the queue pages show."""
     counts = {}
     if "rough" in keys:
-        counts["rough"] = Lead.objects.filter(
-            measurement_mode=Lead.MeasurementMode.REQUESTED,
-            measurement_done_at__isnull=True,
-            status=Lead.Status.OPEN,
-        ).count()
+        counts["rough"] = queues.rough_for(user).count()
     if "final" in keys:
-        counts["final"] = (
-            Lead.objects.filter(status=Lead.Status.WON)
-            .exclude(caf_signed_at__isnull=False, final_measurement_at__isnull=False)
-            .count()
-        )
+        counts["final"] = queues.final().count()
     if "validation" in keys:
-        counts["validation"] = Lead.objects.filter(
-            production_sheet_at__isnull=False, production_approved_at__isnull=True
-        ).count()
+        counts["validation"] = queues.validation().count()
     if "quotation" in keys:
-        counts["quotation"] = Lead.objects.filter(
-            Q(quotation_uploaded_at__isnull=True) | Q(quotation_revision_pending=True),
-            status=Lead.Status.OPEN,
-            measurement_done_at__isnull=False,
-        ).count()
+        counts["quotation"] = queues.quotation().count()
     if "production" in keys:
-        counts["production"] = Lead.objects.filter(
-            caf_signed_at__isnull=False, final_measurement_at__isnull=False, production_approved_at__isnull=True
-        ).count()
+        counts["production"] = queues.production().count()
     if "fabrication" in keys:
-        counts["fabrication"] = Lead.objects.filter(
-            production_approved_at__isnull=False, dispatched_at__isnull=True
-        ).count()
+        counts["fabrication"] = queues.floor().count()
     if "complaints" in keys:
-        counts["complaints"] = ServiceComplaint.objects.filter(resolved_at__isnull=True).count()
+        counts["complaints"] = queues.complaints().count()
     if "todo" in keys:
         counts["todo"] = Task.objects.filter(assigned_to=user, done=False).count()
     if "followup" in keys:
         # Everything still open, whatever its date — it stays counted until marked done.
-        open_followups = FollowUp.objects.filter(done=False)
+        open_followups = FollowUp.objects.filter(done=False, lead__status=Lead.Status.OPEN)
         if user.role == Role.SALESPERSON:
             open_followups = open_followups.filter(lead__assigned_to=user)
         counts["followup"] = open_followups.count()
     if "passwords" in keys:
         counts["passwords"] = recovery.open_requests().count()
     if "warranty" in keys:
-        counts["warranty"] = Lead.objects.filter(
-            dispatched_at__isnull=False, completed_at__isnull=True
-        ).count()
+        counts["warranty"] = queues.handover().count()
     return counts
 
 
@@ -161,7 +152,7 @@ FABRICATION_COLUMNS = [
 
 def _fabrication_children(request, url):
     """The Super Admin's Site Fabrication tab opens into its three columns."""
-    on_floor = Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=True)
+    on_floor = queues.floor()
     here = request.path == url
     selected = request.GET.get("column") or Lead.Fabrication.FUTURE
     return [
@@ -178,6 +169,9 @@ def _fabrication_children(request, url):
 ASSETS = [
     settings.BASE_DIR / "static" / "css" / "app.css",
     settings.BASE_DIR / "static" / "js" / "app.js",
+    settings.BASE_DIR / "static" / "js" / "guide.js",
+    settings.BASE_DIR / "static" / "js" / "scan.js",
+    settings.BASE_DIR / "static" / "js" / "month.js",
 ]
 
 
@@ -192,10 +186,10 @@ def _stylesheet_version():
     return max(stamps) if stamps else 0
 
 
-def navigation(request):
+def navigation(request, take_popups=True):
     context = {"css_version": _stylesheet_version()}
-    user = getattr(request, "user", None)
-    if not user or not user.is_authenticated:
+    user = _for_a_person(request)
+    if not user:
         return context
 
     groups = ROLE_GROUPS.get(user.role, [])
@@ -233,7 +227,7 @@ def navigation(request):
             # The walkthrough plays once, on the first sign-in. It suppresses the
             # pop-ups for that visit so the two don't talk over each other.
             "show_intro": user.intro_seen_at is None,
-            "popup_notifications": [] if user.intro_seen_at is None else _take_popups(user),
+            "popup_notifications": _take_popups(user) if take_popups and user.intro_seen_at else [],
             # The tour runs across pages, so every page needs to know the steps.
             "tour_steps": guide_content.tour_for(nav_groups),
         }
@@ -245,16 +239,16 @@ def navigation(request):
 
 def storage(request):
     """How full the document bucket is — for the Super Admin, and no one else."""
-    user = getattr(request, "user", None)
-    if not (user and user.is_authenticated and user.is_super_admin):
+    user = _for_a_person(request)
+    if not (user and user.is_super_admin):
         return {}
     return {"storage_usage": storage_usage.current()}
 
 
 def month_end(request):
     """On the last day of the month, tell the Super Admin the summary is ready. Once."""
-    user = getattr(request, "user", None)
-    if not (user and user.is_authenticated and user.is_super_admin):
+    user = _for_a_person(request)
+    if not (user and user.is_super_admin):
         return {}
     today = timezone.localdate()
     if not monthly.is_last_day(today):
@@ -264,20 +258,21 @@ def month_end(request):
 
     key = f"month-summary-reminded-{today:%Y-%m}"
     if not cache.get(key):
+        first = monthly.month_start(today)
         message = f"Summary for the Month — {today:%B %Y} is ready under Administration."
         # The message names the month, so finding it lately is enough to know it went out —
         # even after a restart has emptied the cache.
         recently = timezone.now() - timedelta(days=3)
         already = Notification.objects.filter(message=message, created_at__gte=recently).values_list("user_id", flat=True)
         admins = User.objects.filter(role=Role.SUPER_ADMIN, is_active=True).exclude(pk__in=list(already))
-        Notification.objects.bulk_create([Notification(user=admin, message=message) for admin in admins])
+        updates.send(admins, message, topic=updates.month(first), link=updates.month_link(first))
         cache.set(key, True, 60 * 60 * 24)
     return {}
 
 
 def _take_popups(user):
-    """Anything not yet shown as a pop-up. It stays in the list either way."""
-    pending = list(user.notifications.filter(popped=False).select_related("lead")[:4])
+    """Anything not yet shown as a pop-up and still worth saying. It stays in the list either way."""
+    pending = list(user.notifications.filter(popped=False, dismissed=False).select_related("lead")[:4])
     if pending:
         Notification.objects.filter(pk__in=[n.pk for n in pending]).update(popped=True)
     return pending

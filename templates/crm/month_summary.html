@@ -14,7 +14,7 @@
     </div>
   </div>
   <form method="get" class="d-flex align-items-end gap-2 no-print">
-    <a class="btn btn-sm btn-outline-secondary" href="?month={{ m.previous|date:'Y-m' }}" title="Previous month"><i class="fa-solid fa-chevron-left"></i></a>
+    {% if m.previous %}<a class="btn btn-sm btn-outline-secondary" href="?month={{ m.previous|date:'Y-m' }}" title="Previous month"><i class="fa-solid fa-chevron-left"></i></a>{% endif %}
     <select name="month" class="form-select form-select-sm" style="min-width:150px" onchange="this.form.submit()" aria-label="Month">
       {% for month in months %}<option value="{{ month|date:'Y-m' }}" {% if month == m.first %}selected{% endif %}>{{ month|date:"F Y" }}</option>{% endfor %}
     </select>
@@ -38,7 +38,7 @@
   </div>
   <div class="pipe-kpi">
     <div class="pipe-kpi-value">{{ h.collected|rupees_short }}</div>
-    <div class="pipe-kpi-label">collected{% if h.collected_share is not None %} · {{ h.collected_share|floatformat:0 }}% of invoiced{% endif %}
+    <div class="pipe-kpi-label">collected{% if h.paid_share is not None %} · {{ h.paid_share|floatformat:0 }}% of the month's invoices paid{% endif %}
       {% if h.change_collected is not None %}<span class="mo-delta {% if h.change_collected >= 0 %}up{% else %}down{% endif %}">{% if h.change_collected >= 0 %}▲{% else %}▼{% endif %} {{ h.change_collected|absval|floatformat:0 }}%</span>{% endif %}</div>
   </div>
   <div class="pipe-kpi">

@@ -507,10 +507,20 @@ html[data-bs-theme="light"] .stat-card.tone-navy { --tone: var(--tw-blue-500); }
 html[data-bs-theme="light"] .stat-card.tone-violet { --tone: var(--tw-blue-600); }
 html[data-bs-theme="light"] .stat-card.tone-amber { --tone: var(--tw-gold-600); }
 
-.stat-value { font-size: 1.9rem; font-weight: 700; color: var(--tw-ink); line-height: 1.05; }
+.stat-value { font-size: 1.9rem; font-weight: 700; color: var(--tw-ink); line-height: 1.05; white-space: nowrap; }
 .stat-label {
   font-size: .7rem; color: var(--tw-ink-muted); text-transform: uppercase;
-  letter-spacing: .09em; font-weight: 700; margin-top: .2rem; white-space: nowrap;
+  letter-spacing: .09em; font-weight: 700; margin-top: .2rem; line-height: 1.25;
+  /* Wraps between words rather than being cut off: "Rough Measurements" has to be
+     readable on a phone. */
+  white-space: normal;
+}
+.stat-card .card-body > div:last-child { min-width: 0; }
+/* A narrow card — six to a row, or two on a phone — puts its icon above the
+   number, so the label has the card's whole width. */
+.stat-card { container-type: inline-size; }
+@container (max-width: 215px) {
+  .stat-card .card-body { flex-direction: column; align-items: flex-start; gap: .6rem; }
 }
 
 /* ------------------------------------------------------------ hero panel */

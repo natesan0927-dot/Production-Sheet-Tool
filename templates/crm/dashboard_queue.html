@@ -26,7 +26,7 @@
     <a class="card stat-card tone-navy h-100" href="{% url 'crm:queue_accounts' %}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
-        <div><div class="stat-value">{{ accounts_totals.value|default:0|rupees }}</div><div class="stat-label">Order Value</div></div>
+        <div><div class="stat-value" title="{{ accounts_totals.value|default:0|rupees }}">{{ accounts_totals.value|default:0|rupees_short }}</div><div class="stat-label">Order Value · {{ accounts_totals.value|default:0|rupees }}</div></div>
       </div>
     </a>
   </div>
@@ -34,7 +34,7 @@
     <a class="card stat-card tone-emerald h-100" href="{% url 'crm:queue_accounts' %}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
-        <div><div class="stat-value">{{ accounts_totals.advance|default:0|rupees }}</div><div class="stat-label">Advance Received</div></div>
+        <div><div class="stat-value" title="{{ accounts_totals.advance|default:0|rupees }}">{{ accounts_totals.advance|default:0|rupees_short }}</div><div class="stat-label">Advance Received · {{ accounts_totals.advance|default:0|rupees }}</div></div>
       </div>
     </a>
   </div>
@@ -42,7 +42,7 @@
     <a class="card stat-card tone-rose h-100" href="{% url 'crm:queue_accounts' %}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-        <div><div class="stat-value">{{ accounts_totals.outstanding|default:0|rupees }}</div><div class="stat-label">Outstanding</div></div>
+        <div><div class="stat-value" title="{{ accounts_totals.outstanding|default:0|rupees }}">{{ accounts_totals.outstanding|default:0|rupees_short }}</div><div class="stat-label">Outstanding · {{ accounts_totals.outstanding|default:0|rupees }}</div></div>
       </div>
     </a>
   </div>

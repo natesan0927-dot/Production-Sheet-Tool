@@ -72,14 +72,18 @@ def last_day(first):
 
 
 def parse_month(text, today=None):
-    """"2026-09" -> the 1st of that month; anything else, or the future, -> this month."""
+    """"2026-09" -> the 1st of that month; anything else, or the future, -> this month.
+
+    Nothing earlier than the first month with any leads in it: there is nothing to
+    report there, and walking back far enough reaches years the calendar refuses.
+    """
     today = today or timezone.localdate()
     try:
         year, month = (int(part) for part in (text or "").split("-"))
         chosen = date(year, month, 1)
     except (ValueError, TypeError):
         return month_start(today)
-    return min(chosen, month_start(today))
+    return max(min(chosen, month_start(today)), first_month_with_data(today))
 
 
 def first_month_with_data(today=None):
@@ -129,7 +133,8 @@ def _lakhs(value):
 
 
 def _average(numbers):
-    numbers = list(numbers)
+    """The mean of the numbers there are; a step with a missing date is left out, not counted as zero."""
+    numbers = [number for number in numbers if number is not None]
     return round(sum(numbers) / len(numbers), 1) if numbers else None
 
 
@@ -140,7 +145,8 @@ def _days_between(start, end):
 
 
 def taker(lead):
-    return lead.won_by or lead.assigned_to
+    """Who an order counts for — the same rule as the Sales Target page (models.credited_q)."""
+    return lead.credited_to
 
 
 # ---------------------------------------------------------------- one month's headline figures
@@ -188,6 +194,7 @@ def report(first, today=None):
     created = list(Lead.objects.filter(created_at__gte=start, created_at__lt=end))
     lost = list(Lead.objects.filter(status=Lead.Status.LOST, lost_at__gte=start, lost_at__lt=end).select_related("assigned_to"))
     decided = len(orders) + len(lost)
+    earliest = first_month_with_data(today)
 
     headline = _headline(first)
     last_month = _headline(prior)
@@ -223,7 +230,15 @@ def report(first, today=None):
     posted = Payment.objects.filter(paid_on__gte=first, paid_on__lt=nxt).aggregate(t=Sum("amount"))["t"] or ZERO
     collected = posted + advances
 
+    # How much of this month's invoices has been paid: by the month's end for a
+    # closed month, so far for the running one. (What came in during the month also
+    # pays older invoices, so it is not compared with this month's billing.)
+    still_due = due_today if is_current else due_at_month_end
+    paid_share = _percent(invoiced_value - still_due, invoiced_value)
+
     # ---- sales executives ------------------------------------------------------
+    from apps.accounts.models import User
+
     targets = {t.salesperson_id: t.amount for t in SalesTarget.objects.filter(month=first)}
     people = {}
 
@@ -247,11 +262,12 @@ def report(first, today=None):
     for user_id, count in overdue_by_person.items():
         if user_id in people:
             people[user_id]["overdue"] = count
-    from apps.accounts.models import User
-
     for user_id, count in overdue_by_person.items():
         if user_id not in people:
             person(User.objects.get(pk=user_id))["overdue"] = count
+    # Someone with a target and nothing to show yet is exactly who needs seeing.
+    for user in User.objects.filter(pk__in=[pk for pk in targets if pk not in people]):
+        person(user)
     executives = sorted(people.values(), key=lambda row: (-row["value"], row["user"].display_name.lower()))
     for row in executives:
         row["share"] = _percent(row["value"], order_value)
@@ -308,7 +324,9 @@ def report(first, today=None):
         installer_owed += max(ZERO, lead.installation_charge - sum((p.amount for p in lead.installer_payments.all()), ZERO))
 
     followups_made = FollowUp.objects.filter(created_at__gte=start, created_at__lt=end).count()
-    followups_worked = FollowUp.objects.filter(done_at__gte=start, done_at__lt=end, superseded=False).count()
+    followups_worked = FollowUp.objects.filter(
+        done_at__gte=start, done_at__lt=end, superseded=False, closed_with_lead=False
+    ).count()
     followups_rescheduled = FollowUp.objects.filter(done_at__gte=start, done_at__lt=end, superseded=True).count()
     overdue_now = sum(overdue_by_person.values())
 
@@ -327,7 +345,7 @@ def report(first, today=None):
         "is_current": is_current,
         "is_final": today > closing,
         "days_left": max(0, (closing - today).days) if is_current else 0,
-        "previous": prior,
+        "previous": prior if prior >= earliest else None,
         "following": nxt if nxt <= month_start(today) else None,
         "headline": {
             "orders_count": len(orders),
@@ -338,7 +356,8 @@ def report(first, today=None):
             "due_at_month_end": due_at_month_end,
             "due_today": due_today,
             "collected": collected,
-            "collected_share": _percent(collected, invoiced_value),
+            "paid_share": paid_share,
+            "still_due": still_due,
             "leads_created": len(created),
             "lost_count": len(lost),
             "win_rate": _percent(len(orders), decided),
@@ -431,11 +450,11 @@ def insights(d):
         add("info", "fa-coins", f"{efficient['label']} returned the most for its spend: ₹{efficient['return']:.1f} of orders for every ₹1.")
 
     # --- money stuck
-    if h["collected_share"] is not None and h["invoiced_value"]:
-        if h["collected_share"] < 70:
-            add("warn", "fa-hand-holding-dollar", f"Only {h['collected_share']:.0f}% of what was invoiced ({rupees_short(h['invoiced_value'])}) was collected in the month. {rupees_short(h['due_today'])} of it is still due.")
+    if h["paid_share"] is not None and h["invoiced_value"]:
+        if h["paid_share"] < 70:
+            add("warn", "fa-hand-holding-dollar", f"Only {h['paid_share']:.0f}% of what was invoiced in {month} ({rupees_short(h['invoiced_value'])}) has been paid. {rupees_short(h['still_due'])} of it is still due.")
         else:
-            add("good", "fa-hand-holding-dollar", f"{h['collected_share']:.0f}% of what was invoiced was collected in the month.")
+            add("good", "fa-hand-holding-dollar", f"{h['paid_share']:.0f}% of what was invoiced in {month} has been paid.")
     if d["receivables"]["over_thirty"] > 0:
         add("warn", "fa-hourglass-half", f"{rupees_short(d['receivables']['over_thirty'])} has been unpaid for over 30 days, out of {rupees_short(d['receivables']['total'])} outstanding in all.")
 

@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 from functools import wraps
+from urllib.parse import quote, urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -9,14 +10,14 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpRespo
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_date
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import content_disposition_header, url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts import recovery
 from apps.accounts.models import Role, User
 
-from . import aging, daysummary, monthly
+from . import aging, daysummary, monthly, queues, updates
 from . import guide as guide_content
 from . import stages as stage_flow
 from .context_processors import ALL_QUEUE_KEYS, _pending_counts, navigation
@@ -58,6 +59,7 @@ from .models import (
 from .pdf import render_caf, render_handover_certificate, render_warranty_certificate
 from .scan import ScanError, pages_to_pdf, pdf_filename
 from .statements import render_customer_ledger, render_outstanding_statement
+from .templatetags.money import rupees
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -79,8 +81,14 @@ def role_required(*roles):
 
 
 def sales_executives():
-    """Everyone a lead can sit under — the Super Admin works leads of their own."""
-    return User.objects.filter(role__in=[Role.SALESPERSON, Role.SUPER_ADMIN], is_active=True)
+    """Everyone a lead can sit under — the Super Admin works leads of their own.
+
+    Someone since removed stays on the list while open leads are still in their
+    name, so those can be found and handed to someone else.
+    """
+    working = Q(role__in=[Role.SALESPERSON, Role.SUPER_ADMIN], is_active=True)
+    left_behind = Q(is_active=False, leads__status=Lead.Status.OPEN)
+    return User.objects.filter(working | left_behind).distinct()
 
 
 def visible_leads(user):
@@ -98,16 +106,25 @@ def get_lead(request, pk):
     return lead
 
 
-def notify(lead, message, *roles):
+def notify(lead, message, *roles, topic="", link=""):
+    """An update for everyone in these roles. See updates.py for what topic does."""
     recipients = User.objects.filter(role__in=roles, is_active=True)
-    Notification.objects.bulk_create(
-        [Notification(user=user, lead=lead, message=message) for user in recipients]
-    )
+    updates.send(recipients, message, lead=lead, topic=topic, link=link)
 
 
-def notify_user(lead, message, user):
-    if user:
-        Notification.objects.create(user=user, lead=lead, message=message)
+def notify_user(lead, message, user, topic="", link=""):
+    if user and user.is_active:
+        updates.send([user], message, lead=lead, topic=topic, link=link)
+
+
+def form_problems(form):
+    """A form's errors as a sentence a person can read — no internal field names."""
+    problems = []
+    for field, errors in form.errors.items():
+        label = form[field].label if field in form.fields else None
+        for error in errors:
+            problems.append(f"{label}: {error}" if label and field != "__all__" else error)
+    return " ".join(problems)
 
 
 @login_required
@@ -129,9 +146,10 @@ def scan_to_pdf(request, pk):
 
     filename = pdf_filename(request.POST.get("name"))
     response = HttpResponse(content, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    # The browser reads the name off this rather than parsing the header.
-    response["X-Scan-Filename"] = filename
+    response["Content-Disposition"] = content_disposition_header(True, filename)
+    # The browser reads the name off this rather than parsing the header. Percent-
+    # encoded, because a header carries only plain ASCII and names may be in Tamil.
+    response["X-Scan-Filename"] = quote(filename)
     return response
 
 
@@ -140,7 +158,7 @@ def search_leads(leads, query):
     query = (query or "").strip()
     if not query:
         return leads
-    return leads.filter(
+    found = (
         Q(customer_name__icontains=query)
         | Q(phone__icontains=query)
         | Q(site_location__icontains=query)
@@ -149,6 +167,14 @@ def search_leads(leads, query):
         | Q(quotation_number__icontains=query)
         | Q(invoice_number__icontains=query)
     )
+    # Numbers are stored as ten bare digits, so "98765 43210" or "+91 98765…" is
+    # searched the same way.
+    digits = "".join(ch for ch in query if ch.isdigit())
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    if len(digits) >= 4 and digits != query:
+        found |= Q(phone__icontains=digits)
+    return leads.filter(found)
 
 
 def safe_next(request, fallback):
@@ -160,6 +186,13 @@ def safe_next(request, fallback):
 
 def stage_redirect(lead, stage_key):
     return redirect(f"{lead.get_absolute_url()}?stage={stage_key}")
+
+
+def address(urlname, *args, **params):
+    """A page's address with whichever of these query values are set."""
+    url = reverse(urlname, args=args)
+    params = {key: value for key, value in params.items() if value not in (None, "")}
+    return f"{url}?{urlencode(params)}" if params else url
 
 
 def guard_stage(request, lead, stage_key, check_role=True):
@@ -212,18 +245,21 @@ def _queue_cards(user, counts):
 @login_required
 def dashboard(request):
     today = timezone.localdate()
-    # "Updates for the day" — only what was routed to this person's role.
-    updates = request.user.notifications.filter(created_at__date=today, dismissed=False).select_related("lead")[:25]
+    # "Updates for the day" — only what was routed to this person, and only what
+    # still needs saying: finished work clears itself (see updates.py).
+    todays_updates = (
+        request.user.notifications.filter(created_at__date=today, dismissed=False).select_related("lead")[:25]
+    )
 
     if request.user.role in (Role.SALESPERSON, Role.SUPER_ADMIN):
-        return _sales_dashboard(request, updates)
+        return _sales_dashboard(request, todays_updates)
 
     counts = _pending_counts(ALL_QUEUE_KEYS, request.user)
     return render(
         request,
         "crm/dashboard_queue.html",
         {
-            "updates": updates,
+            "updates": todays_updates,
             "cards": _queue_cards(request.user, counts),
             "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
             "accounts_totals": _accounts_totals() if request.user.role == Role.ACCOUNTS else None,
@@ -231,7 +267,7 @@ def dashboard(request):
     )
 
 
-def _sales_dashboard(request, updates):
+def _sales_dashboard(request, todays_updates):
     leads = visible_leads(request.user)
     selected_salesperson = request.GET.get("salesperson") or ""
     if request.user.is_super_admin and selected_salesperson:
@@ -239,48 +275,70 @@ def _sales_dashboard(request, updates):
 
     today = timezone.localdate()
     month_start = today.replace(day=1)
-    followups = FollowUp.objects.filter(lead__in=leads, done=False).select_related("lead")
+    # Only open leads have live follow-ups; a won or lost lead's are closed with it.
+    followups = FollowUp.objects.filter(
+        lead__in=leads, lead__status=Lead.Status.OPEN, done=False
+    ).select_related("lead")
 
-    # The Super Admin's own panel lists their own leads, the same way a
-    # salesperson's does; everyone else's overdue work is summarised beside it.
-    # The figures across the top stay company-wide.
+    # The Super Admin's own panel lists their own leads and the calls they booked
+    # themselves, the way a salesperson's does; everyone else's overdue work is
+    # summarised beside it. The figures across the top stay company-wide.
     panel_followups = followups
     overdue_by_person = None
     if request.user.is_super_admin and not selected_salesperson:
-        panel_followups = followups.filter(lead__assigned_to=request.user)
-        overdue_by_person = _overdue_by_person(today)
+        panel_followups = followups.filter(Q(lead__assigned_to=request.user) | Q(created_by=request.user))
+        overdue_by_person = _overdue_by_person()
     # A reminder is for what needs doing now: everything overdue that nobody has
     # updated, and what is due today. Later ones wait on the Follow-up tab.
     panel_followups = panel_followups.filter(date__lte=today)
 
+    # Each card opens a list of exactly what it counts, for the same person.
+    def lead_list(**params):
+        return address("crm:lead_list", **params, salesperson=selected_salesperson)
+
     context = {
         "lead_bank": leads.count(),
         "leads_this_month": leads.filter(created_at__date__gte=month_start).count(),
-        "overdue_followups": followups.filter(date__lt=today).count(),
+        "overdue_followups": leads.filter(followups__in=followups.filter(FollowUp.overdue_q())).distinct().count(),
         "won_count": leads.filter(status=Lead.Status.WON).count(),
         "lost_count": leads.filter(status=Lead.Status.LOST).count(),
         "pending_quotations": leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=True).count(),
+        "card_links": {
+            "leads": lead_list(),
+            "month": lead_list(period="month"),
+            "overdue": lead_list(status="overdue"),
+            "won": lead_list(status="won"),
+            "lost": address("crm:lost_opportunities", salesperson=selected_salesperson),
+            "waiting": lead_list(status="waiting"),
+        },
         "open_followups": panel_followups,
         "today": today,
         "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
         "salespeople": sales_executives(),
         "selected_salesperson": selected_salesperson,
         "overdue_by_person": overdue_by_person,
-        "updates": updates,
+        "updates": todays_updates,
         # Only the Super Admin can act on these, so only they are shown them.
         "password_requests": list(recovery.open_requests()) if request.user.is_super_admin else [],
     }
     return render(request, "crm/dashboard.html", context)
 
 
-def _overdue_by_person(today):
-    """How much overdue follow-up each sales executive is carrying."""
-    rows = []
-    for person in sales_executives():
-        count = FollowUp.objects.filter(
-            lead__assigned_to=person, done=False, date__lt=today
-        ).count()
-        rows.append({"person": person, "overdue": count})
+def _overdue_by_person():
+    """How many leads each sales executive has an overdue follow-up on.
+
+    Someone since removed still appears while their leads carry overdue calls,
+    so the work does not vanish from sight before it is reassigned.
+    """
+    overdue = FollowUp.objects.filter(FollowUp.overdue_q(), lead__status=Lead.Status.OPEN)
+    counts = {
+        row["lead__assigned_to"]: row["n"]
+        for row in overdue.values("lead__assigned_to").annotate(n=Count("lead", distinct=True))
+    }
+    people = list(sales_executives())
+    listed = {person.pk for person in people}
+    people += [person for person in User.objects.filter(pk__in=counts, is_active=False) if person.pk not in listed]
+    rows = [{"person": person, "overdue": counts.get(person.pk, 0)} for person in people]
     return sorted(rows, key=lambda row: -row["overdue"])
 
 
@@ -299,26 +357,33 @@ def lead_list(request):
         leads = leads.filter(assigned_to_id=selected_salesperson)
 
     status = request.GET.get("status") or ""
-    if status in ("waiting", "unchased", "following"):
-        # The pipeline's stages, so each line there opens to exactly its leads.
-        open_leads = leads.filter(status=Lead.Status.OPEN)
-        quoted = open_leads.filter(quotation_uploaded_at__isnull=False)
-        chased = FollowUp.objects.filter(done=False, lead__in=quoted).values("lead_id")
-        leads = {
-            "waiting": open_leads.filter(quotation_uploaded_at__isnull=True),
-            "unchased": quoted.exclude(pk__in=chased),
-            "following": quoted.filter(pk__in=chased),
-        }[status]
-    elif status == "won":
-        leads = leads.filter(status=Lead.Status.WON)
-    elif status == "lost":
-        leads = leads.filter(status=Lead.Status.LOST)
-    elif status == "followup":
-        leads = leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=False)
-    elif status == "overdue":
-        leads = leads.filter(
-            followups__done=False, followups__date__lt=timezone.localdate()
-        ).distinct()
+    status_choices = dict(LEAD_FILTERS)
+    if status not in status_choices:
+        status = ""
+    leads = filter_leads(leads, status)
+
+    # "This month" narrows to what the dashboard and pipeline count for the month:
+    # leads added this month, or for won and lost, decided this month.
+    period = request.GET.get("period") or ""
+    if period == "month":
+        month_start = timezone.localdate().replace(day=1)
+        stamp = {"won": "won_at", "lost": "lost_at"}.get(status, "created_at")
+        leads = leads.filter(**{f"{stamp}__date__gte": month_start})
+    else:
+        period = ""
+
+    # "Waiting over 3 days", as the pipeline's attention list counts it.
+    older = request.GET.get("older") or ""
+    if older.isdigit():
+        leads = leads.filter(created_at__lte=timezone.now() - timedelta(days=int(older)))
+    else:
+        older = ""
+
+    heading = status_choices.get(status, "")
+    if period:
+        heading = f"{heading or 'Added'} this month"
+    if older:
+        heading = f"{heading or 'Leads'}, over {older} days"
 
     return render(
         request,
@@ -329,17 +394,47 @@ def lead_list(request):
             "salespeople": sales_executives(),
             "selected_salesperson": selected_salesperson,
             "status": status,
-            "status_choices": [
-                ("waiting", "Waiting for a quotation"),
-                ("unchased", "Quoted, no call booked"),
-                ("following", "In follow-up"),
-                ("followup", "Follow-up stage"),
-                ("won", "Won"),
-                ("lost", "Lost"),
-                ("overdue", "Overdue follow-up"),
-            ],
+            "period": period,
+            "older": older,
+            "filter_heading": heading,
+            "status_choices": LEAD_FILTERS,
         },
     )
+
+
+LEAD_FILTERS = [
+    ("waiting", "Waiting for a quotation"),
+    ("unchased", "Quoted, no call booked"),
+    ("following", "In follow-up"),
+    ("followup", "Follow-up stage"),
+    ("won", "Won"),
+    ("lost", "Lost"),
+    ("overdue", "Overdue follow-up"),
+]
+
+
+def filter_leads(leads, status):
+    """The Leads list's filters. The pipeline and dashboard count with the same rules."""
+    if status in ("waiting", "unchased", "following"):
+        # The pipeline's stages, so each line there opens to exactly its leads.
+        open_leads = leads.filter(status=Lead.Status.OPEN)
+        quoted = open_leads.filter(quotation_uploaded_at__isnull=False)
+        chased = FollowUp.objects.filter(done=False, lead__in=quoted).values("lead_id")
+        return {
+            "waiting": open_leads.filter(quotation_uploaded_at__isnull=True),
+            "unchased": quoted.exclude(pk__in=chased),
+            "following": quoted.filter(pk__in=chased),
+        }[status]
+    if status == "won":
+        return leads.filter(status=Lead.Status.WON)
+    if status == "lost":
+        return leads.filter(status=Lead.Status.LOST)
+    if status == "followup":
+        return leads.filter(status=Lead.Status.OPEN, quotation_uploaded_at__isnull=False)
+    if status == "overdue":
+        overdue = FollowUp.objects.filter(FollowUp.overdue_q()).values("lead_id")
+        return leads.filter(status=Lead.Status.OPEN, pk__in=overdue)
+    return leads
 
 
 @role_required(Role.SALESPERSON)
@@ -382,6 +477,11 @@ def lead_edit(request, pk):
                     to_user=lead.assigned_to,
                     changed_by=request.user,
                 )
+                # The previous owner can no longer open the lead, so nothing about
+                # it should be left waiting on their dashboard.
+                previous = User.objects.filter(pk=was_assigned_to).first()
+                if previous and previous.role == Role.SALESPERSON:
+                    updates.clear_for(previous, lead)
                 notify_user(
                     lead,
                     f"A new lead opportunity has been reassigned to you — {lead.customer_name}, {lead.site_location}",
@@ -400,8 +500,21 @@ def lead_edit(request, pk):
 @require_POST
 def lead_delete(request, pk):
     lead = get_lead(request, pk)
+    if lead.status == Lead.Status.WON:
+        # A confirmed order carries the customer's payments, the installer's ledger
+        # and the site paperwork. Deleting it would take all of that with it.
+        messages.error(request, "A confirmed order can't be deleted — its payments and documents would go with it.")
+        return redirect(lead.get_absolute_url())
     name = lead.customer_name
+    stored = [upload.file for upload in lead.uploads.all()]
     lead.delete()
+    # The rows went with the lead; the files themselves have to be removed too, or
+    # they sit in the bucket taking up room nobody can see.
+    for file in stored:
+        try:
+            file.delete(save=False)
+        except Exception:
+            pass
     messages.success(request, f"Lead for {name} deleted.")
     return redirect("crm:lead_list")
 
@@ -442,6 +555,12 @@ def lead_detail(request, pk):
         # Follow-ups run from the moment the lead exists, not just once a
         # quotation is out, so the scheduler shows on stage 1 as well.
         "can_follow_up": lead.status == Lead.Status.OPEN and request.user.has_role(Role.SALESPERSON),
+        # Won or lost can be called on an open lead once a quotation is out — even
+        # while a revision is pending, which keeps step 4 open to be read.
+        "decision_open": lead.status == Lead.Status.OPEN and lead.quotation_uploaded_at is not None,
+        "sheet_awaiting_approval": bool(
+            lead.production_sheet_at and not lead.production_approved_at and not lead.production_revision_at
+        ),
         "measurement_form": MeasurementBoxForm(),
         "rough_form": RoughMeasurementForm(),
         "quotation_form": QuotationForm(),
@@ -470,7 +589,7 @@ def stage_measurements(request, pk):
 
     form = MeasurementBoxForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, form.errors.as_text())
+        messages.error(request, form_problems(form))
         return stage_redirect(lead, stage_flow.LEAD)
 
     mode = form.cleaned_data["mode"]
@@ -493,10 +612,10 @@ def stage_measurements(request, pk):
         )
         if allocated:
             # Told to one person, so only that person is chased for it.
-            notify_user(lead, message, allocated)
+            notify_user(lead, message, allocated, topic=updates.ROUGH)
             messages.success(request, f"Rough measurement allocated to {allocated.display_name}.")
         else:
-            notify(lead, message, Role.MEASUREMENT)
+            notify(lead, message, Role.MEASUREMENT, topic=updates.ROUGH)
             messages.success(request, "Rough measurement request sent to the measurement team.")
     else:
         if form.cleaned_data.get("file"):
@@ -506,7 +625,7 @@ def stage_measurements(request, pk):
         lead.measurement_done_at = now
         lead.measurement_done_by = request.user
         lead.save()
-        notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.QUOTATION)
+        notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.QUOTATION, topic=updates.QUOTATION)
         messages.success(request, "Measurements saved. The quotation team has been notified.")
     return redirect(lead.get_absolute_url())
 
@@ -526,7 +645,7 @@ def stage_rough(request, pk):
 
     form = RoughMeasurementForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, form.errors.as_text())
+        messages.error(request, form_problems(form))
         return stage_redirect(lead, stage_flow.ROUGH)
 
     if form.cleaned_data.get("file"):
@@ -536,8 +655,10 @@ def stage_rough(request, pk):
     lead.measurement_done_at = timezone.now()
     lead.measurement_done_by = request.user
     lead.save()
-    notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.QUOTATION)
-    notify_user(lead, f"Rough measurement completed for {lead.customer_name}", lead.assigned_to)
+    updates.clear(updates.ROUGH, lead=lead)
+    notify(lead, f"Measurements ready for quotation — {lead.customer_name}", Role.QUOTATION, topic=updates.QUOTATION)
+    # News for the sales executive until the quotation it leads to arrives.
+    notify_user(lead, f"Rough measurement completed for {lead.customer_name}", lead.assigned_to, topic=updates.QUOTATION)
     messages.success(request, "Rough measurement submitted.")
     return redirect(lead.get_absolute_url())
 
@@ -555,25 +676,39 @@ def stage_quotation(request, pk):
     if blocked:
         return blocked
 
-    form = QuotationForm(request.POST, request.FILES)
+    # A revision keeps the elevation report already on file unless a new one comes with it.
+    form = QuotationForm(request.POST, request.FILES, has_elevation=lead.elevation_files.exists())
     if not form.is_valid():
-        messages.error(request, form.errors.as_text())
+        messages.error(request, form_problems(form))
         return stage_redirect(lead, stage_flow.QUOTATION)
 
-    for uploaded in form.cleaned_data["files"]:
-        save_upload(lead, LeadFile.Kind.QUOTATION, uploaded, request.user)
-    save_upload(lead, LeadFile.Kind.ELEVATION, form.cleaned_data["elevation"], request.user)
+    # What this upload replaces stays on file, marked as replaced, so the price the
+    # sales executive sends is always the latest one. Marked only once the new files
+    # are safely stored, so a failed upload never leaves a lead with no quotation.
+    now = timezone.now()
+    added = [save_upload(lead, LeadFile.Kind.QUOTATION, uploaded, request.user) for uploaded in form.cleaned_data["files"]]
+    lead.uploads.filter(kind=LeadFile.Kind.QUOTATION, replaced_at__isnull=True).exclude(
+        pk__in=[upload.pk for upload in added]
+    ).update(replaced_at=now)
+    if form.cleaned_data.get("elevation"):
+        elevation = save_upload(lead, LeadFile.Kind.ELEVATION, form.cleaned_data["elevation"], request.user)
+        lead.uploads.filter(kind=LeadFile.Kind.ELEVATION, replaced_at__isnull=True).exclude(pk=elevation.pk).update(
+            replaced_at=now
+        )
     lead.quotation_number = form.cleaned_data["quotation_number"]
     lead.quotation_uploaded_at = timezone.now()
     lead.quotation_uploaded_by = request.user
     revised = lead.quotation_revision_pending
     lead.quotation_revision_pending = False
     lead.save()
+    updates.clear(updates.QUOTATION, lead=lead)
     if revised:
-        notify_user(lead, f"Revised quotation uploaded for {lead.customer_name}", lead.assigned_to)
+        notify_user(lead, f"Revised quotation {lead.quotation_number} uploaded for {lead.customer_name}",
+                    lead.assigned_to, topic=updates.DECISION)
         messages.success(request, "Revised quotation uploaded and sent back to the sales executive.")
     else:
-        notify_user(lead, f"Quotation {lead.quotation_number} uploaded for {lead.customer_name}", lead.assigned_to)
+        notify_user(lead, f"Quotation {lead.quotation_number} uploaded for {lead.customer_name}",
+                    lead.assigned_to, topic=updates.DECISION)
         messages.success(request, "Quotation uploaded and forwarded to the sales executive.")
     return redirect(lead.get_absolute_url())
 
@@ -583,10 +718,33 @@ def stage_quotation(request, pk):
 # ---------------------------------------------------------------------------
 
 
+def guard_decision(request, lead, needs_quotation):
+    """Won or lost is the sales executive's call on an open lead.
+
+    Lost can be called at any point: customers drop out before a price is sent
+    too. Won needs a quotation to have gone out — and is allowed while a revision
+    is pending, for when the customer takes the price as it stands after all.
+    """
+    if not stage_flow.can_act(request.user, stage_flow.DECISION):
+        return HttpResponseForbidden("Your role cannot act on this stage.")
+    if lead.status != Lead.Status.OPEN:
+        messages.error(request, "This lead is already closed.")
+        return redirect(lead.get_absolute_url())
+    if needs_quotation and not lead.quotation_uploaded_at:
+        messages.error(request, "An order can only be confirmed once a quotation has gone out.")
+        return redirect(lead.get_absolute_url())
+    return None
+
+
+def close_followups(lead):
+    """A won or lost lead has nothing left to chase; its open follow-up closes with it."""
+    FollowUp.objects.filter(lead=lead, done=False).update(done=True, done_at=timezone.now(), closed_with_lead=True)
+
+
 @role_required(Role.SALESPERSON)
 def stage_won(request, pk):
     lead = get_lead(request, pk)
-    blocked = guard_stage(request, lead, stage_flow.DECISION)
+    blocked = guard_decision(request, lead, needs_quotation=True)
     if blocked:
         return blocked
 
@@ -597,14 +755,18 @@ def stage_won(request, pk):
             lead.status = Lead.Status.WON
             lead.won_at = timezone.now()
             lead.won_by = request.user
+            # Taken at the price already quoted, so no revision is coming.
+            lead.quotation_revision_pending = False
             lead.save()
-            FollowUp.objects.filter(lead=lead, done=False).update(done=True, done_at=timezone.now())
+            close_followups(lead)
+            updates.clear(updates.ROUGH, updates.QUOTATION, updates.DECISION, lead=lead)
             notify(
                 lead,
-                f"Order confirmed — {lead.customer_name}: value {lead.order_value}, advance {lead.advance_received}, balance {lead.balance_amount}",
+                f"Order confirmed — {lead.customer_name}: value {rupees(lead.order_value)}, "
+                f"advance {rupees(lead.advance_received)}, balance {rupees(lead.balance_amount)}",
                 Role.ACCOUNTS,
             )
-            notify(lead, f"CAF & final measurement pending — {lead.customer_name}", Role.MEASUREMENT)
+            notify(lead, f"CAF & final measurement pending — {lead.customer_name}", Role.MEASUREMENT, topic=updates.CAF)
             messages.success(request, "Order confirmed. Accounts and the measurement team have been notified.")
             return redirect(lead.get_absolute_url())
     else:
@@ -615,7 +777,7 @@ def stage_won(request, pk):
 @role_required(Role.SALESPERSON)
 def stage_lost(request, pk):
     lead = get_lead(request, pk)
-    blocked = guard_stage(request, lead, stage_flow.DECISION)
+    blocked = guard_decision(request, lead, needs_quotation=False)
     if blocked:
         return blocked
 
@@ -626,8 +788,11 @@ def stage_lost(request, pk):
             lead.status = Lead.Status.LOST
             lead.lost_at = timezone.now()
             lead.lost_by = request.user
+            lead.quotation_revision_pending = False
             lead.save()
-            FollowUp.objects.filter(lead=lead, done=False).update(done=True, done_at=timezone.now())
+            close_followups(lead)
+            # Whatever anyone was asked to do for this lead, it is no longer needed.
+            updates.clear(*updates.LEAD_WORK, lead=lead)
             messages.info(request, "Lead marked as lost and moved to Lost Opportunities.")
             return redirect("crm:lost_opportunities")
     else:
@@ -658,7 +823,7 @@ def stage_caf_final(request, pk):
 
     form = CafFinalForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, form.errors.as_text())
+        messages.error(request, form_problems(form))
         return stage_redirect(lead, stage_flow.CAF)
 
     now = timezone.now()
@@ -672,7 +837,9 @@ def stage_caf_final(request, pk):
     lead.save()
 
     if lead.caf_signed_at and lead.final_measurement_at:
-        notify(lead, f"Final measurement ready — production sheet needed for {lead.customer_name}", Role.PRODUCTION)
+        updates.clear(updates.CAF, lead=lead)
+        notify(lead, f"Final measurement ready — production sheet needed for {lead.customer_name}",
+               Role.PRODUCTION, topic=updates.SHEET)
         messages.success(request, "Signed CAF and final measurement uploaded. Production has been notified.")
     else:
         pending = "final measurement file" if lead.caf_signed_at else "signed CAF"
@@ -710,7 +877,9 @@ def stage_production_sheet(request, pk):
     lead.production_revision_note = ""
     lead.production_revision_at = None
     lead.save()
-    notify(lead, f"Production sheet awaiting your approval — {lead.customer_name}", Role.MEASUREMENT)
+    # The sheet asked for is in; any earlier approval request was for the old one.
+    updates.clear(updates.SHEET, updates.APPROVAL, lead=lead)
+    notify(lead, f"Production sheet awaiting your approval — {lead.customer_name}", Role.MEASUREMENT, topic=updates.APPROVAL)
     messages.success(request, "Production sheet uploaded. Waiting for measurement staff approval.")
     return redirect(lead.get_absolute_url())
 
@@ -731,7 +900,8 @@ def production_approve(request, pk):
     lead.production_revision_note = ""
     lead.production_revision_at = None
     lead.save()
-    notify(lead, f"Production sheet approved — {lead.customer_name}", Role.PRODUCTION)
+    updates.clear(updates.APPROVAL, updates.SHEET, lead=lead)
+    notify(lead, f"Production sheet approved — {lead.customer_name}", Role.PRODUCTION, topic=updates.FLOOR)
     messages.success(request, "Production sheet approved.")
     return redirect(lead.get_absolute_url())
 
@@ -756,7 +926,8 @@ def production_need_revision(request, pk):
     lead.production_revision_at = timezone.now()
     lead.save()
     ProductionRevision.objects.create(lead=lead, note=remarks, requested_by=request.user)
-    notify(lead, f"Production sheet needs revision — {lead.customer_name}: {remarks}", Role.PRODUCTION)
+    updates.clear(updates.APPROVAL, lead=lead)
+    notify(lead, f"Production sheet needs revision — {lead.customer_name}: {remarks}", Role.PRODUCTION, topic=updates.SHEET)
     messages.success(request, "Sent back to the production team with your remarks.")
     return redirect(lead.get_absolute_url())
 
@@ -781,7 +952,9 @@ def quotation_need_revision(request, pk):
     lead.quotation_revision_pending = True
     lead.save(update_fields=["quotation_revision_pending"])
     QuotationRevision.objects.create(lead=lead, note=remarks, requested_by=request.user)
-    notify(lead, f"Quotation needs revision — {lead.customer_name}: {remarks}", Role.QUOTATION)
+    # The sales executive has answered the quotation they were sent.
+    updates.clear(updates.DECISION, lead=lead)
+    notify(lead, f"Quotation needs revision — {lead.customer_name}: {remarks}", Role.QUOTATION, topic=updates.QUOTATION)
     messages.success(request, "Sent back to the quotation team with your remarks.")
     return redirect(lead.get_absolute_url())
 
@@ -903,16 +1076,18 @@ def dispatch(request, pk):
             lead.dispatched_at = timezone.now()
             lead.dispatched_by = request.user
             lead.save()
-            notify(lead, f"Dispatched — warranty & handover pending for {lead.customer_name}", Role.FIELD_MANAGER)
+            updates.clear(updates.FLOOR, lead=lead)
+            notify(lead, f"Dispatched — warranty & handover pending for {lead.customer_name}",
+                   Role.FIELD_MANAGER, topic=updates.HANDOVER)
             messages.success(request, "Dispatched. Warranty & handover is now open for the field manager.")
             return safe_next(request, lead.get_absolute_url())
     else:
         form = DispatchForm(instance=lead)
-    return render(
-        request,
-        "crm/dispatch_form.html",
-        {"lead": lead, "form": form, "next": request.GET.get("next") or request.POST.get("next", "")},
-    )
+    # Only an address on this site goes back into the page's links.
+    back = request.GET.get("next") or request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
+        back = ""
+    return render(request, "crm/dispatch_form.html", {"lead": lead, "form": form, "next": back})
 
 
 # ---------------------------------------------------------------------------
@@ -977,7 +1152,9 @@ def project_save(request, pk):
     lead.completed_at = timezone.now()
     lead.completed_by = request.user
     lead.save()
-    notify_user(lead, f"Project completed — {lead.customer_name}", lead.assigned_to)
+    updates.clear(updates.HANDOVER, lead=lead)
+    notify_user(lead, f"Project completed — {lead.customer_name}", lead.assigned_to,
+                link=updates.completed_link(lead))
     messages.success(request, "Project saved and moved to Completed Projects.")
     return redirect("crm:queue_warranty")
 
@@ -997,7 +1174,8 @@ def followups(request):
         .order_by("done", "date", "time")
     )
     if request.GET.get("show") != "all":
-        items = items.filter(done=False)
+        # A won or lost lead's follow-up closes with it and cannot be worked any more.
+        items = items.filter(done=False, lead__status=Lead.Status.OPEN)
     return render(
         request,
         "crm/followups.html",
@@ -1027,7 +1205,7 @@ def followup_add(request, pk):
         else:
             messages.success(request, "Follow-up scheduled.")
     else:
-        messages.error(request, form.errors.as_text())
+        messages.error(request, form_problems(form))
     return safe_next(request, lead.get_absolute_url())
 
 
@@ -1105,17 +1283,24 @@ def pipeline(request):
         due = lead.open_followup
         return f"call {due.date:%d %b}" if due else "no call booked"
 
+    def local_day(when):
+        return f"{timezone.localtime(when):%d %b}"
+
+    def lead_list(**params):
+        # The list each line opens counts with the same rules as the line.
+        return address("crm:lead_list", **params, salesperson=selected_salesperson)
+
     stages = [
         stage("waiting", "Waiting for a quotation", "Measured or requested, no price sent yet",
-              waiting, "expected_value", "gold", waited, "waiting"),
+              waiting, "expected_value", "gold", waited, lead_list(status="waiting")),
         stage("unchased", "Quoted, no call booked", "A price is out and nothing is scheduled",
-              unchased, "expected_value", "amber", quoted_ago, "unchased"),
+              unchased, "expected_value", "amber", quoted_ago, lead_list(status="unchased")),
         stage("following", "In follow-up", "A price is out and a call is booked",
-              following, "expected_value", "blue", next_call, "following"),
+              following, "expected_value", "blue", next_call, lead_list(status="following")),
         stage("won", "Won this month", "Orders confirmed since the 1st",
-              won, "order_value", "green", lambda l: f"won {l.won_at:%d %b}", "won"),
+              won, "order_value", "green", lambda l: f"won {local_day(l.won_at)}", lead_list(status="won", period="month")),
         stage("lost", "Lost this month", "Did not come off since the 1st",
-              lost, "expected_value", "rose", lambda l: f"lost {l.lost_at:%d %b}", "lost"),
+              lost, "expected_value", "rose", lambda l: f"lost {local_day(l.lost_at)}", lead_list(status="lost", period="month")),
     ]
     biggest = max((row["count"] for row in stages), default=0) or 1
     for row in stages:
@@ -1126,16 +1311,16 @@ def pipeline(request):
     win_rate = round(stages[3]["count"] * 100 / decided) if decided else None
 
     overdue_leads = (
-        FollowUp.objects.filter(done=False, date__lt=today, lead__in=open_leads).values("lead_id").distinct().count()
+        FollowUp.objects.filter(FollowUp.overdue_q(), lead__in=open_leads).values("lead_id").distinct().count()
     )
     slow = waiting.filter(created_at__lte=timezone.now() - timedelta(days=3)).count()
     attention = []
     if overdue_leads:
-        attention.append({"count": overdue_leads, "text": "with a follow-up that is overdue", "link": "overdue"})
+        attention.append({"count": overdue_leads, "text": "with a follow-up that is overdue", "link": lead_list(status="overdue")})
     if stages[1]["count"]:
-        attention.append({"count": stages[1]["count"], "text": "quoted but no call booked", "link": "unchased"})
+        attention.append({"count": stages[1]["count"], "text": "quoted but no call booked", "link": lead_list(status="unchased")})
     if slow:
-        attention.append({"count": slow, "text": "waiting on a quotation for over 3 days", "link": "waiting"})
+        attention.append({"count": slow, "text": "waiting on a quotation for over 3 days", "link": lead_list(status="waiting", older=3)})
 
     by_executive = None
     if request.user.is_super_admin and not selected_salesperson:
@@ -1147,7 +1332,7 @@ def pipeline(request):
                     "person": person,
                     "open": mine.count(),
                     "value": mine.aggregate(v=Sum("expected_value"))["v"] or Decimal("0"),
-                    "overdue": FollowUp.objects.filter(done=False, date__lt=today, lead__in=mine).values("lead_id").distinct().count(),
+                    "overdue": FollowUp.objects.filter(FollowUp.overdue_q(), lead__in=mine).values("lead_id").distinct().count(),
                     "won": won.filter(assigned_to=person).aggregate(v=Sum("order_value"))["v"] or Decimal("0"),
                 }
             )
@@ -1171,6 +1356,28 @@ def pipeline(request):
             "selected_salesperson": selected_salesperson,
         },
     )
+
+
+class TeamTarget:
+    """Everyone's targets for the month added together, for the Super Admin's overview."""
+
+    salesperson = "the whole team"
+
+    def __init__(self, targets, won):
+        self.targets = targets
+        self.amount = sum((target.amount for target in targets), Decimal("0"))
+        self.achieved = won.aggregate(total=Sum("order_value"))["total"] or Decimal("0")
+
+    def __bool__(self):
+        return bool(self.targets)
+
+    @property
+    def pending(self):
+        return max(self.amount - self.achieved, Decimal("0"))
+
+    @property
+    def percent(self):
+        return min(int(self.achieved / self.amount * 100), 100) if self.amount else 0
 
 
 @role_required(Role.SALESPERSON)
@@ -1204,24 +1411,30 @@ def targets(request):
         target_qs = target_qs.filter(salesperson_id=selected_salesperson)
 
     this_month = timezone.localdate().replace(day=1)
-    current = target_qs.filter(month=this_month).first()
+    in_month = {"won_at__year": this_month.year, "won_at__month": this_month.month}
+    lost_in_month = {"lost_at__year": this_month.year, "lost_at__month": this_month.month}
     won_this_month = []
     lost_this_month = []
-    if current:
-        # Credit follows whoever actually closed it, so a reassignment does not
-        # move an old win onto someone else's target.
-        won_this_month = Lead.objects.filter(
-            Q(won_by=current.salesperson) | Q(won_by__isnull=True, assigned_to=current.salesperson),
-            status=Lead.Status.WON,
-            won_at__year=this_month.year,
-            won_at__month=this_month.month,
-        ).order_by("-won_at")
-        lost_this_month = Lead.objects.filter(
-            Q(lost_by=current.salesperson) | Q(lost_by__isnull=True, assigned_to=current.salesperson),
-            status=Lead.Status.LOST,
-            lost_at__year=this_month.year,
-            lost_at__month=this_month.month,
-        ).order_by("-lost_at")
+    if request.user.is_super_admin and not selected_salesperson:
+        # Everyone's at once: the team's combined target against everything won,
+        # the way the Summary for the Month reckons it.
+        won_this_month = Lead.objects.filter(status=Lead.Status.WON, **in_month).order_by("-won_at")
+        current = TeamTarget(list(target_qs.filter(month=this_month)), won_this_month)
+        if current:
+            lost_this_month = Lead.objects.filter(status=Lead.Status.LOST, **lost_in_month).order_by("-lost_at")
+        else:
+            won_this_month = []
+    else:
+        current = target_qs.filter(month=this_month).first()
+    if current and not isinstance(current, TeamTarget):
+        # The same orders the Achieved figure adds up (see models.credited_q).
+        won_this_month = current.won_leads.order_by("-won_at")
+        # A loss is theirs by the same rule: whoever marked it, unless the Super Admin did.
+        person = current.salesperson
+        theirs = Q(lost_by=person, lost_by__role=Role.SALESPERSON) | (
+            Q(assigned_to=person) & (Q(lost_by__isnull=True) | ~Q(lost_by__role=Role.SALESPERSON))
+        )
+        lost_this_month = Lead.objects.filter(theirs, status=Lead.Status.LOST, **lost_in_month).order_by("-lost_at")
     return render(
         request,
         "crm/targets.html",
@@ -1260,7 +1473,9 @@ def lost_opportunities(request):
 
 @role_required(Role.SALESPERSON)
 def completed_projects(request):
-    leads = visible_leads(request.user).filter(completed_at__isnull=False).prefetch_related("payments", "complaints")
+    leads = visible_leads(request.user).filter(completed_at__isnull=False).prefetch_related(
+        "payments", "invoice_charges", "complaints"
+    )
     query = request.GET.get("q", "").strip()
     return render(request, "crm/completed_list.html", {"leads": search_leads(leads, query), "q": query})
 
@@ -1276,17 +1491,30 @@ def _queue(request, template, leads, title, blurb):
 
 @role_required(Role.MEASUREMENT)
 def queue_rough(request):
-    leads = Lead.objects.filter(
-        measurement_mode=Lead.MeasurementMode.REQUESTED, measurement_done_at__isnull=True, status=Lead.Status.OPEN
-    ).select_related("assigned_to")
-    return _queue(request, "crm/queues/simple.html", leads, "Rough Measurements", "Leads waiting for a rough measurement.")
+    # Everyone on the team sees every request, so one can cover for another; the
+    # ones allocated to you (or to nobody) come first, and are what your badge counts.
+    mine = queues.rough_for(request.user).values("pk")
+    leads = (
+        queues.rough()
+        .select_related("assigned_to", "measurement_assigned_to")
+        .annotate(for_me=Count("pk", filter=Q(pk__in=mine)))
+        .order_by("-for_me", "measurement_requested_at")
+    )
+    return render(
+        request,
+        "crm/queues/simple.html",
+        {
+            "leads": leads,
+            "title": "Rough Measurements",
+            "blurb": "Leads waiting for a rough measurement. Yours, and ones left for anyone, are at the top.",
+            "show_allocation": True,
+        },
+    )
 
 
 @role_required(Role.MEASUREMENT)
 def queue_final(request):
-    leads = Lead.objects.filter(status=Lead.Status.WON).exclude(
-        caf_signed_at__isnull=False, final_measurement_at__isnull=False
-    ).select_related("assigned_to")
+    leads = queues.final().select_related("assigned_to")
     return _queue(
         request,
         "crm/queues/simple.html",
@@ -1298,9 +1526,8 @@ def queue_final(request):
 
 @role_required(Role.MEASUREMENT)
 def queue_production_validation(request):
-    leads = Lead.objects.filter(
-        production_sheet_at__isnull=False, production_approved_at__isnull=True
-    ).select_related("assigned_to")
+    # A sheet sent back is with the production team until they upload it again.
+    leads = queues.validation().select_related("assigned_to")
     return _queue(
         request,
         "crm/queues/simple.html",
@@ -1313,11 +1540,7 @@ def queue_production_validation(request):
 @role_required(Role.QUOTATION)
 def queue_quotations(request):
     # Waiting on a first quotation, or on a revision the sales executive asked for.
-    leads = Lead.objects.filter(
-        Q(quotation_uploaded_at__isnull=True) | Q(quotation_revision_pending=True),
-        status=Lead.Status.OPEN,
-        measurement_done_at__isnull=False,
-    ).select_related("assigned_to")
+    leads = queues.quotation().select_related("assigned_to")
     return _queue(
         request,
         "crm/queues/simple.html",
@@ -1377,7 +1600,9 @@ def ledger(request, pk):
 
     if request.method == "POST":
         if "save_figures" in request.POST:
-            ledger_form = LedgerForm(request.POST, instance=lead)
+            # Its own copy of the order: a form that fails would otherwise leave its
+            # unsaved figures on the lead, and the page would show them as if saved.
+            ledger_form = LedgerForm(request.POST, instance=Lead.objects.get(pk=lead.pk))
             if ledger_form.is_valid():
                 ledger_form.save()
                 messages.success(request, "Order figures updated.")
@@ -1439,14 +1664,15 @@ def ledger_rows(lead):
             }
         )
 
-    add(lead.won_at, "Order confirmed", billed, None, kind="order")
+    confirmed = timezone.localtime(lead.won_at).date() if lead.won_at else None
+    add(confirmed, "Order confirmed", billed, None, kind="order")
 
     advance = lead.advance_received or Decimal("0")
     if advance:
         received += advance
-        add(lead.won_at, "Advance received on order confirmation", None, advance, kind="advance")
+        add(confirmed, "Advance received on order confirmation", None, advance, kind="advance")
 
-    events = [(charge.added_at.date(), 0, charge) for charge in lead.invoice_charges.all()]
+    events = [(timezone.localtime(charge.added_at).date(), 0, charge) for charge in lead.invoice_charges.all()]
     events += [(payment.paid_on, 1, payment) for payment in lead.payments.all()]
     # Same-day charges are listed before the receipts that settle them.
     events.sort(key=lambda item: (item[0], item[1], item[2].pk))
@@ -1506,11 +1732,11 @@ def charge_delete(request, pk):
 
 @role_required(Role.PRODUCTION)
 def queue_production(request):
-    leads = Lead.objects.filter(
-        caf_signed_at__isnull=False, final_measurement_at__isnull=False, production_approved_at__isnull=True
-    ).select_related("assigned_to")
+    # Sheets already uploaded wait on the measurement staff, not here; one sent back comes back here.
+    leads = queues.production().select_related("assigned_to")
     return _queue(
-        request, "crm/queues/simple.html", leads, "Production", "Orders waiting for a production sheet."
+        request, "crm/queues/simple.html", leads, "Production",
+        "Orders waiting for a production sheet, and sheets sent back for changes.",
     )
 
 
@@ -1523,7 +1749,7 @@ FABRICATION_COLUMNS = [
 
 @role_required(Role.PRODUCTION)
 def queue_fabrication(request):
-    on_floor = Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=True).select_related("assigned_to")
+    on_floor = queues.floor().select_related("assigned_to")
     if request.user.is_super_admin:
         return _fabrication_admin(request, on_floor)
     return render(request, "crm/queues/fabrication_list.html", {"leads": on_floor})
@@ -1580,13 +1806,19 @@ def _totals_for(queryset):
     )
     value = figures["value"] or Decimal("0")
     advance = figures["advance"] or Decimal("0")
+    # The same balance each row shows — extras billed and payments posted since
+    # the advance count too — so the rows add up to the total.
+    balance = sum(
+        (lead.balance_amount or Decimal("0") for lead in queryset.prefetch_related("payments", "invoice_charges")),
+        Decimal("0"),
+    )
     return {
         "orders": figures["orders"] or 0,
         "windows": figures["windows"] or 0,
         "sqft": figures["sqft"] or 0,
         "value": value,
         "advance": advance,
-        "balance": value - advance,
+        "balance": balance,
     }
 
 
@@ -1625,13 +1857,13 @@ def _fabrication_waiting_on(lead):
 
 @role_required(Role.FIELD_MANAGER)
 def queue_warranty(request):
-    leads = Lead.objects.filter(dispatched_at__isnull=False, completed_at__isnull=True).select_related("assigned_to")
+    leads = queues.handover().select_related("assigned_to")
     return _queue(
         request,
         "crm/queues/simple.html",
         leads,
         "Warranty & Handover",
-        "Dispatched orders waiting for the signed warranty certificate.",
+        "Dispatched orders waiting for the signed handover certificate.",
     )
 
 
@@ -1658,10 +1890,11 @@ def todo_list(request):
             task.assigned_by = request.user
             task.save()
             if task.assigned_to_id != request.user.id:
-                Notification.objects.create(
-                    user=task.assigned_to,
-                    lead=None,
-                    message=f"{request.user.get_full_name() or request.user.username} assigned you: {task.title}",
+                updates.send(
+                    [task.assigned_to],
+                    f"{request.user.display_name} assigned you: {task.title}",
+                    topic=updates.todo(task),
+                    link=updates.todo_link(),
                 )
             messages.success(request, f"To-do assigned to {task.assigned_to}.")
             return redirect("crm:todo_list")
@@ -1690,11 +1923,12 @@ def todo_done(request, pk):
     task.done = True
     task.done_at = timezone.now()
     task.save(update_fields=["done", "done_at"])
+    updates.clear(updates.todo(task))
     if task.assigned_by_id and task.assigned_by_id != request.user.id:
-        Notification.objects.create(
-            user=task.assigned_by,
-            lead=None,
-            message=f"{request.user.get_full_name() or request.user.username} completed: {task.title}",
+        updates.send(
+            [task.assigned_by],
+            f"{request.user.display_name} completed: {task.title}",
+            link=f"{updates.todo_link()}?show=all",
         )
     return safe_next(request, reverse("crm:todo_list"))
 
@@ -1703,6 +1937,7 @@ def todo_done(request, pk):
 @require_POST
 def todo_delete(request, pk):
     task = get_object_or_404(Task, pk=pk, assigned_by=request.user)
+    updates.clear(updates.todo(task))
     task.delete()
     messages.success(request, "To-do removed.")
     return redirect("crm:todo_list")
@@ -1731,9 +1966,22 @@ def complaint_create(request, pk):
     complaint.lead = lead
     complaint.raised_by = request.user
     complaint.save()
-    notify(lead, f"Service complaint raised - {lead.customer_name}", Role.FIELD_MANAGER, Role.SUPER_ADMIN)
+    notify(lead, f"Service complaint raised - {lead.customer_name}: {complaint.description}",
+           Role.FIELD_MANAGER, Role.SUPER_ADMIN, topic=updates.complaint(complaint), link=updates.complaints_link())
     messages.success(request, "Service complaint registered.")
     return safe_next(request, reverse("crm:completed_projects"))
+
+
+@role_required(Role.SALESPERSON, Role.FIELD_MANAGER)
+@require_POST
+def complaint_register(request):
+    """The Service Requests page's form: the project is picked from a list, not the address."""
+    try:
+        pk = int(request.POST.get("lead", ""))
+    except ValueError:
+        messages.error(request, "Choose the completed project the complaint is about.")
+        return redirect("crm:complaint_list")
+    return complaint_create(request, pk)
 
 
 @role_required(Role.FIELD_MANAGER)
@@ -1757,11 +2005,21 @@ def complaint_list(request):
 @require_POST
 def complaint_resolve(request, pk):
     complaint = get_object_or_404(ServiceComplaint, pk=pk)
-    complaint.resolution_note = request.POST.get("resolution_note", "").strip()
+    if not complaint.is_open:  # a second tap, or someone else got there first
+        messages.info(request, "That complaint is already resolved.")
+        return redirect("crm:complaint_list")
+    form = ComplaintResolveForm(request.POST, instance=complaint)
+    if not form.is_valid():
+        messages.error(request, form_problems(form))
+        return redirect("crm:complaint_list")
+    complaint = form.save(commit=False)
+    complaint.resolution_note = complaint.resolution_note.strip()
     complaint.resolved_at = timezone.now()
     complaint.resolved_by = request.user
     complaint.save()
-    notify_user(complaint.lead, f"Service complaint resolved - {complaint.lead.customer_name}", complaint.raised_by)
+    updates.clear(updates.complaint(complaint))
+    notify_user(complaint.lead, f"Service complaint resolved - {complaint.lead.customer_name}", complaint.raised_by,
+                link=updates.completed_link(complaint.lead))
     messages.success(request, "Marked as resolved.")
     return redirect("crm:complaint_list")
 
@@ -1816,7 +2074,7 @@ def update_dismiss(request, pk):
 
 @login_required
 def notifications(request):
-    items = request.user.notifications.select_related("lead")[:100]
+    items = list(request.user.notifications.select_related("lead")[:100])
     request.user.notifications.filter(read=False).update(read=True)
     return render(request, "crm/notifications.html", {"notifications": items})
 
@@ -1828,7 +2086,7 @@ def notifications(request):
 
 def _guide_context(request):
     """The intro scenes and the tour, both built for whoever is signed in."""
-    nav_groups = navigation(request).get("nav_groups", [])
+    nav_groups = navigation(request, take_popups=False).get("nav_groups", [])
     return {
         "intro": guide_content.intro_for(request.user),
         "tour_steps": guide_content.tour_for(nav_groups),
@@ -1871,7 +2129,10 @@ def _summary_day(request):
     """The day being looked at — today unless one is asked for."""
     asked = request.GET.get("day")
     if asked:
-        parsed = parse_date(asked)
+        try:
+            parsed = parse_date(asked)
+        except ValueError:  # a real-looking date that does not exist, like 30 February
+            parsed = None
         if parsed and parsed <= timezone.localdate():
             return parsed
     return timezone.localdate()
@@ -1903,6 +2164,8 @@ def month_summary(request):
 
     first = monthly.parse_month(request.GET.get("month"))
     data = monthly.report(first)
+    # Opening it is what the month-end reminder asked for.
+    updates.clear(updates.month(first), user=request.user)
 
     # Every month from the first lead to this one, newest first, for the picker.
     months, cursor, this_month = [], monthly.first_month_with_data(), monthly.month_start(timezone.localdate())

@@ -8,6 +8,7 @@ which is why grouping ignores case and spacing and why the dispatch form reuses
 the spelling already on file.
 """
 
+import hashlib
 from collections import defaultdict
 from decimal import Decimal
 
@@ -36,9 +37,21 @@ def clean_name(name):
     return known or tidy
 
 
+def _old_slug(key):
+    return slugify(key) or "installer"
+
+
 def folder_slug_for(lead):
-    """The address of the folder this site's installer keeps."""
-    return slugify(key_of(lead.installation_person)) or "installer"
+    """The address of the folder this site's installer keeps.
+
+    The readable part alone is not enough: "S. Kumar" and "S Kumar" are two
+    people but read the same once the dot is gone, and a name in Tamil has no
+    letters an address can carry. A short tag worked out from the full name keeps
+    every installer's address their own, and the same every time.
+    """
+    key = key_of(lead.installation_person)
+    tag = hashlib.md5(key.encode("utf-8")).hexdigest()[:6]
+    return f"{_old_slug(key)}-{tag}"
 
 
 def installer_names():
@@ -78,22 +91,33 @@ def folders(query=""):
     for site in dispatched_sites():
         grouped[key_of(site.installation_person)].append(site)
 
-    query = (query or "").strip().lower()
     result = []
     for key, sites in grouped.items():
         name = " ".join(sites[0].installation_person.split())
-        if query and query not in key and not any(
-            query in f"{site.customer_name} {site.project_name} {site.site_location}".lower() for site in sites
-        ):
-            continue
         # "sites" is the count (from _totals); the leads themselves are under "leads".
-        result.append({"name": name, "slug": folder_slug_for(sites[0]), "leads": sites, **_totals(sites)})
-    return sorted(result, key=lambda folder: (-folder["balance"], folder["name"].lower()))
+        result.append({"name": name, "key": key, "slug": folder_slug_for(sites[0]), "leads": sites, **_totals(sites)})
+    result.sort(key=lambda folder: (-folder["balance"], folder["name"].lower()))
+    return matching(result, query)
+
+
+def matching(found, query):
+    """The folders whose installer, or one of whose sites, matches what was typed."""
+    query = (query or "").strip().lower()
+    if not query:
+        return found
+    return [
+        folder for folder in found
+        if query in folder["key"]
+        or any(query in f"{site.customer_name} {site.project_name} {site.site_location}".lower() for site in folder["leads"])
+    ]
 
 
 def folder(slug):
     """One installer's folder by its address slug, or None."""
-    for candidate in folders():
+    every = folders()
+    for candidate in every:
         if candidate["slug"] == slug:
             return candidate
-    return None
+    # An address saved before the tag was added still opens, while it is unambiguous.
+    older = [candidate for candidate in every if _old_slug(candidate["key"]) == slug]
+    return older[0] if len(older) == 1 else None

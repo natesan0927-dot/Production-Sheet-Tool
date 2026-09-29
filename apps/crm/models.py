@@ -7,6 +7,36 @@ from django.urls import reverse
 from django.utils import timezone
 
 
+def _total(related, field="amount"):
+    """Sum a lead's payments or charges.
+
+    Read from what the page already loaded (prefetch_related) when it did, so a
+    list of a few hundred orders is not a few thousand trips to the database;
+    otherwise ask the database for the one total.
+    """
+    rows = related.all()
+    if rows._result_cache is not None:
+        return sum((getattr(row, field) for row in rows), Decimal("0"))
+    return rows.aggregate(total=models.Sum(field))["total"] or Decimal("0")
+
+
+def credited_q(person, prefix=""):
+    """The orders that count towards `person`'s sales.
+
+    Whoever marked it won gets it when they are a sales executive; when the Super
+    Admin marked it on someone's behalf (or nobody is recorded), it belongs to the
+    lead's owner. So a later reassignment does not move an old win, and the Super
+    Admin tidying up does not take the credit.
+    """
+    from apps.accounts.models import Role
+
+    by_seller = models.Q(**{f"{prefix}won_by": person, f"{prefix}won_by__role": Role.SALESPERSON})
+    on_behalf = models.Q(**{f"{prefix}assigned_to": person}) & (
+        models.Q(**{f"{prefix}won_by__isnull": True}) | ~models.Q(**{f"{prefix}won_by__role": Role.SALESPERSON})
+    )
+    return by_seller | on_behalf
+
+
 class Lead(models.Model):
     """A lead *is* a customer (per the spec, they are the same record).
 
@@ -203,17 +233,25 @@ class Lead(models.Model):
         """How the customer is addressed on paper: "Mr. Ravi Shankar"."""
         return f"{self.salutation} {self.customer_name}".strip()
 
+    @property
+    def credited_to(self):
+        """Whose sales this order counts towards — the same rule as credited_q."""
+        from apps.accounts.models import Role
+
+        if self.won_by_id and self.won_by.role == Role.SALESPERSON:
+            return self.won_by
+        return self.assigned_to
+
     # --- derived values -----------------------------------------------------
     @property
     def collected(self):
         """Advance plus everything posted to the ledger since."""
-        posted = self.payments.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
-        return (self.advance_received or Decimal("0")) + posted
+        return (self.advance_received or Decimal("0")) + _total(self.payments)
 
     @property
     def extra_charges(self):
         """Transport and the like, added to the invoice by accounts."""
-        return self.invoice_charges.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+        return _total(self.invoice_charges)
 
     @property
     def invoice_total(self):
@@ -231,7 +269,7 @@ class Lead(models.Model):
     @property
     def installer_paid(self):
         """Everything paid to the installer for this site so far."""
-        return self.installer_payments.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+        return _total(self.installer_payments)
 
     @property
     def installer_balance(self):
@@ -269,6 +307,25 @@ class Lead(models.Model):
     @property
     def quotation_files(self):
         return self.uploads.filter(kind="quotation")
+
+    @property
+    def current_quotation_files(self):
+        """The latest quotation's files — a revision's, once there is one — never an earlier price."""
+        return self.quotation_files.filter(replaced_at__isnull=True)
+
+    @property
+    def earlier_quotation_files(self):
+        """Quotations a revision has replaced, kept for the record."""
+        return self.quotation_files.filter(replaced_at__isnull=False)
+
+    @property
+    def current_elevation(self):
+        """The elevation report in use — a revision may keep the one already on file."""
+        return self.uploads.filter(kind="elevation", replaced_at__isnull=True).first()
+
+    @property
+    def earlier_elevations(self):
+        return self.uploads.filter(kind="elevation", replaced_at__isnull=False)
 
     @property
     def measurement_documents(self):
@@ -352,6 +409,8 @@ class LeadFile(models.Model):
     file = models.FileField(upload_to="leads/%Y/%m/")
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    # Set when a revision brings a newer one of the same kind; kept for the record.
+    replaced_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-uploaded_at"]
@@ -380,6 +439,8 @@ class FollowUp(models.Model):
     done_at = models.DateTimeField(null=True, blank=True)
     # Closed out because a newer follow-up replaced it, rather than by being worked.
     superseded = models.BooleanField(default=False)
+    # Closed out because the lead was won or lost, rather than by being worked.
+    closed_with_lead = models.BooleanField(default=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -394,7 +455,18 @@ class FollowUp(models.Model):
         """What the history line should say — a rescheduled one was never worked."""
         if not self.done:
             return "Open"
+        if self.closed_with_lead:
+            return "Closed with the lead"
         return "Rescheduled" if self.superseded else "Completed"
+
+    @classmethod
+    def overdue_q(cls, now=None):
+        """The same rule as is_overdue, for a query: an earlier day, or today after 6 pm."""
+        now = now or timezone.localtime()
+        late = models.Q(date__lt=now.date())
+        if now.hour >= cls.CUTOFF_HOUR:
+            late |= models.Q(date=now.date())
+        return late & models.Q(done=False)
 
     @property
     def is_overdue(self):
@@ -476,15 +548,19 @@ class SalesTarget(models.Model):
         super().save(*args, **kwargs)
 
     @property
-    def achieved(self):
-        """Finalised value of everything this sales executive won inside the month."""
-        total = Lead.objects.filter(
-            assigned_to=self.salesperson,
+    def won_leads(self):
+        """Every order credited to this sales executive inside the month (see credited_q)."""
+        return Lead.objects.filter(
+            credited_q(self.salesperson),
             status=Lead.Status.WON,
             won_at__year=self.month.year,
             won_at__month=self.month.month,
-        ).aggregate(t=models.Sum("order_value"))["t"]
-        return total or Decimal("0")
+        )
+
+    @property
+    def achieved(self):
+        """Finalised value of everything this sales executive won inside the month."""
+        return self.won_leads.aggregate(t=models.Sum("order_value"))["t"] or Decimal("0")
 
     @property
     def pending(self):
@@ -641,9 +717,23 @@ class Notification(models.Model):
     dismissed = models.BooleanField(default=False)
     # Shown once as a pop-up; it stays in the notifications list either way.
     popped = models.BooleanField(default=False)
+    # What the update is waiting for ("rough", "todo:12", "password:5"), so it can be
+    # cleared for everyone it went to the moment that is done. See crm/updates.py.
+    topic = models.CharField(max_length=40, blank=True, db_index=True)
+    # Where it opens, when that is not the lead's own page.
+    link = models.CharField(max_length=300, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self):
         return self.message
+
+    @property
+    def url(self):
+        """Where tapping the update takes you, or "" when there is nowhere better to go."""
+        if self.link:
+            return self.link
+        if self.lead_id:
+            return self.lead.get_absolute_url()
+        return ""

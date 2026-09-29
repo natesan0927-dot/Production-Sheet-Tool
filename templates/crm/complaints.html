@@ -15,15 +15,14 @@
 <div class="card mb-3">
   <div class="card-header"><i class="fa-solid fa-plus me-2"></i>Register a complaint</div>
   <div class="card-body">
-    <form method="post" id="raise-complaint" class="row g-2 align-items-start">
+    <form method="post" action="{% url 'crm:complaint_register' %}" class="row g-2 align-items-start">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <div class="col-md-4">
-        <select class="form-select" required
-                onchange="document.getElementById('raise-complaint').action = this.value">
+        <select name="lead" class="form-select" required aria-label="Completed project">
           <option value="">Choose a completed project</option>
           {% for lead in completed_leads %}
-            <option value="{% url 'crm:complaint_create' lead.pk %}">{{ lead.customer_name }} — {{ lead.site_location }}</option>
+            <option value="{{ lead.pk }}">{{ lead.customer_name }} — {{ lead.site_location }}</option>
           {% endfor %}
         </select>
       </div>
@@ -60,7 +59,7 @@
               <span class="badge bg-warning mb-2">Open</span>
               <form method="post" action="{% url 'crm:complaint_resolve' complaint.pk %}" class="d-flex gap-2 justify-content-end">
                 {% csrf_token %}
-                <input type="text" name="resolution_note" class="form-control form-control-sm" placeholder="What was done (optional)">
+                <input type="text" name="resolution_note" class="form-control form-control-sm" maxlength="255" placeholder="What was done (optional)">
                 <button class="btn btn-sm btn-success text-nowrap">Mark complete</button>
               </form>
             {% else %}

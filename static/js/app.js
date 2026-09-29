@@ -163,6 +163,19 @@
       card.style.animationDelay = Math.min(index, 8) * 55 + "ms";
     });
 
+    /* ------------------------------ pop-ups step aside unless being read */
+    document.querySelectorAll(".tw-toast").forEach(function (toast, index) {
+      var hovered = false;
+      toast.addEventListener("pointerenter", function () { hovered = true; });
+      toast.addEventListener("pointerleave", function () { hovered = false; });
+      var close = function () {
+        if (hovered) { setTimeout(close, 2000); return; }
+        if (window.bootstrap && bootstrap.Toast) bootstrap.Toast.getOrCreateInstance(toast).hide();
+        else toast.classList.remove("show");
+      };
+      setTimeout(close, 9000 + index * 1500);
+    });
+
     /* ------------------------------------------- flash messages step away */
     document.querySelectorAll(".tw-page > .alert-dismissible").forEach(function (alert) {
       setTimeout(function () {

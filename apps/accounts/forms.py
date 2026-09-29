@@ -91,7 +91,9 @@ class FirstPasswordForm(PasswordChangeForm):
 
     def clean_new_password1(self):
         chosen = self.cleaned_data["new_password1"]
-        if chosen == DEFAULT_PASSWORD:
+        # Whatever they were given — the shared default, or one the Super Admin set
+        # when they forgot theirs — is only ever a way in, never the password kept.
+        if chosen == DEFAULT_PASSWORD or self.user.check_password(chosen):
             raise forms.ValidationError("Pick something other than the password you were given.")
         return chosen
 
@@ -125,13 +127,13 @@ class ResetWithCodeForm(forms.Form):
             if first == DEFAULT_PASSWORD:
                 self.add_error("new_password1", "Pick something other than the password you were given.")
             else:
-                from .recovery import find_user
-
                 # Checked before the code is used, so a weak choice does not cost
-                # anyone their code. The account is looked up only so the rules can
-                # refuse a password that resembles its own name.
+                # anyone their code. Checked against the name as typed, never the
+                # account on file: the answer must read the same whether or not that
+                # account exists, or this page would tell a stranger who works here.
+                typed = (data.get("username") or "").strip()
                 try:
-                    password_validation.validate_password(first, find_user(data.get("username")))
+                    password_validation.validate_password(first, User(username=typed))
                 except ValidationError as problem:
                     self.add_error("new_password1", problem)
         return data

@@ -17,6 +17,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.views.decorators.http import require_GET
 
+VIEWABLE = {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".bmp", ".txt"}
+
 
 @require_GET
 @login_required
@@ -32,5 +34,11 @@ def serve_upload(request, path):
     if root not in target.parents or not target.is_file():
         raise Http404
 
-    # as_attachment=False so a PDF opens in the browser tab the app links to.
-    return FileResponse(target.open("rb"), as_attachment=False, filename=target.name)
+    # A PDF or a photo opens in the browser tab the app links to. Anything else —
+    # above all a web page or an SVG someone uploaded — is handed over as a
+    # download and fenced off, so it can never run as part of this site.
+    inline = target.suffix.lower() in VIEWABLE
+    response = FileResponse(target.open("rb"), as_attachment=not inline, filename=target.name)
+    if not inline:
+        response["Content-Security-Policy"] = "sandbox"
+    return response

@@ -36,7 +36,8 @@ CLOSING = (
     "todo",
     "Your to-do list and notifications",
     "Anyone can send you a task, and you will see a pop-up the moment something "
-    "needs you. When you are done here I will walk you through your tabs one by "
+    "needs you. Once it is done — by you or anyone else — it clears itself from "
+    "your updates. When you are done here I will walk you through your tabs one by "
     "one. You can stop any time, and replay all of this from the Guide tab.",
 )
 
@@ -65,7 +66,8 @@ ROLE_INTROS = {
             (
                 "targets",
                 "Your target, live",
-                "Once a quotation is out you mark the lead won or lost. A win counts "
+                "Once a quotation is out you mark the lead won or lost — and a customer "
+                "who drops out sooner can be marked lost at any step. A win counts "
                 "straight towards your monthly target, and you can see exactly which "
                 "sites got you there.",
             ),

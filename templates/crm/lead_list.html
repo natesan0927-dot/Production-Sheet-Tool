@@ -18,16 +18,26 @@
     {% endfor %}
   </select>
   {% endif %}
-  {% if user.is_super_admin %}
-  <select name="status" class="form-select form-select-sm" style="max-width:200px">
+  <select name="status" class="form-select form-select-sm" style="max-width:220px" aria-label="Status">
     <option value="">Any status</option>
     {% for value, label in status_choices %}
       <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
-  {% endif %}
+  {% if period %}<input type="hidden" name="period" value="{{ period }}">{% endif %}
+  {% if older %}<input type="hidden" name="older" value="{{ older }}">{% endif %}
   <button class="btn btn-sm btn-outline-secondary">Search</button>
 </form>
+
+{% if filter_heading or q %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3 small">
+  <span class="text-muted">Showing</span>
+  {% if filter_heading %}<span class="badge text-bg-primary">{{ filter_heading }}</span>{% endif %}
+  {% if q %}<span class="badge text-bg-secondary">"{{ q }}"</span>{% endif %}
+  <span class="text-muted">· {{ leads|length }} lead{{ leads|length|pluralize }}</span>
+  <a href="{% url 'crm:lead_list' %}{% if selected_salesperson %}?salesperson={{ selected_salesperson }}{% endif %}">Clear</a>
+</div>
+{% endif %}
 
 <div class="card">
   <div class="table-responsive">
@@ -59,18 +69,21 @@
                 {% if user.is_super_admin %}
                   <a class="dropdown-item" href="{% url 'crm:lead_edit' lead.pk %}"><i class="fa-solid fa-user-pen me-2"></i>Reassign Sales Executive</a>
                 {% endif %}
+                {% if lead.status != 'won' %}
+                {# A confirmed order carries the accounts ledger and the site paperwork, so it is never deleted from here. #}
                 <div class="dropdown-divider"></div>
                 <form method="post" action="{% url 'crm:lead_delete' lead.pk %}"
                       onsubmit="return confirm('Delete the lead for {{ lead.customer_name|escapejs }}? This cannot be undone.')">
                   {% csrf_token %}
                   <button class="dropdown-item text-danger"><i class="fa-solid fa-trash me-2"></i>Delete lead</button>
                 </form>
+                {% endif %}
               </div>
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No leads yet.</td></tr>
+        <tr><td colspan="7" class="text-center text-muted py-4">{% if filter_heading or q %}No leads match.{% else %}No leads yet.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

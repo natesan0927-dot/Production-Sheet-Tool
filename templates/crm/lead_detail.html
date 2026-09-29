@@ -17,7 +17,12 @@
   </div>
   <div class="text-end">
     {% if user.role == 'salesperson' or user.is_super_admin %}
-      <a href="{% url 'crm:lead_edit' lead.pk %}" class="btn btn-sm btn-outline-secondary mb-2"><i class="fa-solid fa-pen me-1"></i>Edit Lead</a><br>
+      <a href="{% url 'crm:lead_edit' lead.pk %}" class="btn btn-sm btn-outline-secondary mb-2"><i class="fa-solid fa-pen me-1"></i>Edit Lead</a>
+      {% if can_follow_up and not lead.quotation_uploaded_at %}
+        {# Customers drop out before a price is sent too; once one is out, Won and Lost sit on step 4. #}
+        <a href="{% url 'crm:stage_lost' lead.pk %}" class="btn btn-sm btn-outline-danger mb-2 ms-1"><i class="fa-solid fa-xmark me-1"></i>Mark as lost</a>
+      {% endif %}
+      <br>
     {% endif %}
     {% if lead.status == 'won' %}<span class="badge bg-success fs-6">Order Confirmed</span>
     {% elif lead.status == 'lost' %}<span class="badge bg-danger fs-6">Lost</span>
@@ -49,19 +54,22 @@
       {% if stage.state == 'done' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
       {% elif stage.state == 'current' %}<i class="fa-solid fa-circle-dot text-primary me-2"></i>
       {% elif stage.state == 'lost' %}<i class="fa-solid fa-circle-xmark text-danger me-2"></i>
+      {% elif stage.key == 'decision' and decision_open %}<i class="fa-solid fa-circle-dot text-primary me-2"></i>
       {% else %}<i class="fa-solid fa-lock text-muted me-2"></i>{% endif %}
       <strong>Step {{ stage.number }} — {{ stage.label }}</strong>
     </span>
     <span class="text-muted small">{{ stage.role_names }}</span>
   </div>
   <div class="card-body">
-    {% if stage.state == 'locked' %}
+    {# Step 4 stays readable while a revision is pending, so the order can still be confirmed. #}
+    {% if stage.state == 'locked' and stage.key != 'decision' or stage.state == 'locked' and not decision_open %}
       <div class="text-center text-muted py-4">
         <i class="fa-solid fa-lock fs-3 d-block mb-2 opacity-50"></i>
         This step opens once the earlier ones are complete.
       </div>
     {% else %}
-      {% if stage.state == 'current' and not stage.can_act %}
+      {% if stage.state == 'current' and not stage.can_act and not sheet_awaiting_approval %}
+        {# A sheet waiting for approval is the measurement staff's turn; the stage says so itself. #}
         <p class="text-muted"><i class="fa-regular fa-hourglass-half me-1"></i>Waiting for {{ stage.role_names }}.</p>
       {% endif %}
       {% include "crm/stages/"|add:stage.key|add:".html" %}
@@ -120,18 +128,18 @@
               Quotation sent back for revision by {{ revision.requested_by|default:"the sales executive" }} — {{ revision.note }}
             </li>
           {% endfor %}
-          {% if lead.quotation_uploaded_at %}<li><span>{{ lead.quotation_uploaded_at|date:"d M Y, H:i" }}</span> Quotation {{ lead.quotation_number }} uploaded by {{ lead.quotation_uploaded_by|default:"—" }}</li>{% endif %}
+          {% if lead.quotation_uploaded_at %}<li><span>{{ lead.quotation_uploaded_at|date:"d M Y, H:i" }}</span> {% if lead.quotation_revisions.exists %}Latest quotation{% else %}Quotation{% endif %} {{ lead.quotation_number }} uploaded by {{ lead.quotation_uploaded_by|default:"—" }}</li>{% endif %}
           {% if lead.won_at %}<li><span>{{ lead.won_at|date:"d M Y, H:i" }}</span> Order confirmed by {{ lead.won_by|default:lead.assigned_to }}{% if can_see_financials %} — {{ lead.order_value|rupees }}{% endif %}</li>{% endif %}
           {% if lead.lost_at %}<li><span>{{ lead.lost_at|date:"d M Y, H:i" }}</span> Marked as lost by {{ lead.lost_by|default:lead.assigned_to }}</li>{% endif %}
           {% if lead.caf_signed_at %}<li><span>{{ lead.caf_signed_at|date:"d M Y, H:i" }}</span> Signed CAF uploaded by {{ lead.caf_final_by|default:"—" }}</li>{% endif %}
           {% if lead.final_measurement_at %}<li><span>{{ lead.final_measurement_at|date:"d M Y, H:i" }}</span> Final measurement uploaded by {{ lead.caf_final_by|default:"—" }}</li>{% endif %}
-          {% if lead.production_sheet_at %}<li><span>{{ lead.production_sheet_at|date:"d M Y, H:i" }}</span> Production sheet uploaded by {{ lead.production_sheet_by|default:"—" }}</li>{% endif %}
           {% for revision in lead.production_revisions.all %}
             <li>
               <span>{{ revision.requested_at|date:"d M Y, H:i" }}</span>
               Production sheet sent back for revision by {{ revision.requested_by|default:"measurement staff" }} — {{ revision.note }}
             </li>
           {% endfor %}
+          {% if lead.production_sheet_at %}<li><span>{{ lead.production_sheet_at|date:"d M Y, H:i" }}</span> {% if lead.production_revisions.exists %}Latest production sheet{% else %}Production sheet{% endif %} uploaded by {{ lead.production_sheet_by|default:"—" }}</li>{% endif %}
           {% if lead.production_approved_at %}<li><span>{{ lead.production_approved_at|date:"d M Y, H:i" }}</span> Production sheet approved by {{ lead.production_approved_by|default:"—" }}</li>{% endif %}
           {% if lead.dispatched_at %}<li><span>{{ lead.dispatched_at|date:"d M Y, H:i" }}</span> Dispatched by {{ lead.dispatched_by|default:"—" }} — invoice {{ lead.invoice_number }}</li>{% endif %}
           {% if lead.handover_signed_at %}<li><span>{{ lead.handover_signed_at|date:"d M Y, H:i" }}</span> Signed handover certificate uploaded by {{ lead.handover_signed_by|default:"—" }}</li>{% endif %}

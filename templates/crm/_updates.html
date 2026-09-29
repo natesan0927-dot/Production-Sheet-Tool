@@ -1,16 +1,15 @@
-{% comment %}Today's updates, already filtered to whoever is signed in.{% endcomment %}
+{% comment %}Today's updates, already filtered to whoever is signed in. Finished work clears itself.{% endcomment %}
 <div class="card h-100">
   <div class="card-header"><i class="fa-solid fa-bolt me-2"></i>Updates for the day</div>
   <div class="list-group list-group-flush">
     {% for update in updates %}
       <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
-        <a href="{% if update.lead %}{{ update.lead.get_absolute_url }}{% else %}{% url 'crm:todo_list' %}{% endif %}"
-           class="flex-grow-1 text-reset">
+        {% if update.url %}<a href="{{ update.url }}" class="flex-grow-1 text-reset">{% else %}<span class="flex-grow-1">{% endif %}
           {{ update.message }}
           <span class="text-muted small d-block">
             {% if update.lead %}{{ update.lead.customer_name }} · {% endif %}{{ update.created_at|time:"H:i" }}
           </span>
-        </a>
+        {% if update.url %}</a>{% else %}</span>{% endif %}
         <form method="post" action="{% url 'crm:update_dismiss' update.pk %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">

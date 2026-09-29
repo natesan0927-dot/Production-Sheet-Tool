@@ -11,6 +11,9 @@ documents on the same day sees one house style.
 """
 
 from django.contrib.staticfiles import finders
+from django.utils import timezone
+from xml.sax.saxutils import escape
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -93,10 +96,10 @@ def _details(lead, style):
         ("Invoice Date", f"{lead.invoice_date:%d %b %Y}" if lead.invoice_date else "—"),
         ("Number of Windows", str(lead.window_count) if lead.window_count else "—"),
         ("Total Area (sq ft)", f"{lead.total_sqft:,.2f}" if lead.total_sqft else "—"),
-        ("Date of Dispatch", f"{lead.dispatched_at:%d %b %Y}" if lead.dispatched_at else "—"),
+        ("Date of Dispatch", f"{timezone.localtime(lead.dispatched_at):%d %b %Y}" if lead.dispatched_at else "—"),
         ("Installed By", lead.installation_person or "—"),
     ]
-    rows = [[Paragraph(label, style["label"]), Paragraph(str(value), style["value"])] for label, value in pairs]
+    rows = [[Paragraph(label, style["label"]), Paragraph(escape(str(value)), style["value"])] for label, value in pairs]
     table = Table(rows, colWidths=[45 * mm, 129 * mm], hAlign="LEFT")
     table.setStyle(
         TableStyle(

@@ -13,9 +13,13 @@ from io import BytesIO
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils import timezone
+from django.utils.http import content_disposition_header
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
+
+from .scan import name_character
 
 DOCUMENTS = settings.BASE_DIR / "documents"
 CAF_TEMPLATE = DOCUMENTS / "caf_template.pdf"
@@ -29,7 +33,7 @@ BASELINE_LIFT = 2
 
 def _slug(name):
     """A customer's name, safe to hand a browser as a download filename."""
-    cleaned = "".join(character if character.isalnum() else "-" for character in name)
+    cleaned = "".join(character if name_character(character) else "-" for character in name)
     return "-".join(part for part in cleaned.split("-") if part) or "lead"
 
 
@@ -77,7 +81,8 @@ def _as_pdf(writer, filename):
     output = BytesIO()
     writer.write(output)
     response = HttpResponse(output.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    # Spelled out for any alphabet: a Tamil name would otherwise reach the browser garbled.
+    response["Content-Disposition"] = content_disposition_header(False, filename)
     return response
 
 
@@ -87,8 +92,8 @@ def render_caf(lead):
     The date sits in a printed ____/____/________ rule, so each part is centred
     over its own group of underscores.
     """
-    quotation_date = lead.quotation_uploaded_at.strftime("%d / %m / %Y") if lead.quotation_uploaded_at else ""
-    issued = lead.won_at or lead.updated_at
+    quotation_date = timezone.localtime(lead.quotation_uploaded_at).strftime("%d / %m / %Y") if lead.quotation_uploaded_at else ""
+    issued = timezone.localtime(lead.won_at or lead.updated_at)
     date_line = 187.25
     return _stamp(
         CAF_TEMPLATE,

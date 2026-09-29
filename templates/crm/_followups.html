@@ -15,10 +15,10 @@ quotation is out. `can_schedule` says whether this screen offers the form.
         {% if open_followup.note %}<span class="text-muted small ms-2">{{ open_followup.note }}</span>{% endif %}
         {% if open_followup.is_overdue %}<span class="badge bg-danger ms-2">Overdue</span>{% endif %}
       </span>
-      {% if open_followup.can_be_completed %}
+      {% if open_followup.can_be_completed and can_schedule %}
       <form method="post" action="{% url 'crm:followup_done' open_followup.pk %}">
         {% csrf_token %}
-        <input type="hidden" name="next" value="{{ lead.get_absolute_url }}">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <button class="btn btn-sm btn-outline-success">Mark done</button>
       </form>
       {% endif %}
@@ -53,6 +53,7 @@ quotation is out. `can_schedule` says whether this screen offers the form.
   </p>
   <form method="post" action="{% url 'crm:followup_add' lead.pk %}" class="row g-2 align-items-end">
     {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
     <div class="col-sm-3"><label class="form-label small mb-0">Date</label>{{ followup_form.date }}</div>
     <div class="col-sm-3"><label class="form-label small mb-0">Time</label>{{ followup_form.time }}</div>
     <div class="col-sm-4"><label class="form-label small mb-0">Note</label>{{ followup_form.note }}</div>

@@ -51,7 +51,7 @@
 
 <div class="row g-3">
   <div class="col-6 col-md-4 col-xl-2">
-    <a class="card stat-card tone-navy h-100" href="{% url 'crm:lead_list' %}">
+    <a class="card stat-card tone-navy h-100" href="{{ card_links.leads }}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-database"></i></div>
         <div><div class="stat-value">{{ lead_bank }}</div><div class="stat-label">Leads</div></div>
@@ -59,7 +59,7 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-xl-2">
-    <a class="card stat-card tone-violet h-100" href="{% url 'crm:lead_list' %}">
+    <a class="card stat-card tone-violet h-100" href="{{ card_links.month }}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-calendar-day"></i></div>
         <div><div class="stat-value">{{ leads_this_month }}</div><div class="stat-label">This Month</div></div>
@@ -67,7 +67,7 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-xl-2">
-    <a class="card stat-card tone-rose h-100" href="{% url 'crm:followups' %}">
+    <a class="card stat-card tone-rose h-100" href="{{ card_links.overdue }}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
         <div><div class="stat-value">{{ overdue_followups }}</div><div class="stat-label">Overdue</div></div>
@@ -75,7 +75,7 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-xl-2">
-    <a class="card stat-card tone-emerald h-100" href="{% url 'crm:pipeline' %}">
+    <a class="card stat-card tone-emerald h-100" href="{{ card_links.won }}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-trophy"></i></div>
         <div><div class="stat-value">{{ won_count }}</div><div class="stat-label">Won</div></div>
@@ -83,7 +83,7 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-xl-2">
-    <a class="card stat-card h-100" href="{% url 'crm:lost_opportunities' %}">
+    <a class="card stat-card h-100" href="{{ card_links.lost }}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-circle-xmark"></i></div>
         <div><div class="stat-value">{{ lost_count }}</div><div class="stat-label">Lost</div></div>
@@ -91,10 +91,10 @@
     </a>
   </div>
   <div class="col-6 col-md-4 col-xl-2">
-    <a class="card stat-card tone-amber h-100" href="{% url 'crm:pipeline' %}">
+    <a class="card stat-card tone-amber h-100" href="{{ card_links.waiting }}">
       <div class="card-body">
         <div class="stat-icon"><i class="fa-solid fa-file-invoice"></i></div>
-        <div><div class="stat-value">{{ pending_quotations }}</div><div class="stat-label">Quotations</div></div>
+        <div><div class="stat-value">{{ pending_quotations }}</div><div class="stat-label">Awaiting Quotation</div></div>
       </div>
     </a>
   </div>

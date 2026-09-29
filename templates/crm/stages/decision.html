@@ -4,9 +4,7 @@
     <strong>Quotation {{ lead.quotation_number }}</strong>
     <span class="text-muted small ms-2">uploaded by {{ lead.quotation_uploaded_by|default:"—" }} on {{ lead.quotation_uploaded_at|date:"d M Y" }}</span>
   </p>
-  {% for upload in lead.quotation_files %}
-    <a href="{{ upload.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2 mb-2"><i class="fa-solid fa-download me-1"></i>{{ upload.filename }}</a>
-  {% endfor %}
+  {% include "crm/_quotation_files.html" %}
 
   {% if lead.quotation_revisions.exists %}
     <ul class="timeline mt-3 mb-0">
@@ -57,15 +55,19 @@
     {% if can_see_financials %}<dt class="col-sm-4">Finalised price elsewhere</dt><dd class="col-sm-8">{{ lead.lost_price_elsewhere|rupees }}</dd>{% endif %}
   </dl>
 
-{% elif stage.state == 'current' and stage.can_act %}
+{% elif decision_open and stage.can_act %}
   <hr>
+  {% if lead.quotation_revision_pending %}
+    <p class="text-muted small mb-2"><i class="fa-solid fa-circle-info me-1"></i>A revised quotation has been asked for.
+      If the customer takes the current one after all, you can still confirm the order — the revision is then withdrawn.</p>
+  {% endif %}
   <div class="d-flex gap-2 flex-wrap">
     <a href="{% url 'crm:stage_won' lead.pk %}" class="btn btn-success"><i class="fa-solid fa-trophy me-1"></i>Proceed to WON</a>
     <a href="{% url 'crm:stage_lost' lead.pk %}" class="btn btn-outline-danger"><i class="fa-solid fa-xmark me-1"></i>Mark as LOST</a>
   </div>
 {% endif %}
 
-{% if lead.followups.exists or stage.state == 'current' and stage.can_act %}
+{% if lead.followups.exists or decision_open and stage.can_act %}
   <hr>
   {% include "crm/_followups.html" with can_schedule=can_follow_up %}
 {% endif %}

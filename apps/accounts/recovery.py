@@ -66,19 +66,22 @@ def ask_for_new_password(user):
             return False
         PasswordRequest.objects.create(user=user)
 
-    from apps.crm.models import Notification
+    from apps.crm import updates
 
     message = (
         f"{user.display_name} ({user.username}) has forgotten their password and is waiting "
         "for a new one. Open Employees to set it."
     )
     admins = User.objects.filter(role=Role.SUPER_ADMIN, is_active=True)
-    Notification.objects.bulk_create([Notification(user=admin, message=message[:255]) for admin in admins])
+    updates.send(admins, message, topic=updates.password(user), link=updates.employees_link())
     return True
 
 
 def close_requests(user, by=None):
-    """Whatever the Super Admin did for this person, their request is dealt with."""
+    """Whatever the Super Admin did for this person, their request is dealt with — everywhere it showed."""
+    from apps.crm import updates
+
+    updates.clear(updates.password(user))
     return user.password_requests.filter(handled_at__isnull=True).update(handled_at=timezone.now(), handled_by=by)
 
 

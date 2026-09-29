@@ -140,6 +140,9 @@ def tell_super_admins(usage):
     )
     message = f"{MESSAGE_START} {usage['percent']:.0f}% full ({usage['used_label']} of {usage['limit_label']}). {advice}"
 
-    Notification.objects.bulk_create(
-        [Notification(user=admin, message=message[:255]) for admin in admins if admin.pk not in already]
-    )
+    from django.urls import reverse
+
+    from . import updates
+
+    # The dashboard is where the storage bar is.
+    updates.send([admin for admin in admins if admin.pk not in already], message, link=reverse("crm:dashboard"))

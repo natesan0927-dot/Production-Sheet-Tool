@@ -19,6 +19,7 @@ then assembled from those small JPEGs without decoding them again.
 
 import os
 import tempfile
+import unicodedata
 from io import BytesIO
 
 from PIL import Image, ImageOps
@@ -108,8 +109,13 @@ def pages_to_pdf(uploads):
     return output.getvalue()
 
 
+def name_character(character):
+    """A letter, a digit, or one of the vowel marks Indian scripts join to their letters."""
+    return unicodedata.category(character)[0] in "LNM"
+
+
 def pdf_filename(name, fallback="Scan"):
     """The name typed in the box, made safe to store and still readable."""
-    cleaned = "".join(character if (character.isalnum() or character in " -_") else " " for character in (name or ""))
+    cleaned = "".join(character if (name_character(character) or character in " -_") else " " for character in (name or ""))
     cleaned = " ".join(cleaned.split())[:80]
     return f"{cleaned or fallback}.pdf"

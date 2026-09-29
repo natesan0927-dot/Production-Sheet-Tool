@@ -67,6 +67,14 @@
       if (pages.length) say(pages.length + (pages.length === 1 ? " page ready" : " pages ready"));
     }
 
+    // Enter in the name box makes the PDF. Left alone it would submit the whole
+    // stage form around this panel, before the scan was attached.
+    nameBox.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      if (!make.disabled) make.click();
+    });
+
     root.querySelector("[data-scan-open]").addEventListener("click", function (event) {
       body.classList.toggle("d-none");
       event.currentTarget.classList.toggle("active", !body.classList.contains("d-none"));
@@ -98,7 +106,8 @@
       })
         .then(function (response) {
           if (!response.ok) return response.text().then(function (text) { throw new Error(text); });
-          var named = response.headers.get("X-Scan-Filename") || "Scan.pdf";
+          var named = "Scan.pdf";
+          try { named = decodeURIComponent(response.headers.get("X-Scan-Filename") || named); } catch (e) { /* keep the fallback */ }
           return response.blob().then(function (blob) { return { blob: blob, name: named }; });
         })
         .then(function (result) {

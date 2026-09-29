@@ -1,7 +1,8 @@
 import re
-from datetime import time
+from datetime import time, timedelta
 
 from django import forms
+from django.conf import settings
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
@@ -38,7 +39,7 @@ def reject_past(form, name, label):
 def reject_before_order(form, name, label, lead):
     value = form.cleaned_data.get(name)
     if value and lead is not None and lead.won_at and value < timezone.localdate(lead.won_at):
-        form.add_error(name, f"{label} can't be before the order was confirmed ({lead.won_at:%d %b %Y}).")
+        form.add_error(name, f"{label} can't be before the order was confirmed ({timezone.localdate(lead.won_at):%d %b %Y}).")
 
 
 def require_positive(form, name, label):
@@ -64,6 +65,30 @@ def limit_picker(field, *, not_before_today=False, not_after_today=False):
 
 def limit_number(field, minimum):
     field.widget.attrs["min"] = str(minimum)
+
+
+def check_upload_size(upload):
+    """A phone video or a raw scan can be hundreds of megabytes; the bucket is not."""
+    limit = settings.MAX_UPLOAD_MB * 1024 * 1024
+    if upload and getattr(upload, "size", 0) > limit:
+        raise forms.ValidationError(
+            f"{upload.name} is {upload.size / 1024 / 1024:.0f} MB. Files can be up to {settings.MAX_UPLOAD_MB} MB — "
+            "save it as a PDF, or use Scan to make one."
+        )
+
+
+def limit_uploads(form):
+    """Every file box on the form gets the size check."""
+    for field in form.fields.values():
+        if isinstance(field, forms.FileField) and check_upload_size not in field.validators:
+            field.validators.append(check_upload_size)
+
+
+def sales_executive_choices():
+    """Everyone a lead or a target can sit under — the Super Admin works leads of their own."""
+    return User.objects.filter(role__in=[Role.SALESPERSON, Role.SUPER_ADMIN], is_active=True).order_by(
+        "role", "first_name", "username"
+    )
 
 
 class BootstrapMixin:
@@ -119,7 +144,7 @@ class LeadForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assigned_to"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        self.fields["assigned_to"].queryset = sales_executive_choices()
         # Statements and certificates address the customer as Mr., Mrs. and so on,
         # so it is asked for once, here, and not guessed from a name.
         self.fields["salutation"].required = True
@@ -186,10 +211,17 @@ class MeasurementBoxForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["assign_to"].queryset = measurement_staff()
+        limit_uploads(self)
 
     def clean(self):
         data = super().clean()
         mode = data.get("mode")
+        # Measurements typed in with "Upload a file" still ticked (or a file chosen
+        # with "Type them in" ticked) mean what was filled in, not what was ticked.
+        if mode == Lead.MeasurementMode.FILE and not data.get("file") and data.get("notes"):
+            data["mode"] = mode = Lead.MeasurementMode.TEXT
+        elif mode == Lead.MeasurementMode.TEXT and not data.get("notes") and data.get("file"):
+            data["mode"] = mode = Lead.MeasurementMode.FILE
         if mode == Lead.MeasurementMode.FILE and not data.get("file"):
             self.add_error("file", "Choose the measurement file to upload.")
         if mode == Lead.MeasurementMode.TEXT and not data.get("notes"):
@@ -202,6 +234,10 @@ class RoughMeasurementForm(forms.Form):
 
     file = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
     notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 4, "class": "form-control"}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        limit_uploads(self)
 
     def clean(self):
         data = super().clean()
@@ -224,15 +260,20 @@ class QuotationForm(forms.Form):
         help_text="Goes to the measurement staff for the final measurement.",
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, has_elevation=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["files"].widget.attrs.setdefault("class", "form-control")
+        # A revised quotation keeps the elevation report already on file unless a
+        # new one is chosen.
+        self.has_elevation = has_elevation
+        self.fields["elevation"].required = not has_elevation
+        limit_uploads(self)
 
     def clean(self):
         data = super().clean()
-        if not data.get("files"):
+        if not data.get("files") and "files" not in self.errors:
             self.add_error("files", "Upload the quotation.")
-        if not data.get("elevation"):
+        if not data.get("elevation") and not self.has_elevation and "elevation" not in self.errors:
             self.add_error("elevation", "Upload the elevation report as well - both are needed.")
         return data
 
@@ -321,6 +362,10 @@ class CafFinalForm(forms.Form):
         label="Final measurement file", required=False, widget=forms.ClearableFileInput(attrs={"class": "form-control"})
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        limit_uploads(self)
+
     def clean(self):
         data = super().clean()
         caf, final = data.get("caf_signed"), data.get("final_measurement")
@@ -335,6 +380,10 @@ class CafFinalForm(forms.Form):
 
 class SingleFileForm(forms.Form):
     file = forms.FileField(widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        limit_uploads(self)
 
 
 class ChecklistForm(forms.ModelForm):
@@ -404,7 +453,9 @@ class FollowUpForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["date"].initial = timezone.localdate()
+        now = timezone.localtime()
+        # After 6 pm a call booked for today is overdue the moment it is saved.
+        self.fields["date"].initial = now.date() + timedelta(days=1 if now.hour >= FollowUp.CUTOFF_HOUR else 0)
         self.fields["time"].initial = time(9, 0)
         limit_picker(self.fields["date"], not_before_today=True)
 
@@ -426,6 +477,7 @@ class PaymentForm(BootstrapMixin, forms.ModelForm):
         self.lead = lead
         limit_picker(self.fields["paid_on"], not_after_today=True)
         limit_number(self.fields["amount"], 1)
+        limit_uploads(self)
 
     def clean(self):
         data = super().clean()
@@ -456,6 +508,7 @@ class InstallerPaymentForm(BootstrapMixin, forms.ModelForm):
         self.lead = lead
         limit_picker(self.fields["paid_on"], not_after_today=True)
         limit_number(self.fields["amount"], 1)
+        limit_uploads(self)
 
     def clean(self):
         data = super().clean()
@@ -536,11 +589,14 @@ class LedgerForm(BootstrapMixin, forms.ModelForm):
         reject_before_order(self, "invoice_date", "Invoice date", self.instance)
         order, advance = data.get("order_value"), data.get("advance_received")
         if order and advance is not None and self.instance.pk:
+            # What the customer is billed is the order plus anything added to the
+            # invoice since, so receipts are measured against both.
             posted = sum((p.amount for p in self.instance.payments.all()), 0)
-            if advance + posted > order:
+            extras = sum((c.amount for c in self.instance.invoice_charges.all()), 0)
+            if advance + posted > order + extras:
                 self.add_error(
                     "order_value",
-                    f"Order value can't be less than what has already been received (₹{advance + posted:,.2f}).",
+                    f"Order value plus extras can't be less than what has already been received (₹{advance + posted:,.2f}).",
                 )
         return data
 
@@ -599,7 +655,7 @@ class SalesTargetForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["salesperson"].queryset = User.objects.filter(role=Role.SALESPERSON, is_active=True)
+        self.fields["salesperson"].queryset = sales_executive_choices()
         self.fields["salesperson"].empty_label = "Choose a sales executive"
         limit_number(self.fields["amount"], 1)
 

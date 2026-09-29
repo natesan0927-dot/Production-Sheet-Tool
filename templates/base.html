@@ -154,7 +154,7 @@ copy, so the two never both render.
 
 {% if popup_notifications %}
 {# Shown once, then they live on in Notifications. #}
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1080">
+<div class="toast-container position-fixed end-0 p-3" style="z-index:1080; top:3.75rem">
   {% for note in popup_notifications %}
   <div class="toast show tw-toast" role="alert">
     <div class="toast-header">
@@ -165,8 +165,8 @@ copy, so the two never both render.
     </div>
     <div class="toast-body">
       {{ note.message }}
-      {% if note.lead %}
-        <a href="{{ note.lead.get_absolute_url }}" class="d-block small mt-1">Open {{ note.lead.customer_name }}</a>
+      {% if note.url %}
+        <a href="{{ note.url }}" class="d-block small mt-1">Open{% if note.lead %} {{ note.lead.customer_name }}{% endif %}</a>
       {% endif %}
     </div>
   </div>

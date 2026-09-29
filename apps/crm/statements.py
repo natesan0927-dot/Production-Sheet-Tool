@@ -12,7 +12,9 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.http import HttpResponse
+from django.utils.http import content_disposition_header
 from django.utils import timezone
+from xml.sax.saxutils import escape
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4
@@ -104,13 +106,14 @@ def _respond(buffer, doc, story, filename, decorate=None):
     decorate = decorate or _letterhead
     doc.build(story, onFirstPage=decorate, onLaterPages=decorate)
     response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    # Spelled out for any alphabet: a Tamil name would otherwise reach the browser garbled.
+    response["Content-Disposition"] = content_disposition_header(False, filename)
     return response
 
 
 def _facts_table(pairs, style):
     """The small two-column block of details under the title."""
-    rows = [[Paragraph(f"<b>{label}</b>", style["cell"]), Paragraph(str(value), style["cell"])] for label, value in pairs]
+    rows = [[Paragraph(f"<b>{label}</b>", style["cell"]), Paragraph(escape(str(value)), style["cell"])] for label, value in pairs]
     table = Table(rows, colWidths=[38 * mm, 60 * mm], hAlign="LEFT")
     table.setStyle(
         TableStyle(
@@ -150,8 +153,8 @@ def render_customer_ledger(lead, rows):
     """One customer's account: every charge, every receipt, the balance."""
     style = _styles()
     story = [
-        Paragraph(lead.display_name, style["title"]),
-        Paragraph(lead.site_location, style["sub"]),
+        Paragraph(escape(lead.display_name), style["title"]),
+        Paragraph(escape(lead.site_location), style["sub"]),
         Spacer(1, 7 * mm),
     ]
 
@@ -178,7 +181,7 @@ def render_customer_ledger(lead, rows):
         data.append(
             [
                 Paragraph(f"{row['date']:%d %b %Y}" if row["date"] else "—", style["cell"]),
-                Paragraph(row["label"], style["cell"]),
+                Paragraph(escape(row["label"]), style["cell"]),
                 Paragraph(money(row["charged"], blank=""), style["cellr"]),
                 Paragraph(money(row["amount"], blank=""), style["cellr"]),
                 Paragraph(money(row["balance"]), style["cellr"]),
@@ -265,8 +268,8 @@ def render_outstanding_statement(leads, range_key="all"):
         data.append(
             [
                 Paragraph(str(index), style["cell"]),
-                Paragraph(f"{lead.display_name}<br/><font color='#6b7280' size='7'>{lead.site_location}</font>", style["cell"]),
-                Paragraph(lead.invoice_number or "—", style["cell"]),
+                Paragraph(f"{escape(lead.display_name)}<br/><font color='#6b7280' size='7'>{escape(lead.site_location)}</font>", style["cell"]),
+                Paragraph(escape(lead.invoice_number or "—"), style["cell"]),
                 Paragraph(f"{lead.invoice_date:%d %b %y}" if lead.invoice_date else "—", style["cell"]),
                 Paragraph(money(lead.invoice_total, prefix=False), style["cellr"]),
                 Paragraph(money(lead.collected, prefix=False), style["cellr"]),
@@ -329,5 +332,7 @@ def render_outstanding_statement(leads, range_key="all"):
 
 
 def _filename(name):
-    cleaned = "".join(character if character.isalnum() else "-" for character in name)
+    from .scan import name_character
+
+    cleaned = "".join(character if name_character(character) else "-" for character in name)
     return "-".join(part for part in cleaned.split("-") if part) or "customer"

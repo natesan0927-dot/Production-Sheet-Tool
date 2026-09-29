@@ -127,6 +127,15 @@ def employee_remove(request, pk):
     employee.save(update_fields=["is_active"])
     recovery.close_requests(employee, by=request.user)
     messages.success(request, f"{employee.display_name} can no longer sign in.")
+    # Their open leads stay under their name until someone else takes them on,
+    # and nobody is chasing them in the meantime.
+    open_leads = employee.leads.filter(status="open").count()
+    if open_leads:
+        messages.warning(
+            request,
+            f"{employee.display_name} still has {open_leads} open lead{'s' if open_leads != 1 else ''}. "
+            "Reassign them from Leads (filter by their name) so their follow-ups are not missed.",
+        )
     return redirect("accounts:employee_list")
 
 

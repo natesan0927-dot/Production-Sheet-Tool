@@ -435,6 +435,10 @@ one someone reads — but the in-app warning is the one to rely on. When it does
 (Supabase Pro, about ₹2,100 a month, 100 GB) or move to another bucket by changing the same
 environment settings; the app does not change.
 
+No single upload can be larger than **25 MB** — plenty for a scanned PDF or a drawing, and it stops
+a phone video eating the bucket. Anyone who tries is told the size and asked to save it as a PDF or
+use Scan. To change the limit, set `MAX_UPLOAD_MB` on Render.
+
 **Backups.** Neon keeps a short rewind window on the free plan (a matter of hours), which is
 for mistakes, not for backups. Take a real one **once a week, and before any big change**. On your own
 computer, in the project folder, with the Neon connection string as `DATABASE_URL`:
