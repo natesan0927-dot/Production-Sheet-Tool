@@ -20,6 +20,7 @@ Nothing here tells the person at the sign-in page whether the account exists, or
 what happened to their request.
 """
 
+import math
 import secrets
 from datetime import timedelta
 
@@ -91,14 +92,29 @@ def _new_code():
     return f"{secrets.randbelow(10 ** CODE_DIGITS):0{CODE_DIGITS}d}"
 
 
-def _asked_too_often(user, purpose):
-    hour_ago = timezone.now() - timedelta(hours=1)
-    return user.reset_codes.filter(purpose=purpose, created_at__gte=hour_ago).count() >= PasswordResetCode.MAX_PER_HOUR
+def _minutes_to_wait(user, purpose):
+    """How long until another OTP of this kind may be sent: 0 if it can be now."""
+    now = timezone.now()
+    recent = list(
+        user.reset_codes.filter(purpose=purpose, created_at__gte=now - timedelta(hours=1))
+        .order_by("-created_at")
+        .values_list("created_at", flat=True)[: PasswordResetCode.MAX_PER_HOUR]
+    )
+    if len(recent) < PasswordResetCode.MAX_PER_HOUR:
+        return 0
+    # Free again once the oldest of them is an hour old.
+    return max(1, math.ceil((recent[-1] + timedelta(hours=1) - now).total_seconds() / 60))
 
 
 def _issue(user, purpose, phone=""):
-    """A fresh OTP of this kind. Only the newest works; asking again retires the last one."""
+    """A fresh OTP of this kind, stored before it is sent."""
     code = _new_code()
+    _store(user, purpose, code, phone)
+    return code
+
+
+def _store(user, purpose, code, phone=""):
+    """Only the newest OTP of a kind works; storing one retires the last."""
     with transaction.atomic():
         user.reset_codes.filter(purpose=purpose, used_at__isnull=True).update(used_at=timezone.now())
         PasswordResetCode.objects.create(
@@ -108,29 +124,40 @@ def _issue(user, purpose, phone=""):
             code_hash=make_password(code),
             expires_at=timezone.now() + PasswordResetCode.LIFETIME,
         )
-    return code
 
 
 def request_code(user):
-    """Text the Super Admin a password-reset OTP. False if they have asked too often lately."""
-    if _asked_too_often(user, PasswordResetCode.Purpose.RESET):
+    """Text the Super Admin a password-reset OTP. False if they have asked too often lately.
+
+    Stored before it is sent, and counted even if the text fails: a failed
+    text goes to the server log instead, where it still works.
+    """
+    if _minutes_to_wait(user, PasswordResetCode.Purpose.RESET):
         return False
     sms.send_admin_code(user, _issue(user, PasswordResetCode.Purpose.RESET))
     return True
 
 
 def start_phone_check(user, number):
-    """Text an OTP to a new mobile number to prove it. Returns (sent, why not)."""
+    """Text an OTP to a new mobile number to prove it. Returns (sent, why not).
+
+    Stored only once the text has gone: a refused one could never be typed
+    back, so it neither counts towards the hourly limit nor retires an OTP
+    sent earlier that may still be on its way.
+    """
     number = sms.mobile_digits(number)
     if not number:
         return False, "That is not a 10-digit mobile number."
-    if _asked_too_often(user, PasswordResetCode.Purpose.VERIFY):
-        return False, "Three OTPs have been sent in the last hour. Wait a while, then try again."
-    code = _issue(user, PasswordResetCode.Purpose.VERIFY, phone=number)
+    wait = _minutes_to_wait(user, PasswordResetCode.Purpose.VERIFY)
+    if wait:
+        return False, (
+            f"{PasswordResetCode.MAX_PER_HOUR} OTPs have been sent in the last hour. "
+            f"Try again in {wait} minute{'s' if wait != 1 else ''}."
+        )
+    code = _new_code()
     sent, reason = sms.send_otp(number, code)
-    if not sent:
-        # Never delivered, so it can never be typed back.
-        user.reset_codes.filter(purpose=PasswordResetCode.Purpose.VERIFY, used_at__isnull=True).update(used_at=timezone.now())
+    if sent:
+        _store(user, PasswordResetCode.Purpose.VERIFY, code, phone=number)
     return sent, reason
 
 

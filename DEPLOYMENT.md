@@ -604,7 +604,8 @@ the mobile number registered in their profile**:
 1. *Forgot your password?* → type the Super Admin's username → *Send my request*.
 2. An OTP arrives by text ("Your Titans Windows OTP is 123456…"). Tap *Enter it here*.
 3. Type the username, the OTP and the new password twice. The OTP works for 15 minutes, gives five
-   tries, is spent when used, and can be sent three times an hour.
+   tries, is spent when used, and can be sent three times an hour. When registering a number, a text
+   Fast2SMS refuses does not count towards the three.
 
 **Registering the number.** Signed in, the Super Admin opens **My profile** (the menu under their name
 at the top right), types the mobile number and their current password, and presses *Send OTP to this
