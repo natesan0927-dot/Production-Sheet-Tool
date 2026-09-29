@@ -602,7 +602,7 @@ twice does not stack up requests — there is one waiting request per person.
 the mobile number registered in their profile**:
 
 1. *Forgot your password?* → type the Super Admin's username → *Send my request*.
-2. An OTP arrives by text ("Your OTP: 123456"). Tap *Enter it here*.
+2. An OTP arrives by text ("Your Titans Windows OTP is 123456…"). Tap *Enter it here*.
 3. Type the username, the OTP and the new password twice. The OTP works for 15 minutes, gives five
    tries, is spent when used, and can be sent three times an hour.
 
@@ -612,8 +612,12 @@ number*. The number is registered only once that OTP is typed back, so a mistype
 then — not on the day the password is forgotten. Changing it later works the same way. Nobody else can
 set or change a Super Admin's number; the Employees page only shows it, and whether it is verified.
 
-**Switching texts on.** Texts go through **Fast2SMS**, using its OTP route: a fixed "Your OTP: …"
-message from their own approved template, so no DLT registration is needed.
+**Switching texts on.** Texts go through **Fast2SMS**, using its **Quick SMS** route: about **₹5 a
+text**, sent from a random numeric number, with no DLT registration and no approval to wait for. An OTP
+is only sent when the number is registered or the password is forgotten, so ₹100 lasts a long time.
+(Fast2SMS's cheaper OTP route refuses to send — "complete website verification" — until the account
+passes a website check, and its Smart OTP needs a DLT-registered template. If that check is ever done,
+adding `FAST2SMS_ROUTE` = `otp` on Render switches to it.)
 
 1. Sign up at **fast2sms.com** with a mobile number and top up the wallet — **₹100** is the minimum.
 2. In the Fast2SMS dashboard open **Dev API** and copy the **API Authorization Key**.

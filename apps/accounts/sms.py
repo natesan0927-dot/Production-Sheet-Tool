@@ -5,9 +5,12 @@ done by an OTP texted to the mobile number they register in their own profile.
 The number is proved when it is set — an OTP goes to it and has to be typed back
 — so a mistyped number is caught then, not on the day it is needed.
 
-Texts go through Fast2SMS's OTP route, which sends a fixed "Your OTP: 123456"
-message and so needs no DLT template registration. Putting FAST2SMS_API_KEY on
-the host is all it takes to switch it on.
+Texts go through Fast2SMS's Quick SMS route: about ₹5 a text, from a random
+numeric sender, and no DLT registration or website verification. Its OTP route
+is cheaper but refuses to send until the account passes a website check, and
+its Smart OTP needs a DLT-registered template; FAST2SMS_ROUTE=otp switches to
+the OTP route if that check is ever done. Putting FAST2SMS_API_KEY on the host
+is all it takes to switch texts on.
 
 If a password-reset OTP cannot be texted — the SMS account has run out of
 balance, say — it is written to the server log as a last resort, so a failed
@@ -25,6 +28,8 @@ import urllib.parse
 import urllib.request
 
 from django.conf import settings
+
+from .models import PasswordResetCode
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +56,18 @@ def configured():
     return provider == "fast2sms" and bool(settings.FAST2SMS_API_KEY)
 
 
+def _message(code):
+    """One short text: a longer one is sent, and charged, as two."""
+    minutes = int(PasswordResetCode.LIFETIME.total_seconds() // 60)
+    return f"Your Titans Windows OTP is {code}. It works for {minutes} minutes. Do not share it with anyone."
+
+
 def _fast2sms(number, code):
-    body = urllib.parse.urlencode({"route": "otp", "variables_values": code, "numbers": number}).encode()
+    if settings.FAST2SMS_ROUTE == "otp":
+        fields = {"route": "otp", "variables_values": code, "numbers": number}
+    else:
+        fields = {"route": "q", "message": _message(code), "numbers": number}
+    body = urllib.parse.urlencode(fields).encode()
     request = urllib.request.Request(
         settings.FAST2SMS_URL,
         data=body,

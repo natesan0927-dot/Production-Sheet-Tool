@@ -168,6 +168,8 @@ STORAGE_CRITICAL_PERCENT = env.int("STORAGE_CRITICAL_PERCENT", default=95)
 # Adding FAST2SMS_API_KEY is enough to switch texts on; SMS_PROVIDER is optional.
 SMS_PROVIDER = env("SMS_PROVIDER", default="")            # "fast2sms", or empty
 FAST2SMS_API_KEY = env("FAST2SMS_API_KEY", default="")
+# "q" is Quick SMS (~₹5 a text, no verification); "otp" needs Fast2SMS's website check first.
+FAST2SMS_ROUTE = env("FAST2SMS_ROUTE", default="q")
 FAST2SMS_URL = env("FAST2SMS_URL", default="https://www.fast2sms.com/dev/bulkV2")
 
 MEDIA_URL = "media/"
