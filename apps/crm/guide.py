@@ -183,9 +183,10 @@ ROLE_INTROS = {
             (
                 "warranty",
                 "Handover",
-                "Once a job is dispatched it reaches you. Download the handover "
-                "warranty certificate — it comes out already filled in with the "
-                "customer's name, the invoice number and the invoice date.",
+                "Once a job is dispatched it reaches you, with two certificates ready "
+                "to print. The warranty certificate stays with the customer. The "
+                "handover & work completion certificate comes filled in with the date, "
+                "the site, the customer and the quotation number, for them to sign.",
             ),
             (
                 "warranty",

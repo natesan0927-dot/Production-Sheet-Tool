@@ -1,11 +1,12 @@
 """The documents the business hands to a customer.
 
-Both are the client's own PDFs, kept in documents/ and filled in — we never
-redraw their stationery. The handover certificate is the client's guarantee
-certificate: the customer signs it and it comes back as the proof of handover.
+All three are the client's own PDFs, kept in documents/ and filled in — we never
+redraw their stationery. The warranty certificate is the customer's to keep; the
+handover & work completion certificate is the one they sign, and it comes back
+as the proof of handover.
 
 Fill positions are (x, distance down from the top of the page), taken from the
-printed label each value sits beside. Both templates have a mediabox that does
+printed label each value sits beside. The templates have a mediabox that does
 not start at y=0, so the conversion to PDF user space uses the page's own box.
 """
 
@@ -16,7 +17,9 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from pypdf import PdfReader, PdfWriter
+from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from .scan import name_character
@@ -24,11 +27,24 @@ from .scan import name_character
 DOCUMENTS = settings.BASE_DIR / "documents"
 CAF_TEMPLATE = DOCUMENTS / "caf_template.pdf"
 WARRANTY_TEMPLATE = DOCUMENTS / "warranty_template.pdf"
+HANDOVER_TEMPLATE = DOCUMENTS / "handover_template.pdf"
 
 FONT = "Helvetica-Bold"
 INK = (0.05, 0.05, 0.15)
 # Sit just above the printed rule rather than straight on it.
 BASELINE_LIFT = 2
+
+# The handover certificate is set in Calibri Bold. Carlito is its open twin — the
+# same width for every letter — so what is filled in reads as the certificate's
+# own printing and lines up with it. (Calibri itself cannot ship with the app.)
+CALIBRI_TWIN = "Carlito-Bold"
+CALIBRI_TWIN_FILE = DOCUMENTS / "fonts" / "Carlito-Bold.ttf"
+
+
+def _calibri_twin():
+    if CALIBRI_TWIN not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(CALIBRI_TWIN, str(CALIBRI_TWIN_FILE)))
+    return CALIBRI_TWIN
 
 
 def _slug(name):
@@ -37,15 +53,60 @@ def _slug(name):
     return "-".join(part for part in cleaned.split("-") if part) or "lead"
 
 
-def field(x, y_from_top, text, size=11, align="left", max_width=None):
-    return {"x": x, "y": y_from_top, "text": text, "size": size, "align": align, "max_width": max_width}
+def field(x, y_from_top, text, size=11, align="left", max_width=None, font=FONT, char_space=0.0,
+          lift=BASELINE_LIFT, ink=INK, run_to=None, line_end=None):
+    """One value to print on a template.
+
+    `max_width` is the blank it should fit, shrinking if need be. Or, for a blank
+    that is a run of underscores ending at `line_end`: the value keeps its size,
+    the printed line is carried on underneath anything longer, as far as `run_to`
+    (an x on the page), and only past that is the value made smaller.
+    """
+    return {"x": x, "y": y_from_top, "text": text, "size": size, "align": align, "max_width": max_width,
+            "font": font, "char_space": char_space, "lift": lift, "ink": ink, "run_to": run_to,
+            "line_end": line_end}
 
 
-def _fitted_size(text, size, max_width):
-    """Shrink a value that would otherwise run past the end of its blank."""
-    while max_width and size > 6 and stringWidth(str(text), FONT, size) > max_width:
+def _width(text, font, size, char_space=0.0):
+    return stringWidth(text, font, size) + char_space * len(text)
+
+
+def _fitted(item):
+    """The text and size to print: within the blank if it can be, readable either way."""
+    text, font, size, spacing = str(item["text"]), item["font"], item["size"], item["char_space"]
+    if item["run_to"] is not None:
+        room = item["run_to"] - item["x"]
+        while size > 8 and _width(text, font, size, spacing) > room:
+            size -= 0.25
+        while len(text) > 1 and _width(text, font, size, spacing) > room:
+            text = text[:-2].rstrip() + "…"
+        return text, size
+    blank = item["max_width"]
+    while blank and size > 6 and _width(text, font, size, spacing) > blank:
         size -= 0.5
-    return size
+    return text, size
+
+
+def _carry_line_on(overlay, item, x, y, text_end):
+    """More of the printed underscores, under a value longer than its blank.
+
+    Drawn with the underscore itself — the same letter, size and spacing the
+    template uses — so the longer line is indistinguishable from the printed one.
+    It starts one underscore back, over the end of the printed line, so there is
+    no seam.
+    """
+    font, size, spacing = item["font"], item["size"], item["char_space"]
+    step = _width("_", font, size, spacing)
+    start = item["line_end"] - step
+    count = 1
+    while start + count * step < text_end + BLANK_INSET:
+        count += 1
+    line = overlay.beginText(start, y)
+    line.setFont(font, size)
+    line.setCharSpace(spacing)
+    line.setFillColorRGB(*item["ink"])
+    line.textOut("_" * count)
+    overlay.drawText(line)
 
 
 def _stamp(template, page_values, filename):
@@ -59,16 +120,21 @@ def _stamp(template, page_values, filename):
             top, right = float(box.top), float(box.right)
             buffer = BytesIO()
             overlay = canvas.Canvas(buffer, pagesize=(right, top))
-            overlay.setFillColorRGB(*INK)
             for item in values:
-                text = str(item["text"])
-                size = _fitted_size(text, item["size"], item["max_width"])
-                overlay.setFont(FONT, size)
-                y = top - item["y"] + BASELINE_LIFT
+                text, size = _fitted(item)
+                y = top - item["y"] + item["lift"]
+                x = item["x"]
                 if item["align"] == "center":
-                    overlay.drawCentredString(item["x"], y, text)
-                else:
-                    overlay.drawString(item["x"], y, text)
+                    x -= _width(text, item["font"], size, item["char_space"]) / 2
+                line = overlay.beginText(x, y)
+                line.setFont(item["font"], size)
+                line.setCharSpace(item["char_space"])
+                line.setFillColorRGB(*item["ink"])
+                line.textOut(text)
+                overlay.drawText(line)
+                end = x + _width(text, item["font"], size, item["char_space"])
+                if item["line_end"] is not None and end + BLANK_INSET > item["line_end"]:
+                    _carry_line_on(overlay, item, x, y, end)
             overlay.save()
             buffer.seek(0)
             page.merge_page(PdfReader(buffer).pages[0])
@@ -128,14 +194,63 @@ def render_warranty_certificate(lead):
     )
 
 
+# Where the handover certificate's blanks are, measured off the client's PDF:
+# (start of the printed line, its end, the label's baseline down from the top).
+# Page 1 is set at 14.79 pt with 0.13 pt between letters; page 2 at 13.515 pt,
+# spaced 1 pt. A value is printed in the same size and spacing, on the label's
+# own baseline, starting just inside the line; a longer value has the line carried
+# on underneath it.
+HANDOVER_PAGE_1 = {"size": 14.79, "char_space": 0.13}
+HANDOVER_PAGE_2 = {"size": 13.515, "char_space": 1.0}
+HANDOVER_BLANKS = {
+    "date": (0, 70.50, 236.00, 260.46),
+    "site": (0, 220.00, 385.50, 296.46),
+    "customer": (0, 142.00, 307.50, 332.46),
+    "quotation": (0, 197.00, 362.50, 368.46),
+    "ack_customer": (1, 142.50, 405.00, 390.42),
+    "ack_mobile": (1, 140.50, 403.50, 480.42),
+}
+# Just inside the start of the line, and never past the page's right-hand margin.
+BLANK_INSET = 3
+RIGHT_MARGIN = 590
+
+
+def _handover_field(blank, text):
+    page, start, end, baseline = HANDOVER_BLANKS[blank]
+    style = HANDOVER_PAGE_1 if page == 0 else HANDOVER_PAGE_2
+    return page, field(
+        start + BLANK_INSET,
+        baseline,
+        text,
+        style["size"],
+        font=_calibri_twin(),
+        char_space=style["char_space"],
+        lift=0,
+        ink=(0, 0, 0),
+        run_to=RIGHT_MARGIN,
+        line_end=end,
+    )
+
+
 def render_handover_certificate(lead):
-    """The certificate the customer signs to say the job is finished.
+    """The handover & work completion certificate, on the client's own stationery.
 
-    Drawn rather than stamped: unlike the warranty and the CAF there is no
-    printed stationery for it, so the letterhead is reproduced here. Every
-    blank the office would otherwise fill in by hand is filled from the job,
-    and only the signatures are left empty.
+    Filled from the job: the date, the project and site, the customer and the
+    quotation on the first page; the customer's name and mobile in their
+    acknowledgement. Signatures, the signing dates and anything only the
+    customer can give are left for the site. Dated the day it was handed over
+    once that is on record, otherwise the day it is printed.
     """
-    from .handover import build_handover
-
-    return build_handover(lead, f"Handover-{_slug(lead.customer_name)}.pdf")
+    handed_over = timezone.localtime(lead.handover_signed_at).date() if lead.handover_signed_at else timezone.localdate()
+    pages = {}
+    for blank, text in [
+        ("date", handed_over.strftime("%d/%m/%Y")),
+        ("site", lead.project_label),
+        ("customer", lead.display_name),
+        ("quotation", lead.quotation_number),
+        ("ack_customer", lead.display_name),
+        ("ack_mobile", f"+91 {lead.phone}" if lead.phone else ""),
+    ]:
+        page, item = _handover_field(blank, text)
+        pages.setdefault(page, []).append(item)
+    return _stamp(HANDOVER_TEMPLATE, pages, f"Handover-{_slug(lead.customer_name)}.pdf")
