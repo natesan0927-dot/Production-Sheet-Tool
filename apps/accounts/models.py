@@ -18,6 +18,9 @@ class Role(models.TextChoices):
 class User(AbstractUser):
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.SALESPERSON)
     phone = models.CharField(max_length=20, blank=True)
+    # When the number was proved to receive texts, by an OTP sent to it. The Super
+    # Admin's forgotten-password OTP goes to this number, so it is checked when set.
+    phone_verified_at = models.DateTimeField(null=True, blank=True)
     # Empty means "use whatever this role sees by default"; the Super Admin can
     # override it per employee from Settings → Stage Access.
     visible_stages = models.JSONField(default=list, blank=True)
@@ -61,7 +64,14 @@ class PasswordResetCode(models.Model):
     MAX_TRIES = 5
     MAX_PER_HOUR = 3
 
+    class Purpose(models.TextChoices):
+        RESET = "reset", "Reset a forgotten password"
+        VERIFY = "verify", "Prove a new mobile number"
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reset_codes")
+    purpose = models.CharField(max_length=10, choices=Purpose.choices, default=Purpose.RESET)
+    # For VERIFY: the number being proved, saved to the profile only once the OTP is right.
+    phone = models.CharField(max_length=20, blank=True)
     code_hash = models.CharField(max_length=128)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()

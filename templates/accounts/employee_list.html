@@ -93,16 +93,13 @@
                 <td>
                   <strong>{{ person.display_name }}</strong>
                   {% if group.role == 'Super Admin' %}
-                  {# The one number that matters: a forgotten Super Admin password is texted here. #}
-                  <form method="post" action="{% url 'accounts:employee_phone' person.pk %}" class="d-flex gap-1 mt-2" style="max-width:280px">
-                    {% csrf_token %}
-                    <input type="tel" name="phone" value="{{ person.phone }}" inputmode="tel" class="form-control form-control-sm"
-                           placeholder="Mobile no." aria-label="Mobile number for password reset codes">
-                    <button class="btn btn-sm btn-outline-secondary text-nowrap" title="Save the number"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
-                  </form>
-                  <div class="small mt-1 {% if person.phone %}text-muted{% else %}text-warning{% endif %}">
-                    {% if person.phone %}Reset codes are texted here.
-                    {% else %}<i class="fa-solid fa-triangle-exclamation me-1"></i>No number yet — a forgotten password cannot be texted.{% endif %}
+                  {# Their forgotten-password OTP goes to this number, so they register it themselves, proved by an OTP. #}
+                  <div class="small mt-1 {% if person.phone_verified_at %}text-muted{% else %}text-warning{% endif %}">
+                    {% if person.phone %}<i class="fa-solid fa-mobile-screen-button me-1"></i>{{ person.phone }}
+                      {% if person.phone_verified_at %}<span class="badge bg-success ms-1">Verified</span>{% else %}<span class="badge bg-warning ms-1">Not verified</span>{% endif %}
+                    {% else %}<i class="fa-solid fa-triangle-exclamation me-1"></i>No mobile number — a forgotten password cannot be reset by OTP.{% endif %}
+                    {% if person.pk == user.pk %}<a href="{% url 'accounts:profile' %}#mobile" class="ms-1">{% if person.phone_verified_at %}Change it in My profile{% else %}Set it in My profile{% endif %}</a>
+                    {% else %}<span class="d-block">Set by them in their own profile.</span>{% endif %}
                   </div>
                   {% elif person.phone %}
                   <div class="text-muted small">{{ person.phone }}</div>

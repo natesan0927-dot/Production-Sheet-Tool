@@ -109,6 +109,9 @@
           <i class="fa-solid fa-chevron-down small text-muted"></i>
         </button>
         <div class="dropdown-menu dropdown-menu-end">
+          <a class="dropdown-item" href="{% url 'accounts:profile' %}">
+            <i class="fa-solid fa-id-badge me-2"></i>My profile
+          </a>
           <a class="dropdown-item" href="{% url 'accounts:change_password' %}">
             <i class="fa-solid fa-key me-2"></i>Change password
           </a>

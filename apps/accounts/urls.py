@@ -39,6 +39,7 @@ urlpatterns = [
     path("login/", TitansLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("password/", views.change_password, name="change_password"),
+    path("profile/", views.profile, name="profile"),
     path("forgot/", views.forgot_password, name="forgot_password"),
     path("forgot/sent/", views.forgot_sent, name="forgot_sent"),
     path("forgot/reset/", views.reset_with_code, name="reset_with_code"),

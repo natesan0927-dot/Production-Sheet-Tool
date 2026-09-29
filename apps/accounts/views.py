@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from . import recovery, sms
-from .forms import DEFAULT_PASSWORD, EmployeeForm, FirstPasswordForm, ForgotPasswordForm, ResetWithCodeForm
+from .forms import DEFAULT_PASSWORD, EmployeeForm, FirstPasswordForm, ForgotPasswordForm, MobileForm, ResetWithCodeForm
 from .models import Role, User
 
 
@@ -210,15 +210,77 @@ def reset_with_code(request):
             user.reset_codes.filter(used_at__isnull=True).update(used_at=timezone.now())
             request.session.pop("reset_username", None)
             return redirect(f"{reverse('accounts:login')}?reset=done")
-        form.add_error(None, "That code is not right, or it has expired. Check it, or go back and ask for a new one.")
+        form.add_error(None, "That OTP is not right, or it has expired. Check it, or go back and send a new one.")
     return render(request, "accounts/reset_with_code.html", {"form": form})
+
+
+@login_required
+def profile(request):
+    """Your own account: who you are, your password, and your mobile number.
+
+    The Super Admin's number is where the OTP for a forgotten password is texted,
+    so it is only registered once an OTP sent to it has been typed back.
+    """
+    user = request.user
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        if user.is_super_admin and action == "verify":
+            if recovery.finish_phone_check(user, request.POST.get("otp", "")):
+                messages.success(request, f"{user.phone} is registered. An OTP for a forgotten password will be texted to it.")
+            else:
+                messages.error(request, "That OTP is not right, or it has expired. Check it, or send a new one.")
+            return redirect("accounts:profile")
+        if user.is_super_admin and action == "resend":
+            number = recovery.pending_phone(user)
+            if number:
+                _texted(request, *recovery.start_phone_check(user, number), number)
+            return redirect("accounts:profile")
+        if user.is_super_admin and action == "cancel":
+            user.reset_codes.filter(purpose="verify", used_at__isnull=True).update(used_at=timezone.now())
+            return redirect("accounts:profile")
+
+        form = MobileForm(user, request.POST)
+        if form.is_valid():
+            number = form.cleaned_data["phone"]
+            if user.is_super_admin:
+                _texted(request, *recovery.start_phone_check(user, number), number)
+            else:
+                user.phone = number
+                user.save(update_fields=["phone"])
+                messages.success(request, "Mobile number saved.")
+            return redirect("accounts:profile")
+    else:
+        form = MobileForm(user, initial={"phone": user.phone})
+
+    pending = recovery.pending_phone(user) if user.is_super_admin else ""
+    return render(
+        request,
+        "accounts/profile.html",
+        {
+            "form": form,
+            "pending": pending,
+            "pending_masked": sms.masked(pending),
+            "sms_ready": sms.configured(),
+        },
+    )
+
+
+def _texted(request, sent, reason, number):
+    if sent:
+        messages.success(request, f"An OTP has been texted to {sms.masked(number)}. Type it below to register the number.")
+    else:
+        messages.error(request, reason)
 
 
 @super_admin_only
 @require_POST
 def employee_phone(request, pk):
-    """Register (or clear) a mobile number — the one a Super Admin's reset code is texted to."""
+    """Register (or clear) a member of staff's mobile number."""
     employee = get_object_or_404(User, pk=pk, is_active=True)
+    if employee.is_super_admin:
+        # Where their reset OTP goes: registered by them, proved with an OTP, in their profile.
+        messages.error(request, "A Super Admin registers their own mobile number in My profile, where it is checked with an OTP.")
+        return redirect("accounts:employee_list")
     typed = request.POST.get("phone", "").strip()
     number = sms.mobile_digits(typed)
     if typed and not number:

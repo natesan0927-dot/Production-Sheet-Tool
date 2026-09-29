@@ -1,26 +1,26 @@
-"""Getting a password-reset code to the Super Admin.
+"""Texting a one-time password (OTP) to the Super Admin's mobile.
 
-Staff who forget a password are helped by the Super Admin, who is already in the
-app: the code goes to their bell. The Super Admin has no one above them to ask,
-so their code is texted to the mobile number registered on their account.
+The Super Admin has no one above them to reset a forgotten password, so it is
+done by an OTP texted to the mobile number they register in their own profile.
+The number is proved when it is set — an OTP goes to it and has to be typed back
+— so a mistyped number is caught then, not on the day it is needed.
 
-Sending a text needs an account with an SMS provider, which costs money and, in
-India, needs some registration. Until one is set up the code is written to the
-server log instead, and the reset page says nothing different either way — it
-never reveals whether an account exists, or how the code travelled. On Render the
-log is readable only by whoever owns the hosting account, which is the same person
-who could change the database directly, so this fallback does not open a door that
-was shut.
+Texts go through Fast2SMS's OTP route, which sends a fixed "Your OTP: 123456"
+message and so needs no DLT template registration. Putting FAST2SMS_API_KEY on
+the host is all it takes to switch it on.
 
-Only Fast2SMS is supported, through its OTP route, which sends a fixed
-"your OTP is ..." message and so needs no template registration. That route is
-written from the provider's public documentation and has not been run against the
-real service; the log fallback means a mistake here cannot lock the Super Admin out.
+If a password-reset OTP cannot be texted — the SMS account has run out of
+balance, say — it is written to the server log as a last resort, so a failed
+text never locks the only administrator out. On Render the log is readable only
+by whoever owns the hosting account, who could change the database directly
+anyway, so this opens no door that was shut. Proving a new number never falls
+back to the log: the whole point is that the text arrives.
 """
 
 import json
 import logging
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -36,7 +36,19 @@ def mobile_digits(value):
         digits = digits[2:]
     elif len(digits) == 11 and digits.startswith("0"):
         digits = digits[1:]
-    return digits if len(digits) == 10 else ""
+    return digits if len(digits) == 10 and digits[0] in "6789" else ""
+
+
+def masked(number):
+    """98xxxxxx10 — enough to recognise your own number, not enough to learn someone else's."""
+    number = mobile_digits(number) or number or ""
+    return f"{number[:2]}{'x' * (len(number) - 4)}{number[-2:]}" if len(number) >= 6 else number
+
+
+def configured():
+    """Whether texts can be sent at all."""
+    provider = settings.SMS_PROVIDER or ("fast2sms" if settings.FAST2SMS_API_KEY else "")
+    return provider == "fast2sms" and bool(settings.FAST2SMS_API_KEY)
 
 
 def _fast2sms(number, code):
@@ -50,25 +62,57 @@ def _fast2sms(number, code):
             "Cache-Control": "no-cache",
         },
     )
-    with urllib.request.urlopen(request, timeout=10) as response:
-        reply = json.loads(response.read().decode("utf-8", "replace"))
-    return reply.get("return") is True
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            reply = json.loads(response.read().decode("utf-8", "replace") or "{}")
+    except urllib.error.HTTPError as refused:
+        # Fast2SMS explains a refusal in the body: a bad key, no balance, a bad number.
+        try:
+            reply = json.loads(refused.read().decode("utf-8", "replace") or "{}")
+        except ValueError:
+            reply = {}
+        return False, _reason(reply) or f"the SMS service answered {refused.code}"
+    if reply.get("return") is True:
+        return True, ""
+    return False, _reason(reply) or "the SMS service did not accept it"
+
+
+def _reason(reply):
+    message = reply.get("message")
+    if isinstance(message, list):
+        message = " ".join(str(part) for part in message)
+    return str(message or "").strip()
+
+
+def send_otp(number, code):
+    """Text an OTP. Returns (sent, why not) — the reason is shown to the Super Admin."""
+    number = mobile_digits(number)
+    if not number:
+        return False, "That is not a 10-digit mobile number."
+    if not configured():
+        return False, "Texts are not switched on for this site yet — FAST2SMS_API_KEY has to be added on the host."
+    try:
+        sent, reason = _fast2sms(number, code)
+    except Exception:
+        logger.warning("Could not reach the SMS service", exc_info=True)
+        return False, "The SMS service could not be reached. Try again in a minute."
+    if not sent:
+        logger.warning("The SMS service did not send an OTP to %s: %s", masked(number), reason)
+        return False, f"The SMS service did not send it: {reason}."
+    return True, ""
 
 
 def send_admin_code(user, code):
-    """Text the code to the Super Admin. Returns "sms", or "log" if it could only be logged."""
-    number = mobile_digits(user.phone)
-    if settings.SMS_PROVIDER == "fast2sms" and settings.FAST2SMS_API_KEY and number:
-        try:
-            if _fast2sms(number, code):
-                return "sms"
-            logger.warning("The SMS provider did not accept the reset code for %s", user.username)
-        except Exception:
-            logger.warning("Could not reach the SMS provider for %s", user.username, exc_info=True)
-    elif not number:
-        logger.warning("%s has no registered mobile number to text a reset code to", user.username)
+    """Text a password-reset OTP to the Super Admin. Returns "sms", or "log" if it could only be logged."""
+    if user.phone:
+        sent, reason = send_otp(user.phone, code)
+        if sent:
+            return "sms"
+        logger.warning("The reset OTP for %s was not texted: %s", user.username, reason)
+    else:
+        logger.warning("%s has no registered mobile number to text a reset OTP to", user.username)
 
-    # The last resort: the log, so a Super Admin is never locked out by a missing
-    # SMS account. Note that the code appears here and nowhere else.
+    # The last resort: the log, so a Super Admin is never locked out by a failed
+    # text. Note that the OTP appears here and nowhere else.
     logger.warning("PASSWORD RESET CODE for %s (no SMS was sent): %s", user.username, code)
     return "log"

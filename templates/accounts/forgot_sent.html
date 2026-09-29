@@ -19,8 +19,8 @@
     <p class="text-muted">If that username exists, this is what happens next:</p>
     <ul class="ps-3">
       <li class="mb-2"><strong>Staff:</strong> the Super Admin has been told. They will set you a new password and let you know what it is. Sign in with it — you will be asked to choose your own straight away.</li>
-      <li class="mb-2"><strong>The Super Admin:</strong> a code has been texted to the mobile number registered on your account.
-        <a href="{% url 'accounts:reset_with_code' %}">Enter it here.</a></li>
+      <li class="mb-2"><strong>The Super Admin:</strong> an OTP has been texted to the mobile number registered in your profile.
+        <a href="{% url 'accounts:reset_with_code' %}">Enter it here</a> with your new password.</li>
     </ul>
     <p class="text-muted small">Nothing has changed on your account yet, and nobody can sign in as you.</p>
 

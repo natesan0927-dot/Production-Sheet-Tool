@@ -598,29 +598,38 @@ remembered it). Using **Reset password** or **Remove** on the same row also clos
 The sign-in page never reveals whether a username exists or what happened to the request, and asking
 twice does not stack up requests — there is one waiting request per person.
 
-**The Super Admin** has nobody above them, so their code is **texted to the mobile number registered
-on their account**. Register it under **Employees**, on the Super Admin's row. The code works for 15
-minutes, gives five tries, is spent when used, and can be asked for three times an hour.
+**The Super Admin** has nobody above them, so they reset a forgotten password with an **OTP texted to
+the mobile number registered in their profile**:
 
-Texting needs an account with an SMS provider, which costs money and, in India, needs some
-registration. Until that is set up, the Super Admin's code is written to the **server log** instead,
-so a missing SMS account can never lock the Super Admin out. On Render that is the **Logs** tab of the
-service, readable only by whoever owns the Render account — the same person who could change the
-database directly, so this opens no door that was closed. Look for the line
+1. *Forgot your password?* → type the Super Admin's username → *Send my request*.
+2. An OTP arrives by text ("Your OTP: 123456"). Tap *Enter it here*.
+3. Type the username, the OTP and the new password twice. The OTP works for 15 minutes, gives five
+   tries, is spent when used, and can be sent three times an hour.
+
+**Registering the number.** Signed in, the Super Admin opens **My profile** (the menu under their name
+at the top right), types the mobile number and their current password, and presses *Send OTP to this
+number*. The number is registered only once that OTP is typed back, so a mistyped number is caught
+then — not on the day the password is forgotten. Changing it later works the same way. Nobody else can
+set or change a Super Admin's number; the Employees page only shows it, and whether it is verified.
+
+**Switching texts on.** Texts go through **Fast2SMS**, using its OTP route: a fixed "Your OTP: …"
+message from their own approved template, so no DLT registration is needed.
+
+1. Sign up at **fast2sms.com** with a mobile number and top up the wallet — **₹100** is the minimum.
+2. In the Fast2SMS dashboard open **Dev API** and copy the **API Authorization Key**.
+3. On Render, open the service → **Environment** → add `FAST2SMS_API_KEY` with that key → save. Render
+   redeploys by itself.
+4. Sign in as the Super Admin, open **My profile** and register the number. The OTP arriving is the
+   proof that texting works; if it does not, the profile says what Fast2SMS answered (a wrong key, no
+   balance) instead of failing quietly.
+
+Until the key is added, My profile says texts are not switched on and no number can be registered.
+
+**If a reset OTP cannot be texted** — the Fast2SMS balance has run out, say — it is written to the
+**server log** instead, so a failed text never locks the Super Admin out. On Render that is the **Logs**
+tab of the service, readable only by whoever owns the Render account — the same person who could change
+the database directly, so this opens no door that was closed. Look for the line
 `PASSWORD RESET CODE for admin`.
-
-To turn texting on, sign up at **fast2sms.com**, top up a small balance, and add two settings to the
-host's environment:
-
-| Key | Value |
-| --- | --- |
-| `SMS_PROVIDER` | `fast2sms` |
-| `FAST2SMS_API_KEY` | the key from your Fast2SMS dashboard |
-
-Only Fast2SMS is supported, through its OTP route. That part is written from their public
-documentation and has **not been run against the real service**, so after setting it up, use *Forgot
-password* once for the Super Admin and confirm a text arrives. If it does not, the code is still in the
-log and nothing is lost.
 
 **If everything else fails** and the Super Admin cannot get in at all, from your own computer in the
 project folder, pointing at the live database:

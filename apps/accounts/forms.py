@@ -98,6 +98,44 @@ class FirstPasswordForm(PasswordChangeForm):
         return chosen
 
 
+class MobileForm(forms.Form):
+    """A new mobile number for the profile.
+
+    The Super Admin's is where a forgotten password's OTP goes, so changing it
+    takes their current password too: a desk left signed in must not be enough
+    to redirect it.
+    """
+
+    phone = forms.CharField(
+        label="Mobile number", max_length=20,
+        widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "tel", "autocomplete": "tel",
+                                      "placeholder": "10-digit mobile number"}),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        if user.is_super_admin:
+            self.fields["current_password"] = forms.CharField(
+                label="Your current password", strip=False,
+                widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "current-password"}),
+            )
+
+    def clean_phone(self):
+        from .sms import mobile_digits
+
+        number = mobile_digits(self.cleaned_data["phone"])
+        if not number:
+            raise forms.ValidationError("Enter a 10-digit Indian mobile number.")
+        return number
+
+    def clean_current_password(self):
+        typed = self.cleaned_data["current_password"]
+        if not self.user.check_password(typed):
+            raise forms.ValidationError("That is not your current password.")
+        return typed
+
+
 NAME_BOX = {"class": "form-control", "autocomplete": "username", "autocapitalize": "none", "autocorrect": "off", "spellcheck": "false"}
 
 
@@ -111,8 +149,8 @@ class ResetWithCodeForm(forms.Form):
     username = forms.CharField(max_length=150, widget=forms.TextInput(attrs=NAME_BOX))
     code = forms.RegexField(
         r"^\s*\d{6}\s*$",
-        label="Code",
-        error_messages={"invalid": "The code is six digits."},
+        label="OTP",
+        error_messages={"invalid": "The OTP is six digits."},
         widget=forms.TextInput(attrs={"class": "form-control", "inputmode": "numeric", "autocomplete": "one-time-code", "maxlength": "8"}),
     )
     new_password1 = forms.CharField(label="New password", strip=False, widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "new-password"}))

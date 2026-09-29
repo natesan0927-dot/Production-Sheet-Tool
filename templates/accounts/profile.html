@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}My profile{% endblock %}
+
+{% block content %}
+<div class="tw-page-header">
+  <div>
+    <div class="tw-eyebrow">Your account</div>
+    <h4 class="mb-0">My profile</h4>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-id-badge me-2"></i>You</div>
+      <div class="card-body">
+        <dl class="row mb-3">
+          <dt class="col-5">Name</dt><dd class="col-7">{{ user.display_name }}</dd>
+          <dt class="col-5">Signs in as</dt><dd class="col-7"><code>{{ user.username }}</code></dd>
+          <dt class="col-5">Role</dt><dd class="col-7">{{ user.get_role_display }}</dd>
+        </dl>
+        <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-key me-1"></i>Change password</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card h-100" id="mobile">
+      <div class="card-header"><i class="fa-solid fa-mobile-screen-button me-2"></i>Mobile number</div>
+      <div class="card-body">
+        {% if user.is_super_admin %}
+          <p class="text-muted small">
+            If you forget your password, the OTP to reset it is texted to this number — you have no one above you to
+            reset it for you. It is only registered once an OTP sent to it has been typed back, so a mistyped number
+            is caught now rather than on the day you need it.
+          </p>
+
+          <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+            {% if user.phone %}
+              <span class="fs-5 fw-semibold">{{ user.phone }}</span>
+              {% if user.phone_verified_at %}
+                <span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>Verified {{ user.phone_verified_at|date:"d M Y" }}</span>
+              {% else %}
+                <span class="badge bg-warning text-wrap text-start">Not verified yet — enter it below to check it</span>
+              {% endif %}
+            {% else %}
+              <span class="badge bg-warning text-wrap text-start lh-base"><i class="fa-solid fa-triangle-exclamation me-1"></i>No number registered — a forgotten password cannot be reset by OTP</span>
+            {% endif %}
+          </div>
+
+          {% if not sms_ready %}
+            <div class="alert alert-warning small">
+              <i class="fa-solid fa-plug-circle-xmark me-1"></i>
+              Texts are not switched on for this site yet, so no OTP can be sent. Whoever looks after the hosting adds
+              the Fast2SMS key (<code>FAST2SMS_API_KEY</code>) on Render — see the deployment guide, section 7b.
+            </div>
+          {% endif %}
+
+          {% if pending %}
+            <form method="post" class="tw-note mb-3">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="verify">
+              <label class="form-label" for="otp">Enter the OTP texted to {{ pending_masked }}</label>
+              <div class="d-flex gap-2">
+                <input type="text" id="otp" name="otp" class="form-control" inputmode="numeric" autocomplete="one-time-code"
+                       maxlength="8" placeholder="6-digit OTP" required autofocus>
+                <button class="btn btn-primary text-nowrap"><i class="fa-solid fa-check me-1"></i>Verify</button>
+              </div>
+              <div class="form-text">It works for 15 minutes.</div>
+            </form>
+            <div class="d-flex gap-3 small">
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="resend">
+                <button class="btn btn-link btn-sm p-0">Send the OTP again</button></form>
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="cancel">
+                <button class="btn btn-link btn-sm p-0 text-muted">Use a different number</button></form>
+            </div>
+          {% else %}
+            <form method="post" class="tw-form-narrow">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="send">
+              {% for field in form %}
+                <div class="mb-3">
+                  <label class="form-label" for="{{ field.id_for_label }}">{% if field.name == 'phone' %}{% if user.phone %}New mobile number{% else %}Mobile number{% endif %}{% else %}{{ field.label }}{% endif %}</label>
+                  {{ field }}
+                  {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors.0 }}</div>{% endif %}
+                </div>
+              {% endfor %}
+              <button class="btn btn-primary" {% if not sms_ready %}disabled{% endif %}>
+                <i class="fa-solid fa-paper-plane me-1"></i>Send OTP to this number
+              </button>
+            </form>
+          {% endif %}
+        {% else %}
+          <p class="text-muted small">Where you can be reached. If you forget your password, the Super Admin sets you a new one.</p>
+          <form method="post" class="tw-form-narrow">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+            {% for field in form %}
+              <div class="mb-3">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors.0 }}</div>{% endif %}
+              </div>
+            {% endfor %}
+            <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

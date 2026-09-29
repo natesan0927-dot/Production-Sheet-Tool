@@ -17,8 +17,8 @@
     </div>
 
     <div class="alert alert-info py-2 small">
-      This page is for the Super Admin. Enter the code texted to your registered number; it works for 15 minutes.
-      Staff do not need a code: the Super Admin sets your new password for you.
+      This page is for the Super Admin. Enter the OTP texted to the mobile number registered in your profile; it
+      works for 15 minutes. Staff do not need one: the Super Admin sets your new password for you.
     </div>
 
     <form method="post">
@@ -36,7 +36,7 @@
 
     <div class="text-center mt-3 d-flex justify-content-between small">
       <a href="{% url 'accounts:login' %}">Back to sign in</a>
-      <a href="{% url 'accounts:forgot_password' %}">Ask for a new code</a>
+      <a href="{% url 'accounts:forgot_password' %}">Send a new OTP</a>
     </div>
   </div>
 </div>

@@ -165,6 +165,7 @@ STORAGE_CRITICAL_PERCENT = env.int("STORAGE_CRITICAL_PERCENT", default=95)
 # Texting the Super Admin a password-reset code. Without a provider the code is
 # written to the server log instead (see apps/accounts/sms.py), which on a host
 # like Render is readable only by whoever owns the hosting account.
+# Adding FAST2SMS_API_KEY is enough to switch texts on; SMS_PROVIDER is optional.
 SMS_PROVIDER = env("SMS_PROVIDER", default="")            # "fast2sms", or empty
 FAST2SMS_API_KEY = env("FAST2SMS_API_KEY", default="")
 FAST2SMS_URL = env("FAST2SMS_URL", default="https://www.fast2sms.com/dev/bulkV2")
