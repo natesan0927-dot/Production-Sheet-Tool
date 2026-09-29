@@ -305,9 +305,10 @@ PAGE_NOTES = {
     "crm:queue_accounts": (
         "Accounts",
         "Every confirmed order with its value, advance and balance, the days each "
-        "invoice has been outstanding, and the total across all of them. Open one "
-        "for its ledger, where you post payments and add transport or other "
-        "charges to the invoice.",
+        "invoice has been outstanding, and the total across all of them. Pick a sales "
+        "executive to see only their customers who owe money, and download their "
+        "consolidated statement. Open an order for its ledger, where you post "
+        "payments and add transport or other charges to the invoice.",
     ),
     "crm:month_summary": (
         "Summary for the Month",
@@ -327,8 +328,8 @@ PAGE_NOTES = {
         "Installation Ledger",
         "Installation is outsourced, so each installer has a folder named after them holding the "
         "sites they were given. Open a folder for a ledger of those sites, and a site for what "
-        "the installer is owed — their rate per sq ft times the site's sq ft — and every "
-        "payment made to them.",
+        "the installer is owed — their rate per sq ft times the site's sq ft, plus anything "
+        "added to the payable for extra work — and every payment made to them.",
     ),
     "crm:queue_production": (
         "Production",
@@ -353,8 +354,9 @@ PAGE_NOTES = {
     ),
     "crm:todo_list": (
         "To-Do",
-        "Tasks anyone has sent you, and tasks you have sent others. Whoever assigned "
-        "it is told the moment you mark it done.",
+        "Tasks anyone has sent you, and beside them the ones you sent others under "
+        "Assigned by me. Once they mark one done it reads Completed there, and you "
+        "clear it away.",
     ),
     "crm:day_summary": (
         "Summary for the Day",

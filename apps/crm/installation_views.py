@@ -26,8 +26,8 @@ from apps.accounts.models import Role
 
 from . import installation, queues, updates
 from . import stages as stage_flow
-from .forms import InstallationRateForm, InstallerPaymentForm, installation_total
-from .models import InstallerPayment, InstallerReceipt, Lead, plain
+from .forms import InstallationRateForm, InstallerChargeForm, InstallerPaymentForm, installation_total
+from .models import InstallerCharge, InstallerPayment, InstallerReceipt, Lead, plain
 from .reminders import INSTALL_LATE_AFTER_DAYS
 from .views import download, notify, safe_next
 
@@ -168,7 +168,7 @@ def installer_sites(request, slug):
 def _site(pk):
     """A dispatched site that has an installer, or a 404."""
     lead = get_object_or_404(
-        Lead.objects.select_related("assigned_to").prefetch_related("installer_payments__receipts"),
+        Lead.objects.select_related("assigned_to").prefetch_related("installer_payments__receipts", "installer_charges"),
         pk=pk,
         status=Lead.Status.WON,
         dispatched_at__isnull=False,
@@ -179,21 +179,35 @@ def _site(pk):
 
 
 def _ledger_rows(lead):
-    """The charge first, then every payment, with the balance still owed after each."""
+    """The charge first, then what was added and paid in date order, with the balance after each.
+
+    An addition raises what is owed and a payment lowers it. Additions come
+    before same-day payments, so a payment never shows the installer as overpaid
+    when the extra it settles was added that morning.
+    """
     rows = []
     charge = lead.installation_charge
+    balance = Decimal("0")
     if charge is not None:
         if lead.installation_rate and lead.total_sqft:
             label = f"Installation charge: ₹{lead.installation_rate:,.2f} per sq ft × {plain(lead.total_sqft)} sq ft"
         else:
             label = "Installation charge agreed"
+        balance = charge
         rows.append({"date": timezone.localtime(lead.dispatched_at).date(), "label": label, "payable": charge,
-                     "paid": None, "balance": charge, "entry": None})
-    balance = charge
-    for payment in lead.installer_payments.all():
-        balance = (balance - payment.amount) if balance is not None else None
-        rows.append({"date": payment.paid_on, "label": payment.remarks or "Payment to installer", "payable": None,
-                     "paid": payment.amount, "balance": balance, "entry": payment})
+                     "paid": None, "balance": balance, "entry": None, "kind": "charge"})
+
+    events = [(extra.added_on, 0, extra.pk, extra) for extra in lead.installer_charges.all()]
+    events += [(payment.paid_on, 1, payment.pk, payment) for payment in lead.installer_payments.all()]
+    for day, order, _, entry in sorted(events, key=lambda item: item[:3]):
+        if order == 0:
+            balance += entry.amount
+            rows.append({"date": day, "label": entry.description, "payable": entry.amount, "paid": None,
+                         "balance": balance, "entry": entry, "kind": "extra"})
+        else:
+            balance -= entry.amount
+            rows.append({"date": day, "label": entry.remarks or "Payment to installer", "payable": None,
+                         "paid": entry.amount, "balance": balance, "entry": entry, "kind": "payment"})
     return rows
 
 
@@ -203,9 +217,21 @@ def installer_ledger(request, pk):
     lead = _site(pk)
     payment_form = InstallerPaymentForm(lead=lead)
     rate_form = InstallationRateForm(instance=lead)
+    extra_form = InstallerChargeForm()
 
     if request.method == "POST":
-        if "save_rate" in request.POST:
+        if "add_payable" in request.POST:
+            extra_form = InstallerChargeForm(request.POST)
+            if extra_form.is_valid():
+                extra = extra_form.save(commit=False)
+                extra.lead = lead
+                extra.recorded_by = request.user
+                extra.save()
+                messages.success(
+                    request, f"₹{extra.amount:,.2f} added to what {lead.installation_person} is owed for this site."
+                )
+                return redirect("crm:installer_ledger", pk=lead.pk)
+        elif "save_rate" in request.POST:
             rate_form = InstallationRateForm(request.POST, instance=Lead.objects.get(pk=lead.pk))
             if rate_form.is_valid():
                 site = rate_form.save(commit=False)
@@ -237,9 +263,28 @@ def installer_ledger(request, pk):
             "rows": _ledger_rows(lead),
             "payment_form": payment_form,
             "rate_form": rate_form,
+            "extra_form": extra_form,
             "folder_slug": installation.folder_slug_for(lead),
         },
     )
+
+
+@installation_access
+@require_POST
+def installer_charge_delete(request, pk):
+    """Take back something added to the payable — unless it would leave the installer overpaid."""
+    extra = get_object_or_404(InstallerCharge.objects.select_related("lead"), pk=pk)
+    lead = extra.lead
+    if (lead.installer_balance or Decimal("0")) - extra.amount < 0:
+        messages.error(
+            request,
+            f"₹{lead.installer_paid:,.2f} has already been paid against this site, so removing this "
+            "would leave the installer overpaid. Remove the payment first.",
+        )
+        return redirect("crm:installer_ledger", pk=lead.pk)
+    extra.delete()
+    messages.success(request, f"{extra.description} removed from the payable.")
+    return redirect("crm:installer_ledger", pk=lead.pk)
 
 
 @installation_access

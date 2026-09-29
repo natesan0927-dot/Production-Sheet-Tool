@@ -1,9 +1,10 @@
 """Staff records, and the password every new account has to set for itself."""
 
 from functools import wraps
+from urllib.parse import urlencode
 
 from django.contrib import messages
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -11,7 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import recovery, sms
+from . import recovery, sms, switching
 from .forms import DEFAULT_PASSWORD, EmployeeForm, FirstPasswordForm, ForgotPasswordForm, MobileForm, ResetWithCodeForm
 from .models import Role, User
 
@@ -263,6 +264,39 @@ def profile(request):
             "sms_ready": sms.configured(),
         },
     )
+
+
+@require_POST
+def switch_account(request, pk):
+    """Use another account already signed in on this device — no password while it is still signed in."""
+    listed = switching.entries(request)
+    entry = next((item for item in listed if item["u"] == pk), None)
+    if entry is None:
+        return redirect("accounts:login")
+
+    user = switching.switch_to(request, pk)
+    if user is None:
+        # Their session has ended (or their password changed): they sign in again.
+        messages.info(request, f"{entry['n']} has been signed out on this device. Sign in again to switch to them.")
+        params = {"username": User.objects.filter(pk=pk).values_list("username", flat=True).first() or ""}
+        if request.user.is_authenticated:
+            params["add"] = "1"
+        response = redirect(f"{reverse('accounts:login')}?{urlencode(params)}")
+        switching.write(response, [item for item in listed if item["u"] != pk])
+        return response
+
+    messages.success(request, f"Switched to {user.display_name}.")
+    return redirect("crm:dashboard")
+
+
+@require_POST
+def logout_everyone(request):
+    """Sign out of every account on this device at once — for handing the device on."""
+    switching.forget_all(request)
+    logout(request)
+    response = redirect("accounts:login")
+    switching.write(response, [])
+    return response
 
 
 def _texted(request, sent, reason, number):

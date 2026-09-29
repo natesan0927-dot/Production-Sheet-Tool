@@ -48,6 +48,10 @@ self.addEventListener("fetch", (event) => {
   // network, full stop.
   if (url.pathname.startsWith("/media/")) return;
 
+  // Opening a document in the phone's viewer is a hand-off to Android that the
+  // browser has to make itself, so it is left entirely alone.
+  if (url.pathname.startsWith("/open/")) return;
+
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => caches.match("/offline/"))

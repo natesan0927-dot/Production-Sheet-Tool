@@ -67,13 +67,13 @@ def dispatched_sites():
         Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=False)
         .exclude(installation_person="")
         .select_related("assigned_to")
-        .prefetch_related("installer_payments")
+        .prefetch_related("installer_payments", "installer_charges")
         .order_by("dispatched_at", "pk")
     )
 
 
 def _totals(sites):
-    payable = sum((site.installation_charge or Decimal("0")) for site in sites)
+    payable = sum((site.installer_payable or Decimal("0")) for site in sites)
     paid = sum((site.installer_paid for site in sites), Decimal("0"))
     return {
         "sites": len(sites),

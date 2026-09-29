@@ -108,16 +108,40 @@
           <span class="d-none d-md-inline small fw-semibold">{{ user.get_full_name|default:user.username }}</span>
           <i class="fa-solid fa-chevron-down small text-muted"></i>
         </button>
-        <div class="dropdown-menu dropdown-menu-end">
+        <div class="dropdown-menu dropdown-menu-end tw-account-menu">
+          <div class="px-3 pt-1 pb-2">
+            <div class="fw-semibold text-truncate">{{ user.get_full_name|default:user.username }}</div>
+            <div class="text-muted small">{{ role_label }} · {{ user.username }}</div>
+          </div>
           <a class="dropdown-item" href="{% url 'accounts:profile' %}">
             <i class="fa-solid fa-id-badge me-2"></i>My profile
           </a>
           <a class="dropdown-item" href="{% url 'accounts:change_password' %}">
             <i class="fa-solid fa-key me-2"></i>Change password
           </a>
-          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
-            <button class="dropdown-item text-danger"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</button>
+          <div class="dropdown-divider"></div>
+          {# Everyone signed in on this device, one tap apart. #}
+          <h6 class="dropdown-header">Switch account</h6>
+          {% for account in other_accounts %}
+          <form method="post" action="{% url 'accounts:switch_account' account.u %}">{% csrf_token %}
+            <button class="dropdown-item d-flex align-items-center gap-2">
+              <span class="tw-avatar tw-avatar-sm">{{ account.n|slice:":1"|upper }}</span>
+              <span class="min-w-0"><span class="d-block text-truncate">{{ account.n }}</span><span class="d-block small text-muted">{{ account.r }}</span></span>
+            </button>
           </form>
+          {% endfor %}
+          <a class="dropdown-item" href="{% url 'accounts:login' %}?add=1">
+            <i class="fa-solid fa-user-plus me-2"></i>Add another account
+          </a>
+          <div class="dropdown-divider"></div>
+          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+            <button class="dropdown-item text-danger"><i class="fa-solid fa-right-from-bracket me-2"></i>{% if other_accounts %}Sign out of {{ user.get_short_name|default:user.username }}{% else %}Logout{% endif %}</button>
+          </form>
+          {% if other_accounts %}
+          <form method="post" action="{% url 'accounts:logout_everyone' %}">{% csrf_token %}
+            <button class="dropdown-item text-danger small"><i class="fa-solid fa-users-slash me-2"></i>Sign out of all accounts</button>
+          </form>
+          {% endif %}
         </div>
       </div>
     </div>

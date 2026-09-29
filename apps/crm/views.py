@@ -57,6 +57,7 @@ from .models import (
     SalesTarget,
     ServiceComplaint,
     Task,
+    credited_q,
 )
 from .pdf import render_caf, render_handover_certificate, render_warranty_certificate
 from .scan import ScanError, pages_to_pdf, pdf_filename
@@ -294,9 +295,20 @@ def dashboard(request):
             "updates": todays_updates,
             "cards": _queue_cards(request.user, counts),
             "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
+            **_handed_out(request.user),
             "accounts_totals": _accounts_totals() if request.user.role == Role.ACCOUNTS else None,
         },
     )
+
+
+def _handed_out(user):
+    """The "Assigned by me" column that sits beside "My to-do" on every dashboard."""
+    handed_out = Task.handed_out_by(user)
+    return {
+        "assigned_todos": handed_out[:8],
+        "assigned_total": handed_out.count(),
+        "assigned_completed": handed_out.filter(done=True).count(),
+    }
 
 
 def _sales_dashboard(request, todays_updates):
@@ -348,6 +360,7 @@ def _sales_dashboard(request, todays_updates):
         "open_followups": panel_followups,
         "today": today,
         "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
+        **_handed_out(request.user),
         "salespeople": sales_executives(),
         "selected_salesperson": selected_salesperson,
         "overdue_by_person": overdue_by_person,
@@ -1596,10 +1609,12 @@ def queue_quotations(request):
     )
 
 
-def _accounts_totals():
+def _accounts_totals(leads=None):
     # "Order value" is what the customer is billed, so anything accounts added
     # to an invoice has to count towards it here too.
-    leads = Lead.objects.filter(status=Lead.Status.WON).prefetch_related("payments", "invoice_charges")
+    if leads is None:
+        leads = Lead.objects.filter(status=Lead.Status.WON)
+    leads = leads.prefetch_related("payments", "invoice_charges")
     totals = leads.aggregate(advance=Sum("advance_received"))
     totals["value"] = sum((lead.invoice_total or Decimal("0")) for lead in leads)
     totals["extras"] = sum(lead.extra_charges for lead in leads)
@@ -1609,26 +1624,75 @@ def _accounts_totals():
     return totals
 
 
-@role_required(Role.ACCOUNTS)
-def queue_accounts(request):
-    leads = (
+def _orders():
+    return (
         Lead.objects.filter(status=Lead.Status.WON)
-        .select_related("assigned_to")
+        .select_related("assigned_to", "won_by")
         .prefetch_related("payments", "invoice_charges")
     )
+
+
+def order_sellers():
+    """Everyone with a confirmed order to their name, for the accounts filter.
+
+    An order belongs to the sales executive it counts towards (credited_q) — the
+    same person the targets and the monthly summary give it to.
+    """
+    orders = Lead.objects.filter(status=Lead.Status.WON).select_related("assigned_to", "won_by")
+    people = {lead.credited_to for lead in orders if lead.credited_to is not None}
+    return sorted(people, key=lambda person: person.display_name.lower())
+
+
+def _seller(request, sellers):
+    """The sales executive picked in the filter, if it is one of them."""
+    picked = request.GET.get("salesperson", "")
+    return next((person for person in sellers if str(person.pk) == picked), None)
+
+
+@role_required(Role.ACCOUNTS)
+def queue_accounts(request):
+    leads = _orders()
+    sellers = order_sellers()
+    seller = _seller(request, sellers)
+    if seller is not None:
+        leads = leads.filter(credited_q(seller))
+    # The figures follow the sales executive picked; a search does not narrow them.
+    totals = _accounts_totals(leads if seller is not None else None)
     query = request.GET.get("q", "").strip()
     leads = search_leads(leads, query)
     range_key = aging.clean_key(request.GET.get("range"))
-    shown = aging.only_in_range(leads, range_key) if range_key != "all" else leads
+    # One sales executive's list is for chasing their customers' dues, so it
+    # shows only what is still owed unless the paid-up orders are asked for too.
+    paid_too = seller is not None and request.GET.get("paid") == "1"
+    outstanding_only = range_key != "all" or (seller is not None and not paid_too)
+    shown = aging.only_in_range(leads, range_key) if outstanding_only else leads
+
+    def statement(**params):
+        return address("crm:outstanding_pdf", salesperson=seller.pk if seller else "", **params)
+
     return render(
         request,
         "crm/queues/accounts.html",
         {
             "leads": shown,
-            "totals": _accounts_totals(),
+            "shown_due": sum(((lead.balance_amount or Decimal("0")) for lead in shown if lead.is_outstanding), Decimal("0")),
+            "totals": totals,
             "q": query,
             "range_key": range_key,
+            "range_label": aging.label(range_key),
             "ranges": [(key, label) for key, label, *_ in aging.RANGES],
+            "sellers": sellers,
+            "seller": seller,
+            "paid_too": paid_too,
+            "statement_url": statement(range=range_key if range_key != "all" else ""),
+            "company_statements": [
+                (key, label, address("crm:outstanding_pdf", range=key if key != "all" else ""))
+                for key, label, *_ in aging.RANGES
+            ],
+            "toggle_paid_url": address(
+                "crm:queue_accounts", q=query, range=range_key if range_key != "all" else "",
+                salesperson=seller.pk if seller else "", paid="" if paid_too else "1",
+            ),
         },
     )
 
@@ -1748,13 +1812,14 @@ def ledger_pdf(request, pk):
 
 @role_required(Role.ACCOUNTS)
 def outstanding_pdf(request):
-    """Everything still owed, for chasing it."""
-    leads = (
-        Lead.objects.filter(status=Lead.Status.WON)
-        .select_related("assigned_to")
-        .prefetch_related("payments", "invoice_charges")
-    )
-    return render_outstanding_statement(leads, request.GET.get("range"))
+    """Everything still owed, for chasing it — for the whole business, or one sales executive's customers."""
+    leads = _orders()
+    seller = _seller(request, order_sellers()) if request.GET.get("salesperson") else None
+    if request.GET.get("salesperson") and seller is None:
+        raise Http404("No confirmed orders belong to that sales executive.")
+    if seller is not None:
+        leads = leads.filter(credited_q(seller))
+    return render_outstanding_statement(leads, request.GET.get("range"), seller=seller)
 
 
 @role_required(Role.ACCOUNTS)
@@ -1960,9 +2025,8 @@ def todo_list(request):
         {
             "tasks": mine,
             "form": form,
-            "assigned_by_me": Task.objects.filter(assigned_by=request.user, done=False)
-            .exclude(assigned_to=request.user)
-            .select_related("assigned_to"),
+            "assigned_by_me": Task.handed_out_by(request.user),
+            "assigned_completed": Task.handed_out_by(request.user).filter(done=True).count(),
             "show_all": request.GET.get("show") == "all",
             "today": timezone.localdate(),
         },
@@ -1973,6 +2037,8 @@ def todo_list(request):
 @require_POST
 def todo_done(request, pk):
     task = get_object_or_404(Task, pk=pk, assigned_to=request.user)
+    if task.done:
+        return safe_next(request, reverse("crm:todo_list"))
     task.done = True
     task.done_at = timezone.now()
     task.save(update_fields=["done", "done_at"])
@@ -1981,16 +2047,32 @@ def todo_done(request, pk):
         updates.send(
             [task.assigned_by],
             f"{request.user.display_name} completed: {task.title}",
-            link=f"{updates.todo_link()}?show=all",
+            topic=updates.todo_finished(task),
+            link=f"{updates.todo_link()}#assigned",
         )
     return safe_next(request, reverse("crm:todo_list"))
 
 
 @login_required
 @require_POST
+def todo_clear(request, pk=None):
+    """Clear completed to-dos off your "Assigned by me" list — one, or every completed one."""
+    finished = Task.objects.filter(assigned_by=request.user, done=True, cleared_by_assigner_at__isnull=True)
+    if pk is not None:
+        finished = finished.filter(pk=pk)
+    cleared = list(finished)
+    Task.objects.filter(pk__in=[task.pk for task in cleared]).update(cleared_by_assigner_at=timezone.now())
+    # The "completed" update has said all it had to.
+    if cleared:
+        updates.clear(*[updates.todo_finished(task) for task in cleared], user=request.user)
+    return safe_next(request, reverse("crm:todo_list") + "#assigned")
+
+
+@login_required
+@require_POST
 def todo_delete(request, pk):
     task = get_object_or_404(Task, pk=pk, assigned_by=request.user)
-    updates.clear(updates.todo(task))
+    updates.clear(updates.todo(task), updates.todo_finished(task))
     task.delete()
     messages.success(request, "To-do removed.")
     return redirect("crm:todo_list")

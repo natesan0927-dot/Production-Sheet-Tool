@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from . import views
+from . import switching, views
 
 app_name = "accounts"
 
@@ -19,25 +19,60 @@ DEMO_ACCOUNTS = [
 
 
 class TitansLoginView(auth_views.LoginView):
+    """Signing in — or, with ?add=1, signing in someone else as well, like adding a Google account."""
+
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
+
+    def adding(self):
+        return self.request.user.is_authenticated and "1" in (self.request.GET.get("add"), self.request.POST.get("add"))
+
+    def dispatch(self, request, *args, **kwargs):
+        # Someone already signed in is only sent on when they are not adding another account.
+        self.redirect_authenticated_user = not self.adding()
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        return {**super().get_initial(), "username": self.request.GET.get("username", "")}
+
+    def form_valid(self, form):
+        if self.adding() and form.get_user().pk != self.request.user.pk:
+            # A new session for them, so the one already signed in here stays signed in.
+            switching.detach(self.request)
+        return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
         from .models import User
 
         context = super().get_context_data(**kwargs)
         context["reset_done"] = self.request.GET.get("reset") == "done"
+        context["adding"] = self.adding()
+        me = self.request.user.pk if self.request.user.is_authenticated else None
+        context["accounts_here"] = [entry for entry in switching.signed_in_here(self.request) if entry["u"] != me]
         # Only offered while the demo accounts are actually installed, so a
         # live site never shows a row of one-click logins.
         usernames = [username for username, *_ in DEMO_ACCOUNTS]
-        if User.objects.filter(username__in=usernames).exists():
+        if not context["adding"] and User.objects.filter(username__in=usernames).exists():
             context["demo_accounts"] = DEMO_ACCOUNTS
         return context
 
 
+class TitansLogoutView(auth_views.LogoutView):
+    """Signs out the account in use. Anyone else signed in on this device stays signed in."""
+
+    def post(self, request, *args, **kwargs):
+        key = request.session.session_key
+        listed = switching.entries(request)
+        response = super().post(request, *args, **kwargs)
+        switching.write(response, [entry for entry in listed if entry["k"] != key])
+        return response
+
+
 urlpatterns = [
     path("login/", TitansLoginView.as_view(), name="login"),
-    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("logout/", TitansLogoutView.as_view(), name="logout"),
+    path("logout/everyone/", views.logout_everyone, name="logout_everyone"),
+    path("switch/<int:pk>/", views.switch_account, name="switch_account"),
     path("password/", views.change_password, name="change_password"),
     path("profile/", views.profile, name="profile"),
     path("forgot/", views.forgot_password, name="forgot_password"),

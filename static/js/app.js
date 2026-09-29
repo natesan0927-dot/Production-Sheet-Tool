@@ -62,6 +62,20 @@
     });
   }
 
+  /* ------------------------------ documents open in the phone's own apps */
+  // On Android a tapped document is handed to the phone's viewer (a PDF app,
+  // Drive, Photos) instead of only being downloaded, so back from the viewer
+  // returns here rather than to the home screen. Where no app can open it, it
+  // downloads as before. Everywhere else a document downloads as it always has.
+  var android = /Android/i.test(navigator.userAgent);
+  document.addEventListener("click", function (event) {
+    if (!android || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey) return;
+    var link = event.target.closest("a[download][href]");
+    if (!link || link.origin !== window.location.origin) return;
+    event.preventDefault();
+    window.location.href = "/open/?u=" + encodeURIComponent(link.pathname + link.search);
+  });
+
   /* ------------------------------------------------- installable as an app */
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {

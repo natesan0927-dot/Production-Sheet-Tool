@@ -405,6 +405,11 @@ html[data-bs-theme="light"] .tw-icon-btn:hover { color: var(--tw-gold-700); }
   background: var(--tw-grad-gold); color: var(--tw-navy-900);
   font-family: var(--tw-font-display); font-weight: 700; font-size: .85rem;
 }
+.tw-avatar-sm { width: 26px; height: 26px; border-radius: 8px; font-size: .75rem; flex-shrink: 0; }
+
+/* The menu under your name, with the accounts signed in on this device. */
+.tw-account-menu { min-width: 16rem; max-width: min(20rem, calc(100vw - 2rem)); }
+.tw-account-menu .dropdown-item { white-space: normal; }
 
 .tw-role-chip {
   padding: .3rem .75rem; border-radius: 999px;
@@ -1032,6 +1037,8 @@ a:hover { text-decoration: none; }
 .auth-form-side {
   flex: 1; display: flex; align-items: center; justify-content: center;
   background: var(--tw-bg) var(--tw-bg-metal) fixed; padding: 2.5rem 2rem;
+  /* Lets the 420px form narrow to a phone instead of pushing the page sideways. */
+  min-width: 0;
 }
 
 .auth-logo-ring { border-radius: 22px; overflow: hidden; }

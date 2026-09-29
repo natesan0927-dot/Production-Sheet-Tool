@@ -8,18 +8,26 @@
     <h4 class="mb-1">Accounts</h4>
     <p class="text-muted small mb-3">Confirmed orders. Open one to post payments against its ledger. <strong>Overdue By</strong> counts the days since the invoice date on anything still unpaid.</p>
   </div>
+  {# The whole business. One sales executive's statement has its own button, below. #}
   <div class="btn-group">
-    <a href="{% url 'crm:outstanding_pdf' %}{% if range_key != 'all' %}?range={{ range_key }}{% endif %}" download class="btn btn-outline-primary">
+    <a href="{% for key, label, url in company_statements %}{% if key == range_key %}{{ url }}{% endif %}{% endfor %}" download class="btn btn-outline-primary">
       <i class="fa-solid fa-file-pdf me-1"></i>Outstanding statement
     </a>
     <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
       <span class="visually-hidden">Choose how overdue</span>
     </button>
     <ul class="dropdown-menu dropdown-menu-end">
-      <li><h6 class="dropdown-header">Statement of invoices overdue by</h6></li>
-      {% for key, label in ranges %}
-      <li><a class="dropdown-item" download href="{% url 'crm:outstanding_pdf' %}{% if key != 'all' %}?range={{ key }}{% endif %}">{{ label }}</a></li>
+      <li><h6 class="dropdown-header">All customers, invoices overdue by</h6></li>
+      {% for key, label, url in company_statements %}
+      <li><a class="dropdown-item" download href="{{ url }}">{{ label }}</a></li>
       {% endfor %}
+      {% if sellers %}
+      <li><hr class="dropdown-divider"></li>
+      <li><h6 class="dropdown-header">One sales executive's customers</h6></li>
+      {% for person in sellers %}
+      <li><a class="dropdown-item" href="?salesperson={{ person.pk }}">{{ person.display_name }}</a></li>
+      {% endfor %}
+      {% endif %}
     </ul>
   </div>
 </div>
@@ -63,9 +71,32 @@
       <option value="{{ key }}" {% if range_key == key %}selected{% endif %}>{% if key == 'all' %}Any age{% else %}Overdue {{ label|lower }}{% endif %}</option>
     {% endfor %}
   </select>
+  <select name="salesperson" class="form-select form-select-sm" style="max-width:240px" onchange="this.form.submit()" aria-label="Sales executive">
+    <option value="">All sales executives</option>
+    {% for person in sellers %}
+      <option value="{{ person.pk }}" {% if seller.pk == person.pk %}selected{% endif %}>{{ person.display_name }}</option>
+    {% endfor %}
+  </select>
+  {% if paid_too %}<input type="hidden" name="paid" value="1">{% endif %}
   <button class="btn btn-sm btn-outline-secondary">Search</button>
-  {% if q or range_key != 'all' %}<a href="{% url 'crm:queue_accounts' %}" class="btn btn-sm btn-link">Clear</a>{% endif %}
+  {% if q or range_key != 'all' or seller %}<a href="{% url 'crm:queue_accounts' %}" class="btn btn-sm btn-link">Clear</a>{% endif %}
 </form>
+
+{% if seller %}
+{# One sales executive's customers, and their consolidated statement on its own button. #}
+<div class="tw-note d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <div>
+    <div class="fw-semibold"><i class="fa-solid fa-user-tie me-1"></i>{{ seller.display_name }}'s customers</div>
+    <div class="text-muted small">
+      {{ shown_due|rupees }} outstanding across {{ leads|length }} {% if paid_too %}order{{ leads|length|pluralize }}{% else %}customer{{ leads|length|pluralize }} with money due{% endif %}{% if range_key != 'all' %}, overdue {{ range_label|lower }}{% endif %}.
+      <a href="{{ toggle_paid_url }}">{% if paid_too %}Only those with money due{% else %}Show their paid-up orders too{% endif %}</a>
+    </div>
+  </div>
+  <a href="{{ statement_url }}" download class="btn btn-primary">
+    <i class="fa-solid fa-file-pdf me-1"></i>Consolidated statement — {{ seller.display_name }}
+  </a>
+</div>
+{% endif %}
 
 <div class="card">
   <div class="table-responsive">
@@ -99,10 +130,10 @@
               </span>
             {% else %}<span class="text-muted">—</span>{% endif %}
           </td>
-          <td class="tw-col-optional">{{ lead.assigned_to }}</td>
+          <td class="tw-col-optional">{{ lead.credited_to|default:"—" }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="text-center text-muted py-4">{% if q or range_key != 'all' %}Nothing matches that.{% else %}No confirmed orders yet.{% endif %}</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">{% if seller and not q and range_key == 'all' %}None of {{ seller.display_name }}'s customers owe anything.{% elif q or range_key != 'all' or seller %}Nothing matches that.{% else %}No confirmed orders yet.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

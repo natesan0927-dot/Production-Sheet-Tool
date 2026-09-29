@@ -37,7 +37,10 @@
             {% if site.installation_rate %}{{ site.installation_rate|rupees:2 }}{% else %}<span class="badge bg-warning">Not set</span>{% endif %}
           </td>
           <td class="text-end" data-label="Total payable">
-            {% if site.installation_charge is None %}—{% else %}{{ site.installation_charge|rupees:2 }}{% endif %}
+            <span class="tw-cell">
+              {% if site.installer_payable is None %}—{% else %}{{ site.installer_payable|rupees:2 }}{% endif %}
+              {% if site.installer_extras %}<span class="text-muted small d-block">incl. {{ site.installer_extras|rupees:2 }} added</span>{% endif %}
+            </span>
           </td>
           <td class="text-end" data-label="Paid">{{ site.installer_paid|rupees:2 }}</td>
           <td class="text-end fw-semibold" data-label="Balance payable">
@@ -61,5 +64,5 @@
     </table>
   </div>
 </div>
-<p class="text-muted small mt-2 mb-0">Open a site to post a payment to {{ folder.name }} or to set their rate.</p>
+<p class="text-muted small mt-2 mb-0">Open a site to post a payment to {{ folder.name }}, add to what they are owed, or set their rate.</p>
 {% endblock %}

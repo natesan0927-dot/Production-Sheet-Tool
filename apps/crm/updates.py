@@ -38,6 +38,11 @@ def todo(task):
     return f"todo:{task.pk}"
 
 
+def todo_finished(task):
+    """The news, to whoever handed it out, that a to-do was completed."""
+    return f"todo-done:{task.pk}"
+
+
 def complaint(item):
     return f"complaint:{item.pk}"
 

@@ -22,7 +22,10 @@
         {% if lead.installation_rate %}{{ lead.installation_rate|rupees:2 }} per sq ft{% else %}<span class="badge bg-warning">Not set yet</span>{% endif %}
       </dd>
       <dt class="col-sm-4">Total payable</dt>
-      <dd class="col-sm-8">{% if lead.installation_charge is None %}—{% else %}{{ lead.installation_charge|rupees:2 }}{% endif %}</dd>
+      <dd class="col-sm-8">
+        {% if lead.installer_payable is None %}—{% else %}{{ lead.installer_payable|rupees:2 }}{% endif %}
+        {% if lead.installer_extras %}<span class="text-muted small ms-1">incl. {{ lead.installer_extras|rupees:2 }} added</span>{% endif %}
+      </dd>
       <dt class="col-sm-4">Paid so far</dt><dd class="col-sm-8">{{ lead.installer_paid|rupees }}</dd>
       <dt class="col-sm-4">Balance payable</dt>
       <dd class="col-sm-8">{% if lead.installer_balance is None %}—{% elif lead.installer_balance > 0 %}<strong>{{ lead.installer_balance|rupees }}</strong>{% else %}<span class="badge bg-success">Settled</span>{% endif %}</dd>

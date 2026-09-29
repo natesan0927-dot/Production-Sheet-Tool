@@ -7,7 +7,9 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 
-from .models import FollowUp, InstallerPayment, InvoiceCharge, Lead, Payment, SalesTarget, ServiceComplaint, Task, plain
+from .models import (
+    FollowUp, InstallerCharge, InstallerPayment, InvoiceCharge, Lead, Payment, SalesTarget, ServiceComplaint, Task, plain,
+)
 
 # ---------------------------------------------------------------------------
 # Sanity checks shared by every form. Each adds an error against the field
@@ -537,7 +539,7 @@ class InstallerPaymentForm(BootstrapMixin, forms.ModelForm):
         reject_future(self, "paid_on", "Payment date")
         balance = self.lead.installer_balance if self.lead is not None else None
         if self.lead is not None and balance is None:
-            raise forms.ValidationError("Set the total payable for this site first, so the balance means something.")
+            raise forms.ValidationError("Set the installer's rate for this site first, so the balance means something.")
         amount = data.get("amount")
         if amount and balance is not None and amount > balance:
             self.add_error("amount", f"That is more than the ₹{balance:,.2f} still owed to the installer.")
@@ -574,11 +576,13 @@ class InstallationRateForm(BootstrapMixin, forms.ModelForm):
         sqft = data.get("total_sqft") or self.instance.total_sqft
         if rate and rate > 0 and sqft and sqft > 0:
             total = installation_total(rate, sqft)
+            extras = self.instance.installer_extras
             paid = self.instance.installer_paid
-            if total < paid:
+            if total + extras < paid:
+                owed = f"₹{total:,.2f}" + (f" plus the ₹{extras:,.2f} added" if extras else "")
                 self.add_error(
                     "installation_rate",
-                    f"That comes to ₹{total:,.2f}, but ₹{paid:,.2f} has already been paid to the installer.",
+                    f"That comes to {owed}, but ₹{paid:,.2f} has already been paid to the installer.",
                 )
         return data
 
@@ -588,6 +592,28 @@ def installation_total(rate, sqft):
     from decimal import ROUND_HALF_UP, Decimal
 
     return (Decimal(rate) * Decimal(sqft)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+class InstallerChargeForm(BootstrapMixin, forms.ModelForm):
+    """Extra money owed to the installer for a site — "Add to the payable"."""
+
+    class Meta:
+        model = InstallerCharge
+        fields = ["added_on", "amount", "description"]
+        widgets = {"added_on": forms.DateInput(attrs={"type": "date"})}
+        labels = {"amount": "Amount (₹)"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["description"].widget.attrs["placeholder"] = "e.g. Second visit, extra scaffolding"
+        limit_picker(self.fields["added_on"], not_after_today=True)
+        limit_number(self.fields["amount"], 1)
+
+    def clean(self):
+        data = super().clean()
+        require_positive(self, "amount", "Amount")
+        reject_future(self, "added_on", "The date")
+        return data
 
 
 class InvoiceChargeForm(BootstrapMixin, forms.ModelForm):

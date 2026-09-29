@@ -685,6 +685,20 @@ button in the top bar. It lands in the Start menu and behaves like any other pro
 
 All of this needs HTTPS. It will not offer to install over plain `http://`.
 
+**Documents on Android.** Tapping a document — a quotation, a receipt, a certificate, a statement —
+hands it straight to the phone: Android offers the apps that can open it (Drive's PDF viewer, Adobe
+Acrobat, Photos for a picture) and it opens there. Back from that app returns to Titans, not the
+home screen. The viewer is given a link that works for ten minutes without signing in, for that one
+document only; whether the person may see it is checked again when the viewer fetches it. If no app
+on the phone can open that kind of file, it downloads as before. On a computer or an iPhone,
+documents download as they always have.
+
+**Several people on one device.** The menu under your name has *Add another account*. Each person
+signs in once; after that anyone signed in on the device is one tap away under *Switch account*,
+with no password while they stay signed in (10 hours, the same as any sign-in). *Sign out* signs
+out only the account in use; *Sign out of all accounts* is for handing the device to someone else.
+Changing a password signs that person out of every device.
+
 ### If a real `.apk` file is needed
 
 The install above is the same thing day to day, so only go here if you need a file to send around

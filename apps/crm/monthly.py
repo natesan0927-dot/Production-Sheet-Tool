@@ -21,7 +21,7 @@ from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from . import aging
@@ -320,8 +320,13 @@ def report(first, today=None):
 
     installer_paid = InstallerPayment.objects.filter(paid_on__gte=first, paid_on__lt=nxt).aggregate(t=Sum("amount"))["t"] or ZERO
     installer_owed = ZERO
-    for lead in Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=False, installation_charge__isnull=False).prefetch_related("installer_payments"):
-        installer_owed += max(ZERO, lead.installation_charge - sum((p.amount for p in lead.installer_payments.all()), ZERO))
+    for lead in (
+        Lead.objects.filter(status=Lead.Status.WON, dispatched_at__isnull=False)
+        .filter(Q(installation_charge__isnull=False) | Q(installer_charges__isnull=False))
+        .distinct()
+        .prefetch_related("installer_payments", "installer_charges")
+    ):
+        installer_owed += max(ZERO, lead.installer_balance or ZERO)
 
     followups_made = FollowUp.objects.filter(created_at__gte=start, created_at__lt=end).count()
     followups_worked = FollowUp.objects.filter(

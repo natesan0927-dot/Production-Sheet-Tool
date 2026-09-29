@@ -60,6 +60,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Keeps the list of accounts signed in on this device, for switching between them.
+    "apps.accounts.switching.RememberAccounts",
     "django.contrib.messages.middleware.MessageMiddleware",
     "apps.accounts.middleware.ForcePasswordChange",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -78,6 +80,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.accounts.context_processors.accounts_on_device",
                 "apps.crm.context_processors.navigation",
                 "apps.crm.context_processors.storage",
                 "apps.crm.context_processors.month_end",

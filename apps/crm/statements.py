@@ -229,11 +229,13 @@ def render_customer_ledger(lead, rows):
     return _respond(buffer, doc, story, filename)
 
 
-def render_outstanding_statement(leads, range_key="all"):
+def render_outstanding_statement(leads, range_key="all", seller=None):
     """Everything still owed, oldest debt first, with the totals underneath.
 
     `range_key` narrows it to invoices of a certain age. The whole list also
     carries an ageing summary; a single range does not, since it is one row of it.
+    `seller` makes it one sales executive's consolidated statement: only the
+    orders that count towards them, named in the title and the file.
     """
     style = _styles()
     range_key = aging.clean_key(range_key)
@@ -247,11 +249,13 @@ def render_outstanding_statement(leads, range_key="all"):
     title = "Outstanding Statement"
     if range_key != "all":
         title += f" — overdue {aging.label(range_key).lower()}"
-    story = [
-        Paragraph(title, style["title"]),
-        Paragraph("Invoiced orders with money still due, longest overdue first.", style["sub"]),
-        Spacer(1, 7 * mm),
-    ]
+    story = [Paragraph(escape(title), style["title"])]
+    if seller is not None:
+        story.append(Paragraph(f"<b>Sales Executive:</b> {escape(seller.display_name)}", style["sub"]))
+        story.append(Paragraph("Their customers' invoiced orders with money still due, longest overdue first.", style["sub"]))
+    else:
+        story.append(Paragraph("Invoiced orders with money still due, longest overdue first.", style["sub"]))
+    story.append(Spacer(1, 7 * mm))
 
     data = [
         [
@@ -327,7 +331,8 @@ def render_outstanding_statement(leads, range_key="all"):
         story.append(_grid(rows, [50 * mm, 30 * mm, 45 * mm], style, right_from=1))
 
     suffix = "" if range_key == "all" else f"-{range_key}-days"
-    filename = f"Outstanding{suffix}-{timezone.localdate():%Y-%m-%d}.pdf"
+    whose = f"-{_filename(seller.display_name)}" if seller is not None else ""
+    filename = f"Outstanding{whose}{suffix}-{timezone.localdate():%Y-%m-%d}.pdf"
     buffer, doc = _document(filename)
     return _respond(buffer, doc, story, filename)
 

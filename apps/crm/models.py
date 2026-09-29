@@ -295,11 +295,25 @@ class Lead(models.Model):
         return _total(self.installer_payments)
 
     @property
-    def installer_balance(self):
-        """Still owed to the installer, or None until a charge has been agreed."""
-        if self.installation_charge is None:
+    def installer_extras(self):
+        """Anything added to what the installer is owed on top of the per-sq-ft charge."""
+        return _total(self.installer_charges)
+
+    @property
+    def installer_payable(self):
+        """The charge plus anything added since, or None while there is neither."""
+        extras = self.installer_extras
+        if self.installation_charge is None and not extras:
             return None
-        return self.installation_charge - self.installer_paid
+        return (self.installation_charge or Decimal("0")) + extras
+
+    @property
+    def installer_balance(self):
+        """Still owed to the installer, or None until something is payable."""
+        payable = self.installer_payable
+        if payable is None:
+            return None
+        return payable - self.installer_paid
 
     @property
     def site_name(self):
@@ -679,6 +693,27 @@ class InstallerPayment(models.Model):
         return f"{self.lead.installation_person} — {self.amount}"
 
 
+class InstallerCharge(models.Model):
+    """Extra money owed to the installer for one site, on top of the per-sq-ft charge.
+
+    Added under "Add to the payable" on the site's ledger: a second visit, extra
+    scaffolding, carrying glass up to a high floor.
+    """
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="installer_charges")
+    added_on = models.DateField("Date", default=timezone.localdate)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    description = models.CharField("What it is for", max_length=180)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["added_on", "id"]
+
+    def __str__(self):
+        return f"{self.lead.installation_person} + {self.amount} ({self.description})"
+
+
 class PaymentReceipt(models.Model):
     """A proof or receipt for a customer payment. A payment can carry several."""
 
@@ -752,12 +787,29 @@ class Task(models.Model):
     done = models.BooleanField(default=False)
     done_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # The person who handed it out has seen it completed and cleared it from
+    # their "Assigned by me" list. It stays on the assignee's own list as done.
+    cleared_by_assigner_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["done", "due_date", "-created_at"]
 
     def __str__(self):
         return self.title
+
+    @classmethod
+    def handed_out_by(cls, user):
+        """What `user` assigned to other people and has not cleared.
+
+        Completed ones first, newest first, since they are the news and wait to be
+        cleared; then the open ones, soonest due first.
+        """
+        return (
+            cls.objects.filter(assigned_by=user, cleared_by_assigner_at__isnull=True)
+            .exclude(assigned_to=user)
+            .select_related("assigned_to")
+            .order_by("-done", "-done_at", "due_date", "-created_at")
+        )
 
     @property
     def is_overdue(self):

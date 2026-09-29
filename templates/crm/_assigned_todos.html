@@ -1,0 +1,64 @@
+{% comment %}
+"Assigned by me": to-dos handed out to other people, and where each one stands.
+Once the person marks it done it reads Completed and can be cleared away.
+Used beside "My to-do" on the dashboards (compact) and on the To-Do page (full).
+{% endcomment %}
+<div class="card h-100" id="assigned">
+  <div class="card-header d-flex justify-content-between align-items-center gap-2">
+    <span><i class="fa-solid fa-paper-plane me-2"></i>Assigned by me</span>
+    <span class="d-flex align-items-center gap-2">
+      {% if assigned_completed %}
+      <form method="post" action="{% url 'crm:todo_clear_completed' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="btn btn-sm btn-link p-0 small">Clear {{ assigned_completed }} completed</button>
+      </form>
+      {% endif %}
+      {% if not full %}<a href="{% url 'crm:todo_list' %}#assigned" class="small">View all</a>{% endif %}
+    </span>
+  </div>
+  <div class="list-group list-group-flush">
+    {% for task in assigned_todos %}
+      <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+        <div class="min-w-0">
+          <div class="{% if task.done %}text-muted{% else %}fw-semibold{% endif %}">{{ task.title }}</div>
+          <div class="text-muted small">
+            to {{ task.assigned_to }}
+            {% if task.done %} · done {{ task.done_at|date:"d M, H:i" }}
+            {% elif task.due_date %} · due {{ task.due_date|date:"d M Y" }}{% endif %}
+          </div>
+          {% if full and task.details %}<div class="text-muted small mt-1">{{ task.details|linebreaksbr }}</div>{% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+          {% if task.done %}
+            <span class="badge bg-success"><i class="fa-solid fa-check me-1"></i>Completed</span>
+            <form method="post" action="{% url 'crm:todo_clear' task.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-sm btn-outline-secondary" title="Clear it from this list">Clear</button>
+            </form>
+          {% else %}
+            {% if task.is_overdue %}<span class="badge bg-danger">Overdue</span>
+            {% else %}<span class="badge bg-warning">Pending</span>{% endif %}
+            {% if full %}
+            <form method="post" action="{% url 'crm:todo_delete' task.pk %}" onsubmit="return confirm('Withdraw this to-do from {{ task.assigned_to|escapejs }}?')">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-link text-danger p-0" title="Withdraw"><i class="fa-solid fa-xmark"></i></button>
+            </form>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="text-center text-muted py-5">
+        <i class="fa-regular fa-paper-plane fs-3 d-block mb-2 opacity-50"></i>Nothing assigned to anyone.
+        {% if not full %}<a href="{% url 'crm:todo_list' %}" class="d-block small mt-1">Assign a to-do</a>{% endif %}
+      </div>
+    {% endfor %}
+    {% if not full and assigned_total > assigned_todos|length %}
+      <a href="{% url 'crm:todo_list' %}#assigned" class="list-group-item list-group-item-action text-center small">
+        {{ assigned_total|add:"-8" }} more…
+      </a>
+    {% endif %}
+  </div>
+</div>

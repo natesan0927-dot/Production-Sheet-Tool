@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import installation_views, views
+from . import documents, installation_views, views
 
 app_name = "crm"
 
@@ -54,6 +54,9 @@ urlpatterns = [
     path("files/lead/<int:pk>/", views.lead_file, name="lead_file"),
     path("files/payment/<int:pk>/", views.payment_receipt, name="payment_receipt"),
     path("files/installer/<int:pk>/", installation_views.installer_receipt, name="installer_receipt"),
+    # On Android a document opens straight in the phone's viewer app (see documents.py)
+    path("open/", documents.open_document, name="open_document"),
+    path("open/<str:token>/<path:filename>", documents.document_link, name="document_link"),
     # Installation, under Production: sites awaiting installation, and the ledger
     # (a folder per installer, a ledger per site) for paying the installers
     path("installation/awaiting/", installation_views.installation_pending, name="installation_pending"),
@@ -63,6 +66,7 @@ urlpatterns = [
     path("installation/installer/<slug:slug>/", installation_views.installer_sites, name="installer_sites"),
     path("installation/site/<int:pk>/", installation_views.installer_ledger, name="installer_ledger"),
     path("installation/payments/<int:pk>/remove/", installation_views.installer_payment_delete, name="installer_payment_delete"),
+    path("installation/payable/<int:pk>/remove/", installation_views.installer_charge_delete, name="installer_charge_delete"),
     path("invoice-charges/<int:pk>/remove/", views.charge_delete, name="charge_delete"),
     path("queue/production/", views.queue_production, name="queue_production"),
     path("queue/fabrication/", views.queue_fabrication, name="queue_fabrication"),
@@ -78,6 +82,8 @@ urlpatterns = [
     path("to-do/", views.todo_list, name="todo_list"),
     path("to-do/<int:pk>/done/", views.todo_done, name="todo_done"),
     path("to-do/<int:pk>/remove/", views.todo_delete, name="todo_delete"),
+    path("to-do/<int:pk>/clear/", views.todo_clear, name="todo_clear"),
+    path("to-do/clear-completed/", views.todo_clear, name="todo_clear_completed"),
     path("leads/<int:pk>/production-need-revision/", views.production_need_revision, name="production_need_revision"),
     # Super Admin settings
     path("settings/stage-access/", views.stage_access_list, name="stage_access_list"),
