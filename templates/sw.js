@@ -37,6 +37,46 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/* Notifications. The server pushes one for every update a person gets (see
+   apps/crm/push.py); it is shown like any app's notification, and tapping it
+   opens the page it is about, in the app if the app is already open. */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Titans Windows", {
+      body: data.body || "You have a new update.",
+      icon: "/static/branding/icon-192.png",
+      badge: "/static/branding/badge-96.png",
+      tag: data.tag || undefined,
+      renotify: Boolean(data.tag),
+      vibrate: [120, 60, 120],
+      data: { url: data.url || "/notifications/" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((client) => client.url.startsWith(self.location.origin));
+      if (open) {
+        return open
+          .focus()
+          .then((client) => (client && client.navigate ? client.navigate(target) : client))
+          .catch(() => self.clients.openWindow(target));
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;

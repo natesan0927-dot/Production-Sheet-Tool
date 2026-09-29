@@ -85,6 +85,7 @@ TEMPLATES = [
                 "apps.crm.context_processors.storage",
                 "apps.crm.context_processors.month_end",
                 "apps.crm.context_processors.reminders",
+                "apps.crm.push.context",
             ],
         },
     },
@@ -174,6 +175,17 @@ FAST2SMS_API_KEY = env("FAST2SMS_API_KEY", default="")
 # "q" is Quick SMS (~₹5 a text, no verification); "otp" needs Fast2SMS's website check first.
 FAST2SMS_ROUTE = env("FAST2SMS_ROUTE", default="q")
 FAST2SMS_URL = env("FAST2SMS_URL", default="https://www.fast2sms.com/dev/bulkV2")
+
+# Notifications on phones and computers (Web Push; see apps/crm/push.py). The
+# signing key comes from SECRET_KEY, so there is nothing to set up. The subject
+# tells Google and Apple who is sending: the site's own address.
+WEBPUSH_SUBJECT = env(
+    "WEBPUSH_SUBJECT", default=f"https://{_render_host}" if _render_host else "mailto:webpush@localhost.localdomain"
+)
+# Stand-in push services a test may send to (real ones are fixed in push.py).
+WEBPUSH_TEST_ENDPOINTS = env.list("WEBPUSH_TEST_ENDPOINTS", default=[])
+# Send during the request rather than on a background thread (tests only).
+WEBPUSH_INLINE = env.bool("WEBPUSH_INLINE", default=False)
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

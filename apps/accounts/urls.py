@@ -58,11 +58,18 @@ class TitansLoginView(auth_views.LoginView):
 
 
 class TitansLogoutView(auth_views.LogoutView):
-    """Signs out the account in use. Anyone else signed in on this device stays signed in."""
+    """Signs out the account in use. Anyone else signed in on this device stays signed in.
+
+    The device stops getting that person's notifications.
+    """
 
     def post(self, request, *args, **kwargs):
+        from apps.crm import push
+
         key = request.session.session_key
         listed = switching.entries(request)
+        if request.user.is_authenticated:
+            push.forget_device(request.user.pk, request.session.get(push.SESSION_KEY))
         response = super().post(request, *args, **kwargs)
         switching.write(response, [entry for entry in listed if entry["k"] != key])
         return response

@@ -110,9 +110,14 @@ def detach(request):
 
 
 def forget_all(request):
-    """Sign out of every account on this device."""
+    """Sign out of every account on this device — and stop its notifications for each of them."""
+    from apps.crm import push
+
     for entry in entries(request):
-        _store_class()(session_key=entry["k"]).delete()
+        store = _store_class()(session_key=entry["k"])
+        data = store.load()
+        push.forget_device(data.get(SESSION_KEY), data.get(push.SESSION_KEY))
+        store.delete()
 
 
 class RememberAccounts:

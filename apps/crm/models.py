@@ -820,6 +820,29 @@ class Task(models.Model):
         return self.assigned_by_id == self.assigned_to_id
 
 
+class PushSubscription(models.Model):
+    """A device where someone turned on notifications, so updates reach it as banners. See push.py.
+
+    One phone can hold several people's (accounts switched on one device); each
+    gets their own row, and the banner says whose it is.
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.CharField(max_length=1000)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    device = models.CharField("Device", max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["user", "endpoint"], name="one_subscription_per_person_per_device")]
+
+    def __str__(self):
+        return f"{self.user} — {self.device or 'a device'}"
+
+
 class Notification(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
     # A to-do notification has no lead behind it.

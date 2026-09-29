@@ -24,6 +24,43 @@
     </div>
   </div>
 
+  <div class="col-lg-5 order-lg-last">
+    {# Filled in by push.js: which of these shows depends on what this device can do. #}
+    <div class="card" id="notifications">
+      <div class="card-header"><i class="fa-solid fa-bell me-2"></i>Notifications on this device</div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          A banner on this phone or computer for every update you get — even when the app is closed. Tap it
+          to open what it is about.
+        </p>
+        <div class="d-none" data-push-show="on">
+          <span class="badge bg-success mb-3"><i class="fa-solid fa-circle-check me-1"></i>On for this device</span>
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-primary" data-push="test"><i class="fa-solid fa-paper-plane me-1"></i>Send a test</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-push="off">Turn off</button>
+          </div>
+        </div>
+        <div class="d-none" data-push-show="off">
+          <span class="badge bg-secondary mb-3">Off for this device</span>
+          <div><button type="button" class="btn btn-sm btn-primary" data-push="on"><i class="fa-solid fa-bell me-1"></i>Turn on notifications</button></div>
+        </div>
+        <div class="d-none small" data-push-show="blocked">
+          <span class="badge bg-warning mb-2">Blocked</span>
+          <p class="mb-0">
+            Notifications were blocked for this app. To allow them: on Android, press and hold the Titans icon →
+            <strong>App info</strong> → <strong>Notifications</strong> → on. In a browser, tap the lock beside the
+            address → <strong>Notifications</strong> → Allow. Then come back here.
+          </p>
+        </div>
+        <div class="d-none small text-muted" data-push-show="unsupported">
+          This browser cannot show notifications. Use Chrome on Android or a computer. On an iPhone, add the app to
+          the home screen first (Share → Add to Home Screen) and open it from there.
+        </div>
+        <span data-push-note></span>
+      </div>
+    </div>
+  </div>
+
   <div class="col-lg-7">
     <div class="card h-100" id="mobile">
       <div class="card-header"><i class="fa-solid fa-mobile-screen-button me-2"></i>Mobile number</div>

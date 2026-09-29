@@ -693,6 +693,22 @@ document only; whether the person may see it is checked again when the viewer fe
 on the phone can open that kind of file, it downloads as before. On a computer or an iPhone,
 documents download as they always have.
 
+**Notifications on the phone.** Every update someone gets in the bell also arrives on their phone
+as a notification — a banner, even when the app is closed — and tapping it opens what it is about.
+Each person turns it on once per device: the app shows *Get notifications on this device → Turn on*
+at the top of the page, and the phone asks for permission. It can be turned off, or tested with
+*Send a test*, under **My profile → Notifications on this device**. There is nothing to set up on
+the server and no cost: it uses the phone's own notification service (Google's on Android, Apple's
+on an iPhone), and each message is encrypted so that service cannot read it.
+
+- **Android:** works in the installed app and in Chrome. If the banner does not drop down from the
+  top, long-press a Titans notification → *Settings* and set it to *Alert* / *Pop on screen*.
+- **iPhone:** only in the app added to the home screen (Safari → Share → *Add to Home Screen*),
+  iOS 16.4 or later.
+- **Computer:** Chrome and Edge show them too, while the browser is running.
+- Signing out stops that person's notifications on that device. If two people use one phone, each
+  notification says whose it is.
+
 **Several people on one device.** The menu under your name has *Add another account*. Each person
 signs in once; after that anyone signed in on the device is one tap away under *Switch account*,
 with no password while they stay signed in (10 hours, the same as any sign-in). *Sign out* signs

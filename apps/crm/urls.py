@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import documents, installation_views, views
+from . import documents, installation_views, push, views
 
 app_name = "crm"
 
@@ -89,6 +89,10 @@ urlpatterns = [
     path("settings/stage-access/", views.stage_access_list, name="stage_access_list"),
     path("settings/stage-access/<int:pk>/", views.stage_access_edit, name="stage_access_edit"),
     path("notifications/", views.notifications, name="notifications"),
+    # Notifications on this device, as banners (see push.py)
+    path("push/subscribe/", push.subscribe, name="push_subscribe"),
+    path("push/unsubscribe/", push.unsubscribe, name="push_unsubscribe"),
+    path("push/test/", push.test, name="push_test"),
     path("summary/", views.day_summary, name="day_summary"),
     path("summary/month/", views.month_summary, name="month_summary"),
     path("summary/<int:pk>/", views.day_summary_person, name="day_summary_person"),

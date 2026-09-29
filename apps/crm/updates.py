@@ -15,6 +15,7 @@ off.
 from django.db.models import Q
 from django.urls import reverse
 
+from . import push
 from .models import Notification
 
 # What an update about a lead is waiting for. The view that does it clears it.
@@ -62,7 +63,10 @@ def fit(message):
 
 
 def send(users, message, lead=None, topic="", link=""):
-    """One update each for these people. Anyone listed twice, or no one, is fine."""
+    """One update each for these people. Anyone listed twice, or no one, is fine.
+
+    Each is also pushed to the person's phone, where they turned notifications on.
+    """
     seen, notes = set(), []
     for user in users:
         if user is None or user.pk in seen:
@@ -70,6 +74,7 @@ def send(users, message, lead=None, topic="", link=""):
         seen.add(user.pk)
         notes.append(Notification(user=user, lead=lead, message=fit(message), topic=topic, link=link))
     Notification.objects.bulk_create(notes)
+    push.deliver(notes)
     return notes
 
 
