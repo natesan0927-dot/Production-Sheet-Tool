@@ -276,14 +276,13 @@ def switch_account(request, pk):
 
     user = switching.switch_to(request, pk)
     if user is None:
-        # Their session has ended (or their password changed): they sign in again.
-        messages.info(request, f"{entry['n']} has been signed out on this device. Sign in again to switch to them.")
+        # Their session has ended — the device went unused for 48 hours, or their
+        # password changed. They stay listed; their password is asked for once.
+        messages.info(request, f"Enter {entry['n']}'s password to switch — they were signed out on this device.")
         params = {"username": User.objects.filter(pk=pk).values_list("username", flat=True).first() or ""}
         if request.user.is_authenticated:
             params["add"] = "1"
-        response = redirect(f"{reverse('accounts:login')}?{urlencode(params)}")
-        switching.write(response, [item for item in listed if item["u"] != pk])
-        return response
+        return redirect(f"{reverse('accounts:login')}?{urlencode(params)}")
 
     messages.success(request, f"Switched to {user.display_name}.")
     return redirect("crm:dashboard")

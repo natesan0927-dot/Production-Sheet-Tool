@@ -709,11 +709,17 @@ on an iPhone), and each message is encrypted so that service cannot read it.
 - Signing out stops that person's notifications on that device. If two people use one phone, each
   notification says whose it is.
 
+**Staying signed in.** Nobody is asked for their password when they open the app, only after the
+device has gone **48 hours without being used** — every hour of use starts the 48 hours again.
+Change it with `SESSION_COOKIE_AGE` on Render, in seconds (`172800` is 48 hours).
+
 **Several people on one device.** The menu under your name has *Add another account*. Each person
-signs in once; after that anyone signed in on the device is one tap away under *Switch account*,
-with no password while they stay signed in (10 hours, the same as any sign-in). *Sign out* signs
-out only the account in use; *Sign out of all accounts* is for handing the device to someone else.
-Changing a password signs that person out of every device.
+signs in once; after that everyone added on the device is one tap away under *Switch account*, with
+no password. While anyone is using the app on the device, all of its accounts stay signed in. If the
+device sits unused for 48 hours they are signed out but stay listed, and the first switch asks for
+that person's password once, their name filled in. *Sign out* takes only the account in use off the
+device; *Sign out of all accounts* is for handing the device to someone else. Changing a password
+signs that person out of every device.
 
 ### If a real `.apk` file is needed
 

@@ -1,16 +1,24 @@
-"""Several people signed in on one device, and switching between them.
+"""Several people signed in on one device, switching between them, and staying signed in.
 
 It works the way switching Google accounts does. Each account signed in on this
 browser keeps its own session, and a signed cookie lists them. Switching hands
 the browser back one of those sessions, so nobody retypes a password while they
-are still signed in. A session that has ended, or whose password has changed
-since, cannot be switched to; that person signs in again.
+are still signed in.
+
+Signed in means until the device goes unused for SESSION_COOKIE_AGE (48 hours).
+While anyone uses the app on it, every account signed in there is kept signed
+in: the device is in use, so none of them has been left idle. Once the device
+has sat unused that long, the sessions end. The accounts stay listed, and the
+first switch to one asks for that person's password again, their name filled in.
+"Sign out" takes an account off the list; changing a password ends it too.
 
 The cookie holds session keys, so it is exactly as private as the session
 cookie itself: HttpOnly, and Secure wherever the session cookie is. It is signed
 so its contents cannot be edited, and it lists only sessions that were opened
 in this browser.
 """
+
+import time
 
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
@@ -22,6 +30,12 @@ from django.utils.module_loading import import_string
 COOKIE = "tw_accounts"
 SALT = "titans.accounts-on-device"
 MOST = 5  # accounts one device keeps signed in at once
+# The list itself outlives the sessions in it, so an account that timed out is
+# still one tap (and a password) away rather than gone.
+REMEMBER_FOR = 365 * 24 * 3600
+# The session records the hour it was last used in, so the 48 hours restart at
+# most once an hour — one small write, not one on every page.
+ACTIVE_HOUR = "_active_hour"
 
 
 def _store_class():
@@ -34,7 +48,7 @@ def entries(request):
     if not raw:
         return []
     try:
-        found = signing.loads(raw, salt=SALT, max_age=settings.SESSION_COOKIE_AGE)
+        found = signing.loads(raw, salt=SALT, max_age=REMEMBER_FOR)
     except signing.BadSignature:
         return []
     return [entry for entry in found if isinstance(entry, dict) and {"k", "u", "n", "r"} <= entry.keys()]
@@ -53,7 +67,7 @@ def write(response, listed):
     response.set_cookie(
         COOKIE,
         signing.dumps(listed[:MOST], salt=SALT, compress=True),
-        max_age=settings.SESSION_COOKIE_AGE,
+        max_age=REMEMBER_FOR,
         secure=settings.SESSION_COOKIE_SECURE,
         httponly=True,
         samesite="Lax",
@@ -80,13 +94,24 @@ def live_session(entry):
     return store
 
 
-def signed_in_here(request):
-    """The accounts on this device that can still be switched to, each with its user. Checks the database."""
+def accounts_here(request):
+    """Every account listed on this device, with its user and whether it is still signed in. Checks the database."""
     from .models import User
 
-    alive = [entry for entry in entries(request) if live_session(entry) is not None]
-    people = User.objects.in_bulk([entry["u"] for entry in alive])
-    return [{**entry, "user": people[entry["u"]]} for entry in alive if entry["u"] in people]
+    listed = entries(request)
+    people = User.objects.filter(is_active=True).in_bulk([entry["u"] for entry in listed])
+    return [
+        {**entry, "user": people[entry["u"]], "live": live_session(entry) is not None}
+        for entry in listed
+        if entry["u"] in people
+    ]
+
+
+def _keep_alive(key):
+    """Restart another account's 48 hours, if it is still signed in."""
+    store = _store_class()(session_key=key)
+    if store.get(SESSION_KEY):
+        store.save()
 
 
 def switch_to(request, user_id):
@@ -121,10 +146,14 @@ def forget_all(request):
 
 
 class RememberAccounts:
-    """Adds the account signed in on each response to this device's list.
+    """Keeps this device's accounts listed, and signed in while the device is in use.
 
-    A second sign-in by the same person replaces their older one, and that older
-    session is ended — it could otherwise never be reached again.
+    The account signed in is added to the device's list. A second sign-in by the
+    same person replaces their older one, and that older session is ended — it
+    could otherwise never be reached again.
+
+    Once an hour of use, the 48 hours restart for the account in use and for
+    every other account still signed in here.
     """
 
     def __init__(self, get_response):
@@ -139,9 +168,22 @@ class RememberAccounts:
 
         listed = entries(request)
         key = session.session_key
-        if any(entry["k"] == key for entry in listed):
-            return response
-        listed.insert(0, {"k": key, "u": user.pk, "n": user.display_name, "r": user.get_role_display()})
+        if not any(entry["k"] == key for entry in listed):
+            listed = self._add(listed, key, user)
+            write(response, listed)
+
+        hour = int(time.time() // 3600)
+        if session.get(ACTIVE_HOUR) != hour:
+            # Saved by SessionMiddleware on the way out, which pushes its end 48 hours on.
+            session[ACTIVE_HOUR] = hour
+            for entry in listed:
+                if entry["k"] != key:
+                    _keep_alive(entry["k"])
+        return response
+
+    @staticmethod
+    def _add(listed, key, user):
+        listed = [{"k": key, "u": user.pk, "n": user.display_name, "r": user.get_role_display()}, *listed]
         kept, dropped = [], []
         for entry in listed:
             # Their older session here, or one pushed off the end of the list.
@@ -149,5 +191,4 @@ class RememberAccounts:
             (dropped if superseded or len(kept) >= MOST else kept).append(entry)
         for entry in dropped:
             _store_class()(session_key=entry["k"]).delete()
-        write(response, kept)
-        return response
+        return kept

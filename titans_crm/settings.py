@@ -199,7 +199,10 @@ MESSAGE_TAGS = {
     10: "secondary",  # DEBUG
 }
 
-SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 10)  # 10 hours
+# Signed in until the device has gone unused this long: every hour of use starts
+# the 48 hours again (see apps/accounts/switching.py), so closing and reopening
+# the app, or the phone sleeping overnight, never asks for the password.
+SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 48)  # 48 hours
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # Security hardening (relaxed automatically when DEBUG=True for local dev)

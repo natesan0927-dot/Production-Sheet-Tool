@@ -48,7 +48,7 @@ class TitansLoginView(auth_views.LoginView):
         context["reset_done"] = self.request.GET.get("reset") == "done"
         context["adding"] = self.adding()
         me = self.request.user.pk if self.request.user.is_authenticated else None
-        context["accounts_here"] = [entry for entry in switching.signed_in_here(self.request) if entry["u"] != me]
+        context["accounts_here"] = [entry for entry in switching.accounts_here(self.request) if entry["u"] != me]
         # Only offered while the demo accounts are actually installed, so a
         # live site never shows a row of one-click logins.
         usernames = [username for username, *_ in DEMO_ACCOUNTS]

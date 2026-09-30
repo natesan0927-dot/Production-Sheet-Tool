@@ -44,11 +44,12 @@
       {% endif %}
 
       {% if accounts_here and not adding %}
-      {# Still signed in on this device: one tap, no password. #}
+      {# Still signed in on this device: one tap, no password. Timed out: the name is filled in. #}
       <div class="mb-4">
-        <div class="text-muted small mb-2">Signed in on this device</div>
+        <div class="text-muted small mb-2">Accounts on this device</div>
         <div class="list-group">
           {% for account in accounts_here %}
+          {% if account.live %}
           <form method="post" action="{% url 'accounts:switch_account' account.u %}">
             {% csrf_token %}
             <button class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2">
@@ -60,6 +61,16 @@
               <i class="fa-solid fa-arrow-right text-muted"></i>
             </button>
           </form>
+          {% else %}
+          <a href="?username={{ account.user.username|urlencode }}" class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2">
+            <span class="tw-avatar opacity-50">{{ account.n|slice:":1"|upper }}</span>
+            <span class="flex-grow-1 text-start min-w-0">
+              <span class="d-block fw-semibold text-truncate">{{ account.user.display_name }}</span>
+              <span class="d-block small text-muted">Signed out · enter the password again</span>
+            </span>
+            <i class="fa-solid fa-key text-muted"></i>
+          </a>
+          {% endif %}
           {% endfor %}
         </div>
         <div class="d-flex align-items-center gap-2 mt-4">
