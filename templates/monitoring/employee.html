@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load money static %}
+{% block title %}{{ worker.name }} — Monitoring{% endblock %}
+
+{% block content %}
+<a href="{% url 'monitoring:employees' %}" class="text-muted small"><i class="fa-solid fa-arrow-left me-1"></i>Employees</a>
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mt-1 mb-3">
+  <div>
+    <h4 class="mb-0">{{ worker.name }}{% if not worker.is_active %} <span class="badge bg-secondary align-middle">Removed</span>{% endif %}</h4>
+    <div class="text-muted small">{{ worker.designation|default:"Employee" }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if report_month %}
+    <a href="{% url 'monitoring:report_pdf' worker.pk report_month|date:'Y-m' %}" download class="btn btn-primary">
+      <i class="fa-solid fa-file-pdf me-1"></i>REPORT · {{ report_month|date:"F Y" }}
+    </a>
+    {% endif %}
+    <a href="{% url 'monitoring:employee_edit' worker.pk %}" class="btn btn-outline-secondary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-id-card me-2"></i>Details</div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-5">Monthly salary</dt><dd class="col-7 fw-semibold">{{ worker.monthly_salary|rupees:2 }}</dd>
+          <dt class="col-5">Mobile</dt><dd class="col-7">{% if worker.phone %}<a href="tel:{{ worker.phone }}">{{ worker.phone }}</a>{% else %}—{% endif %}</dd>
+          <dt class="col-5">Designation</dt><dd class="col-7">{{ worker.designation|default:"—" }}</dd>
+          <dt class="col-5">Joined</dt><dd class="col-7">{{ worker.joined_on|date:"d M Y"|default:"—" }}</dd>
+          {% if worker.address %}<dt class="col-5">Address</dt><dd class="col-7">{{ worker.address|linebreaksbr }}</dd>{% endif %}
+          {% if worker.opening_advance %}<dt class="col-5">Advance when added</dt><dd class="col-7">{{ worker.opening_advance|rupees:2 }}</dd>{% endif %}
+          {% if worker.notes %}<dt class="col-5">Notes</dt><dd class="col-7">{{ worker.notes|linebreaksbr }}</dd>{% endif %}
+          {% if worker.left_on %}<dt class="col-5">Removed</dt><dd class="col-7">{{ worker.left_on|date:"d M Y" }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="fa-solid fa-calendar-days me-2"></i>{{ month|date:"F Y" }}</span>
+        <span class="btn-group btn-group-sm">
+          <a class="btn btn-outline-secondary" href="?month={{ previous_month|date:'Y-m' }}" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></a>
+          {% if next_month %}<a class="btn btn-outline-secondary" href="?month={{ next_month|date:'Y-m' }}" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></a>{% endif %}
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="mon-summary mb-3">
+          <span><strong>{{ figures.present }}</strong> present</span>
+          <span><strong>{{ figures.half }}</strong> half day{{ figures.half|pluralize }}</span>
+          <span><strong>{{ figures.absent }}</strong> absent</span>
+          <span><strong>{{ figures.holiday }}</strong> holiday{{ figures.holiday|pluralize }}</span>
+          <span><strong>{{ figures.overtime_hours|floatformat:"-1" }}</strong> h overtime</span>
+          {% if figures.unmarked %}<span class="text-warning"><strong>{{ figures.unmarked }}</strong> not marked</span>{% endif %}
+        </div>
+
+        {# Tap a day to enter that day's overtime. #}
+        <div class="mon-calendar" role="grid" aria-label="{{ month|date:'F Y' }}">
+          {% for name in "MTWTFSS" %}<div class="mon-dow" role="columnheader">{{ name }}</div>{% endfor %}
+          {% for week in weeks %}{% for day, record in week %}
+            {% if day %}
+            <button type="button" role="gridcell"
+                    class="mon-day{% if record %} is-{{ record.status }}{% endif %}{% if day == today %} is-today{% endif %}"
+                    {% if not open or day > today %}disabled{% endif %}
+                    data-date="{{ day|date:'Y-m-d' }}" data-label="{{ day|date:'l, d M Y' }}"
+                    data-hours="{% if record and record.overtime_hours %}{{ record.overtime_hours|floatformat:'-1' }}{% endif %}"
+                    data-status="{{ record.get_status_display|default:'Not marked' }}"
+                    title="{{ day|date:'d M' }}{% if record %}: {{ record.get_status_display }}{% endif %}">
+              <span class="mon-num">{{ day.day }}</span>
+              {% if record %}<span class="mon-mark">{% if record.status == 'present' %}P{% elif record.status == 'absent' %}A{% elif record.status == 'half' %}½{% else %}H{% endif %}</span>{% endif %}
+              {% if record.overtime_hours %}<span class="mon-ot">+{{ record.overtime_hours|floatformat:"-1" }}h</span>{% endif %}
+            </button>
+            {% else %}<div class="mon-day is-blank" aria-hidden="true"></div>{% endif %}
+          {% endfor %}{% endfor %}
+        </div>
+        <div class="text-muted small mt-2">
+          {% if open %}Tap a day to enter the overtime worked that day.{% else %}{{ month|date:"F Y" }} is closed. Reopen it under Reports to correct it.{% endif %}
+          <span class="d-block mt-1"><span class="mon-key is-present">P</span> present <span class="mon-key is-half">½</span> half day <span class="mon-key is-absent">A</span> absent <span class="mon-key is-holiday">H</span> holiday</span>
+        </div>
+        {% if figures.overtime_days %}
+        <div class="small mt-2"><strong>Overtime days:</strong> {% for day, hours in figures.overtime_days %}{{ day|date:"d M" }} ({{ hours|floatformat:"-1" }} h){% if not forloop.last %}, {% endif %}{% endfor %}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa-solid fa-wallet me-2"></i>Advance — {{ month|date:"F Y" }}</span>
+        <a href="{% url 'monitoring:salary_employee' worker.pk %}?month={{ month|date:'Y-m' }}" class="small">{% if open %}Enter advances{% else %}Open{% endif %}</a>
+      </div>
+      {% include "monitoring/_advance_table.html" with table=figures.advance %}
+    </div>
+  </div>
+</div>
+
+{% if open %}
+<div class="modal fade" id="overtime-box" tabindex="-1" aria-labelledby="overtime-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <form class="modal-content" method="post" action="{% url 'monitoring:employee_overtime' worker.pk %}">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title" id="overtime-title">Overtime</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-muted small mb-2" data-overtime-day></div>
+        <input type="hidden" name="date">
+        <label class="form-label" for="overtime-hours">Hours worked overtime</label>
+        <input type="number" id="overtime-hours" name="hours" class="form-control" min="0" max="24" step="0.5" inputmode="decimal" placeholder="e.g. 2">
+        <div class="form-text">0 or empty clears it. A day not yet marked is marked present.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'js/monitoring.js' %}?v={{ css_version }}"></script>{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Reports — Monitoring{% endblock %}
+
+{% block content %}
+<div class="tw-eyebrow">Monitoring</div>
+<h4 class="mb-1">Reports</h4>
+<p class="text-muted small mb-3">
+  A month's report is ready on the 1st of the next — {{ this_month|date:"F" }}'s on {{ next_report|date:"d M Y" }}.
+  Reports are made when you download them and are not kept on the server; download again any time.
+</p>
+
+{% if ready %}
+<div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+  <form method="get">
+    <select name="month" class="form-select" onchange="this.form.submit()" aria-label="Month">
+      {% for option in ready %}<option value="{{ option|date:'Y-m' }}" {% if option == month %}selected{% endif %}>{{ option|date:"F Y" }}</option>{% endfor %}
+    </select>
+  </form>
+  {% if is_reopened %}<span class="badge bg-warning"><i class="fa-solid fa-lock-open me-1"></i>Open for corrections</span>
+  {% else %}<span class="badge bg-success"><i class="fa-solid fa-lock me-1"></i>Closed</span>{% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-file-excel me-2"></i>Everyone — {{ month|date:"F Y" }}</div>
+      <div class="card-body">
+        <p class="small text-muted">
+          One sheet: every employee's days present and absent, half days, overtime hours and the dates, and the advance
+          table — received this month, previous, deducted, remaining.
+        </p>
+        <a href="{% url 'monitoring:report_excel' month|date:'Y-m' %}" download class="btn btn-success w-100">
+          <i class="fa-solid fa-download me-1"></i>Download Excel — {{ month|date:"F Y" }}
+        </a>
+        <hr>
+        {% if is_reopened %}
+          <p class="small mb-2">{{ month|date:"F Y" }} is open: attendance and advances can be corrected. The report shows the corrections as soon as they are saved.</p>
+          <form method="post" action="{% url 'monitoring:month_close' month|date:'Y-m' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-lock me-1"></i>Close {{ month|date:"F" }} again</button>
+          </form>
+        {% else %}
+          <p class="small text-muted mb-2">Found a mistake? Reopen the month, correct it, and close it again.</p>
+          <form method="post" action="{% url 'monitoring:month_reopen' month|date:'Y-m' %}"
+                onsubmit="return confirm('Reopen {{ month|date:"F Y" }} so its attendance and advances can be changed?')">
+            {% csrf_token %}
+            <button class="btn btn-outline-warning btn-sm"><i class="fa-solid fa-lock-open me-1"></i>Reopen {{ month|date:"F" }} for corrections</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa-solid fa-file-pdf me-2"></i>One employee — {{ month|date:"F Y" }}</div>
+      <div class="list-group list-group-flush">
+        {% for worker in workers %}
+        <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+          <a href="{% url 'monitoring:employee' worker.pk %}?month={{ month|date:'Y-m' }}">{{ worker.name }}</a>
+          <a href="{% url 'monitoring:report_pdf' worker.pk month|date:'Y-m' %}" download class="btn btn-sm btn-outline-primary">
+            <i class="fa-solid fa-file-pdf me-1"></i>REPORT
+          </a>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">Nobody was on the roll in {{ month|date:"F Y" }}.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body text-center text-muted py-5">
+  <i class="fa-regular fa-calendar fs-3 d-block mb-2 opacity-50"></i>
+  The first report — for {{ this_month|date:"F Y" }} — will be ready on {{ next_report|date:"d M Y" }}.
+</div></div>
+{% endif %}
+{% endblock %}

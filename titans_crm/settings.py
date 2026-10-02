@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     # Titans CRM apps
     "apps.accounts",
     "apps.crm",
+    "apps.monitoring",
 ]
 
 MIDDLEWARE = [
@@ -86,6 +87,7 @@ TEMPLATES = [
                 "apps.crm.context_processors.month_end",
                 "apps.crm.context_processors.reminders",
                 "apps.crm.push.context",
+                "apps.monitoring.notices.report_ready",
             ],
         },
     },

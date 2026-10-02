@@ -1,0 +1,25 @@
+{% load money %}
+{# The month's four figures. `table` is a months.AdvanceTable. #}
+<div class="table-responsive">
+  <table class="table align-middle mb-0 tw-stack mon-advance">
+    <thead class="table-light">
+      <tr>
+        <th class="text-end">Advance received this month</th>
+        <th class="text-end">Previous advance</th>
+        <th class="text-end">Deducted this month</th>
+        <th class="text-end">Total advance remaining</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="text-end" data-label="Advance received this month">
+          <span class="tw-cell">{{ table.received|rupees:2 }}
+          {% if table.received %}<span class="text-muted small d-block">monthly {{ table.monthly|rupees }} + weekly {{ table.weekly|rupees }}</span>{% endif %}</span>
+        </td>
+        <td class="text-end" data-label="Previous advance">{{ table.previous|rupees:2 }}</td>
+        <td class="text-end" data-label="Deducted this month">{{ table.deducted|rupees:2 }}</td>
+        <td class="text-end fw-bold" data-label="Total advance remaining">{{ table.remaining|rupees:2 }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

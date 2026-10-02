@@ -16,6 +16,8 @@ urlpatterns = [
         name="service_worker",
     ),
     path("offline/", TemplateView.as_view(template_name="offline.html"), name="offline"),
+    # Attendance and advances for the factory, and the sales executives' days out.
+    path("monitoring/", include("apps.monitoring.urls")),
     path("", include("apps.crm.urls")),
 ]
 

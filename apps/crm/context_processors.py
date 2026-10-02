@@ -96,6 +96,29 @@ ADMIN_GROUP = ("Administration", "insights", ADMIN_TABS)
 # For anyone outside production the Super Admin has given the Installation step.
 INSTALLATION_GROUP = ("Installation", "production", [INSTALLATION_TAB])
 
+# Monitoring is a section of its own, for the Super Admin and the sales executives:
+# the CRM's sidebar has a way in, and inside it the sidebar is Monitoring's.
+MONITORING_ENTRY = ("Monitoring", "logistics", [("Monitoring", "monitoring:home", "fa-binoculars", None)])
+MONITORING_GROUPS = {
+    Role.SUPER_ADMIN: [
+        ("Monitoring", "production", [
+            ("Attendance", "monitoring:attendance", "fa-clipboard-user", None),
+            ("Employees", "monitoring:employees", "fa-people-group", None),
+            ("Salary & Advances", "monitoring:salary", "fa-wallet", None),
+            ("Reports", "monitoring:reports", "fa-file-excel", None),
+            ("Site Visits", "monitoring:status", "fa-location-dot", None),
+        ]),
+    ],
+    Role.SALESPERSON: [
+        ("Monitoring", "production", [
+            ("Today's Work", "monitoring:work", "fa-person-walking-arrow-right", None),
+            ("Site Visits", "monitoring:status", "fa-location-dot", None),
+        ]),
+    ],
+}
+BACK_TO_CRM = ("Titans CRM", "sales", [("Back to the CRM", "crm:dashboard", "fa-arrow-left", None)])
+MONITORING_PATH = "/monitoring/"
+
 ROLE_GROUPS = {
     Role.SALESPERSON: [SALES_GROUP, SALES_TODO_GROUP],
     Role.MEASUREMENT: [MEASUREMENT_GROUP, TODO_GROUP],
@@ -180,14 +203,21 @@ def _fabrication_children(request, url):
     ]
 
 
-def _groups_for(user):
-    """The sidebar's sections for this person — their role's, plus any step handed to them."""
+def _groups_for(user, path=""):
+    """The sidebar's sections for this person — their role's, plus any step handed to them.
+
+    Inside Monitoring the sidebar is Monitoring's own, with a way back.
+    """
     from . import stages
 
+    if path.startswith(MONITORING_PATH) and user.role in MONITORING_GROUPS:
+        return [*MONITORING_GROUPS[user.role], BACK_TO_CRM]
     groups = list(ROLE_GROUPS.get(user.role, []))
     has_installation = any(tab is INSTALLATION_TAB for _, _, tabs in groups for tab in tabs)
     if not has_installation and stages.can_act(user, stages.INSTALLATION):
         groups.insert(max(len(groups) - 1, 0), INSTALLATION_GROUP)
+    if user.role in MONITORING_GROUPS:
+        groups.append(MONITORING_ENTRY)
     return groups
 
 
@@ -219,6 +249,8 @@ ASSETS = [
     settings.BASE_DIR / "static" / "js" / "guide.js",
     settings.BASE_DIR / "static" / "js" / "scan.js",
     settings.BASE_DIR / "static" / "js" / "month.js",
+    settings.BASE_DIR / "static" / "js" / "push.js",
+    settings.BASE_DIR / "static" / "js" / "monitoring.js",
 ]
 
 
@@ -239,7 +271,7 @@ def navigation(request, take_popups=True):
     if not user:
         return context
 
-    groups = _groups_for(user)
+    groups = _groups_for(user, request.path)
     wanted = set()
     for _, _, tabs in groups:
         for tab in tabs:
@@ -263,7 +295,9 @@ def navigation(request, take_popups=True):
                 "url_name": urlname,
                 "icon": icon,
                 "pending": counts.get(key),
-                "active": request.path == url,
+                # A Monitoring tab stays lit on the pages inside it (one employee, one month).
+                "active": request.path == url or (url.startswith(MONITORING_PATH) and url != MONITORING_PATH
+                                                  and request.path.startswith(url)),
                 "children": [],
             }
             if urlname == "crm:queue_fabrication" and user.is_super_admin:

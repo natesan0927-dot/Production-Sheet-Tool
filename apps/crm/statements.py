@@ -64,7 +64,12 @@ def _styles():
     }
 
 
-def _letterhead(canvas, doc):
+def letterhead(label):
+    """The letterhead with another document's name at the top right."""
+    return lambda canvas, doc: _letterhead(canvas, doc, label)
+
+
+def _letterhead(canvas, doc, label="Statement of Account"):
     """The navy band and the gold rule, on every page."""
     canvas.saveState()
     width, height = A4
@@ -78,7 +83,7 @@ def _letterhead(canvas, doc):
     canvas.drawString(18 * mm, height - 14 * mm, COMPANY)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(GOLD)
-    canvas.drawRightString(width - 18 * mm, height - 14 * mm, "Statement of Account")
+    canvas.drawRightString(width - 18 * mm, height - 14 * mm, label)
 
     canvas.setFillColor(MUTED)
     canvas.setFont("Helvetica", 7.5)

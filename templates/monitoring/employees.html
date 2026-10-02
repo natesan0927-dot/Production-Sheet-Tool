@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Employees — Monitoring{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <div class="tw-eyebrow">Monitoring</div>
+    <h4 class="mb-1">Employees</h4>
+    <p class="text-muted small mb-0">Everyone whose attendance and advances are kept here. Open one for their calendar, overtime and report.</p>
+  </div>
+  <a href="{% url 'monitoring:employee_add' %}" class="btn btn-primary"><i class="fa-solid fa-user-plus me-1"></i>Add employee</a>
+</div>
+
+<form method="get" class="d-flex gap-2 mb-3">
+  <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="max-width:320px"
+         placeholder="Search a name, designation or number" aria-label="Search employees">
+  <button class="btn btn-sm btn-outline-secondary">Search</button>
+  {% if q %}<a href="{% url 'monitoring:employees' %}" class="btn btn-sm btn-link">Clear</a>{% endif %}
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 tw-stack">
+      <thead class="table-light">
+        <tr><th>S.No</th><th>Name</th><th>Designation</th><th>Mobile</th><th class="text-end">Monthly salary</th><th class="text-end">Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for worker in workers %}
+        <tr>
+          <td class="text-muted" data-label="S.No">{{ forloop.counter }}</td>
+          <td data-label="Name"><a href="{% url 'monitoring:employee' worker.pk %}" class="fw-semibold">{{ worker.name }}</a></td>
+          <td data-label="Designation">{{ worker.designation|default:"—" }}</td>
+          <td data-label="Mobile">{% if worker.phone %}<a href="tel:{{ worker.phone }}">{{ worker.phone }}</a>{% else %}—{% endif %}</td>
+          <td class="text-end" data-label="Monthly salary">{{ worker.monthly_salary|rupees }}</td>
+          <td class="text-end" data-label="">
+            <div class="tw-row-actions">
+              <a href="{% url 'monitoring:employee' worker.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+              <a href="{% url 'monitoring:employee_edit' worker.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+              <form method="post" action="{% url 'monitoring:employee_remove' worker.pk %}"
+                    onsubmit="return confirm('Remove {{ worker.name|escapejs }}? Their past attendance and advances are kept.')">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-5" data-label="">
+          {% if q %}Nobody matches that.{% else %}No employees yet. <a href="{% url 'monitoring:employee_add' %}">Add the first one</a>.{% endif %}
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if removed %}
+<details class="mt-3">
+  <summary class="text-muted small">Removed employees ({{ removed|length }})</summary>
+  <div class="card mt-2">
+    <div class="list-group list-group-flush">
+      {% for worker in removed %}
+      <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+        <span>
+          <a href="{% url 'monitoring:employee' worker.pk %}">{{ worker.name }}</a>
+          <span class="text-muted small ms-1">{{ worker.designation }}{% if worker.left_on %} · removed {{ worker.left_on|date:"d M Y" }}{% endif %}</span>
+        </span>
+        <form method="post" action="{% url 'monitoring:employee_restore' worker.pk %}">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-link">Restore</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</details>
+{% endif %}
+{% endblock %}

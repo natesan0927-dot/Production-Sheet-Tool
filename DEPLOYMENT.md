@@ -669,6 +669,48 @@ default from the same screen.
 
 ---
 
+## 8b. Monitoring — attendance, advances, site visits
+
+A section of its own, kept apart from the CRM. Open it with the **Monitoring** button at the foot of
+the sign-in page (or from the sidebar once signed in). Only the **Super Admin** and the **sales
+executives** can sign in to it; everyone else is turned away.
+
+**The Super Admin**
+
+- **Employees** — the factory's staff, who do not sign in: name, mobile, designation, joining date,
+  **monthly salary**, and any advance already outstanding when they are added. Edit or remove them;
+  removing keeps their past months, and they can be restored.
+- **Attendance** — everyone in alphabetical order, with ✓ present, ✗ absent, 0.5 half day and OT
+  (hours of overtime), saved for the day. *Holiday today* marks the day a holiday for everyone.
+  *Mark the rest present* fills in whoever is left. Any earlier day of an open month can be opened
+  and corrected.
+- **Employee page** — their details, the month on a calendar (tap a day to enter that day's
+  overtime), and the advance table.
+- **Salary & Advances** — for each employee and month: advance received this month, weekly advance,
+  and the amount to deduct. The table shows *advance received this month* (monthly + weekly),
+  *previous advance* (what was still owed coming into the month), *deducted this month*, and *total
+  advance remaining* (previous + received − deducted).
+- **Reports** — on the **1st of every month** the month just ended closes and its report is ready
+  (the Super Admin gets a notification): an **Excel sheet** for everyone and a **PDF** per employee,
+  also under *REPORT* on each employee's page. A closed month cannot be changed; *Reopen for
+  corrections* opens it again until it is closed again. Reports are drawn when downloaded and never
+  stored, so they take no space — download again any time.
+
+**A sales executive**
+
+- **Today's Work** — *Start today's work* (the phone asks for location), then *Update site stop* at
+  each site: a remark, and the phone's location at that moment. As many stops a day as needed.
+- **Site Visits** — their own stops with time, a map link and the remark. The Super Admin sees
+  everyone's and can pick one sales executive and a range of dates.
+
+Location needs HTTPS and the phone's location switched on; if it is refused, the page says how to
+allow it and nothing is saved without a location.
+
+**Storage.** Everything is in the database: thirty employees marked every day is about a megabyte a
+year, so there is no need for Google Sheets.
+
+---
+
 ## 9. Installing it as an app
 
 It installs on a phone or a desktop straight from the browser. Nothing to download, nothing to

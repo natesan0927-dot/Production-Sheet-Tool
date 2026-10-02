@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Monitoring — Sign in{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-visual">
+    <div class="d-flex align-items-center gap-3">
+      <div class="auth-logo-ring auth-logo-lg">
+        <img src="{% static 'branding/titans_logo.png' %}" alt="Titans Windows">
+      </div>
+      <div>
+        <div class="auth-brand-name">TITANS WINDOWS</div>
+        <div class="auth-brand-tag">Monitoring</div>
+      </div>
+    </div>
+    <div>
+      <h1 class="auth-headline mb-3">Attendance.<br>Advances.<br><span>Site visits.</span></h1>
+      <p class="auth-blurb mb-0">
+        The factory's daily attendance and pay advances, and where the sales team has been —
+        kept apart from the CRM.
+      </p>
+    </div>
+    <div class="auth-ticks">
+      <div><i class="fa-solid fa-circle-check me-2"></i>Attendance in one tap each</div>
+      <div><i class="fa-solid fa-circle-check me-2"></i>Monthly reports on the 1st</div>
+      <div><i class="fa-solid fa-circle-check me-2"></i>Site stops with location</div>
+    </div>
+  </div>
+
+  <div class="auth-form-side">
+    <div style="width:420px; max-width:100%">
+      <div class="tw-eyebrow mb-1"><i class="fa-solid fa-binoculars me-1"></i>Monitoring</div>
+      <h4 class="fw-bold mb-1">Sign in to Monitoring</h4>
+      <p class="text-muted mb-4">For the Super Admin and the sales executives.</p>
+
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger py-2 small">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+      </div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="id_username">Username</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="fa-regular fa-user"></i></span>
+            <input type="text" name="username" id="id_username" class="form-control" required autofocus
+                   value="{{ form.username.value|default:'' }}"
+                   autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="id_password">Password</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
+            <input type="password" name="password" id="id_password" class="form-control" required autocomplete="current-password">
+          </div>
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="btn btn-primary w-100 py-2" type="submit">Sign in to Monitoring</button>
+        <div class="text-center mt-3"><a href="{% url 'accounts:login' %}" class="small"><i class="fa-solid fa-arrow-left me-1"></i>Back to the CRM sign-in</a></div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

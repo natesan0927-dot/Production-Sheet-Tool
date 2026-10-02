@@ -143,6 +143,15 @@
       </div>
       <p class="text-muted small mt-4 mb-0 text-center">All demo accounts use the password <code>Demo@123</code></p>
       {% endif %}
+
+      {% if not adding %}
+      {# Attendance, advances and site visits: a section of its own, with its own sign-in. #}
+      <div class="text-center mt-4 pt-3 border-top">
+        <a href="{% url 'monitoring:login' %}" class="btn btn-outline-secondary btn-sm px-4">
+          <i class="fa-solid fa-binoculars me-1"></i>Monitoring
+        </a>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
