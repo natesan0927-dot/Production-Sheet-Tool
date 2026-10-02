@@ -178,7 +178,7 @@
           <span class="d-block small text-truncate">{{ enquiry.remarks }}</span>
         </a>
         <a href="tel:{{ enquiry.dial }}" class="btn btn-sm btn-light" aria-label="Call {{ enquiry.phone }}"><i class="fa-solid fa-phone"></i></a>
-        <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}">
+        <form method="post" data-enquiry-address action="{% url 'crm:enquiry_addressed' enquiry.pk %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
           <button class="btn btn-sm btn-light fw-semibold">Addressed</button>
@@ -239,7 +239,7 @@ copy, so the two never both render.
           {% if enquiry.customer_name %}<div class="fw-semibold">{{ enquiry.customer_name }}</div>{% endif %}
           <p class="mb-2">{{ enquiry.remarks|linebreaksbr }}</p>
           <div class="small text-muted mb-2">From {{ enquiry.created_by.display_name|default:"the Super Admin" }}</div>
-          <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">
+          <form method="post" data-enquiry-address action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <button class="btn btn-primary"><i class="fa-solid fa-check me-1"></i>Addressed</button>
@@ -249,6 +249,34 @@ copy, so the two never both render.
       </div>
       <div class="modal-footer justify-content-start small text-muted">
         Not now? It stays at the top of every page and on your to-do until you mark it addressed.
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if user.is_authenticated and user.role == 'salesperson' %}
+{# Asked the moment an enquiry is marked addressed: what became of it? Filled in by app.js. #}
+<div class="modal fade" id="enquiry-decide" tabindex="-1" aria-labelledby="enquiry-decide-title" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="enquiry-decide-title"><i class="fa-solid fa-circle-check text-success me-2"></i>Addressed</h5>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">You called back <strong data-decide-who></strong>. What became of it?</p>
+        <div class="d-grid gap-2">
+          <a href="#" class="btn btn-success btn-lg" data-decide-lead><i class="fa-solid fa-user-plus me-1"></i>Create as a lead</a>
+          <form method="post" class="d-grid" data-decide-junk>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="btn btn-outline-danger"><i class="fa-solid fa-trash me-1"></i>Junk it</button>
+          </form>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-between small text-muted">
+        <span>Not sure yet? It waits on your to-do.</span>
+        <button type="button" class="btn btn-link btn-sm" data-decide-later>Decide later</button>
       </div>
     </div>
   </div>

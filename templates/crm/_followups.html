@@ -19,7 +19,7 @@ quotation is out. `can_schedule` says whether this screen offers the form.
       <form method="post" action="{% url 'crm:followup_done' open_followup.pk %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <button class="btn btn-sm btn-outline-success">Mark done</button>
+        <button class="btn btn-sm btn-outline-success text-nowrap">Mark done</button>
       </form>
       {% endif %}
     </div>

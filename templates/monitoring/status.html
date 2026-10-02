@@ -49,7 +49,7 @@
             <i class="fa-solid fa-location-dot me-1"></i>{% if event.place %}near {{ event.place }}{% else %}{{ event.latitude|floatformat:5 }}, {{ event.longitude|floatformat:5 }}{% endif %}
           </a>
           {% if event.accuracy %}<span class="small text-muted"> · within {{ event.accuracy }} m</span>{% endif %}
-          {% elif event.kind == 'end' %}<span class="small text-muted">location not shared</span>{% endif %}
+          {% endif %}
         </div>
       </li>
       {% endfor %}

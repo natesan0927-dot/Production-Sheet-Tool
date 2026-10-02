@@ -1505,8 +1505,45 @@ body.tw-tour-on #tw-sidebar { z-index: 1086; }
   .tw-stack td[data-label=""], .tw-stack tfoot th[data-label=""] { justify-content: flex-end; }
   .tw-stack td > .tw-cell { text-align: right; min-width: 0; overflow-wrap: anywhere; }
   .tw-stack tfoot tr { border-top: 2px solid var(--tw-border-strong); }
+  .tw-stack tfoot tr > :first-child[data-label=""] { justify-content: flex-start; text-align: left !important; }
+  .tw-stack tfoot tr > :first-child[data-label=""] > .tw-cell { text-align: left; }
   /* A cell with nothing in it, or hidden on phones, has no line of its own. */
-  .tw-stack td:empty, .tw-stack th:empty, .tw-stack td.d-none, .tw-stack th.d-none { display: none !important; }
+  .tw-stack td:empty, .tw-stack th:empty, .tw-stack td.d-none, .tw-stack th.d-none,
+  .tw-stack td.tw-col-optional, .tw-stack th.tw-col-optional,
+  .tw-stack td[data-label="#"] { display: none !important; }
+  /* A long name or a stack of badges wraps inside its own line instead of pushing past the edge. */
+  .tw-stack td > * { min-width: 0; overflow-wrap: anywhere; }
+  .tw-stack td .badge { display: inline-block; max-width: 100%; white-space: normal; }
+  /* The empty-list line reads in the middle, as it does on a desktop. */
+  .tw-stack td[colspan] { justify-content: center; text-align: center !important; position: static; }
+  .tw-stack td[colspan] > .tw-cell { text-align: center; }
+  /* The actions ride along the right edge of a wide table; stacked, they are a row of their own. */
+  .tw-stack .tw-floor-actions { position: static; box-shadow: none; border-left: 0 !important; background: transparent !important; }
+  .tw-stack .tw-floor-actions:not(:empty) { padding-top: .5rem !important; }
+  .tw-stack .tw-floor-actions .btn { width: 100%; }
+  .tw-stack .tw-row-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+}
+
+/* A to-do: the words take the room; its buttons sit beside them, or below on a phone. */
+.tw-todo-item > div:first-child { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+
+@media (max-width: 575.98px) {
+  /* A lead's name on top, its buttons and status underneath rather than squeezed beside it. */
+  .tw-lead-head { flex-direction: column; gap: .6rem; padding: 1rem 1.1rem; }
+  .tw-lead-head > .text-end { text-align: left !important; }
+  /* Back and next on a lead: two even buttons of one height, however their names wrap. */
+  .tw-step-nav { align-items: stretch !important; }
+  .tw-step-nav > a { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .tw-step-nav > span:empty { display: none; }
+  /* Search and filter rows: each field the full width, so the row is not ragged. */
+  form[method="get"].d-flex > .form-control,
+  form[method="get"].d-flex > .form-select,
+  form[method="get"].d-flex > .input-group { max-width: none !important; flex: 1 1 100%; }
+  /* A quick enquiry's buttons go under its text, side by side. */
+  .tw-todo-item { flex-wrap: wrap; }
+  .tw-todo-actions { flex: 1 1 100%; flex-direction: row !important; }
+  .tw-todo-actions > * { flex: 1 1 0; }
+  .tw-todo-actions .btn { width: 100%; }
 }
 
 /* --------------------------------------------------- summary for the month */
@@ -1619,7 +1656,8 @@ body.tw-tour-on #tw-sidebar { z-index: 1086; }
 .mon-advance-box { width: 8.5rem; flex-wrap: nowrap; }
 .mon-advance-box .input-group-text { padding: 0 .55rem; border-radius: 10px 0 0 10px; }
 .mon-advance-box .form-control { height: 2.6rem; border-radius: 0 10px 10px 0; }
-@media (max-width: 575.98px) { .mon-advance-box { width: 9rem; } .mon-advance-box .form-control { height: 3rem; } }
+/* On a phone the advance box takes whatever is left of the line, or the whole next line. */
+@media (max-width: 575.98px) { .mon-advance-box { width: auto; flex: 1 1 8.5rem; } .mon-advance-box .form-control { height: 3rem; } }
 .mon-adv { font-size: .68rem; font-weight: 700; color: #0f766e; background: #ccfbf1; border-radius: 6px; padding: 0 .25rem; align-self: flex-start; }
 
 /* Site Visits: the day as a timeline, start to finish. */

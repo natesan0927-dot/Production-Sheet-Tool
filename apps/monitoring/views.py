@@ -385,6 +385,13 @@ def report_pdf(request, pk, month):
 
 
 @admin_only
+def report_to_date(request, pk):
+    """The employee's report for this month so far — always there, whatever the date."""
+    worker = get_object_or_404(Worker, pk=pk)
+    return reports.employee_pdf(worker, months.this_month(), to_date=timezone.localdate())
+
+
+@admin_only
 @require_POST
 def report_deduction(request, pk, month):
     """The amount to deduct for the month, asked for as the employee's report is downloaded.
@@ -511,7 +518,7 @@ def work_stop(request):
 @sales_only
 @require_POST
 def work_complete(request):
-    """The day's work is done: when, and where — if the phone could tell."""
+    """The day's work is done. Only the time is needed: the last site stop says where it ended."""
     where, problem = _where(request, required=False)
     if problem:
         return JsonResponse({"ok": False, "error": problem}, status=400)

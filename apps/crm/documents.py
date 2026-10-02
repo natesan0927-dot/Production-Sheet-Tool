@@ -40,6 +40,7 @@ DOCUMENTS = {
     "crm:ledger_pdf",
     "crm:outstanding_pdf",
     "monitoring:report_pdf",
+    "monitoring:report_to_date",
     "monitoring:report_excel",
 }
 

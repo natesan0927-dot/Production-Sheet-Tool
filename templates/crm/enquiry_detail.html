@@ -25,7 +25,7 @@
         <a href="tel:{{ enquiry.dial }}" class="btn btn-success btn-lg"><i class="fa-solid fa-phone me-1"></i>Call {{ enquiry.phone }}</a>
         {% if enquiry.assigned_to == user and not enquiry.outcome %}
           {% if enquiry.is_open %}
-          <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">
+          <form method="post" data-enquiry-address action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">
             {% csrf_token %}
             <button class="btn btn-primary btn-lg"><i class="fa-solid fa-check me-1"></i>Addressed</button>
           </form>

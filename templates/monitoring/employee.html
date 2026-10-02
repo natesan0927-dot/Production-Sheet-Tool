@@ -10,6 +10,10 @@
     <div class="text-muted small">{{ worker.designation|default:"Employee" }}</div>
   </div>
   <div class="d-flex gap-2 flex-wrap">
+    {# Always there: this month so far, with whatever has been recorded. #}
+    <a href="{% url 'monitoring:report_to_date' worker.pk %}" download class="btn btn-outline-primary">
+      <i class="fa-solid fa-file-pdf me-1"></i>Report till today
+    </a>
     {% if report_month %}
     {% include "monitoring/_report_button.html" with worker=worker month=report_month table=report_table label="REPORT · " %}
     {% endif %}

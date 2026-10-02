@@ -75,7 +75,7 @@
       {% include "crm/stages/"|add:stage.key|add:".html" %}
     {% endif %}
   </div>
-  <div class="card-footer d-flex justify-content-between align-items-center bg-white">
+  <div class="card-footer d-flex justify-content-between align-items-center gap-2 bg-white tw-step-nav">
     {% if previous_stage %}
       <a href="?stage={{ previous_stage.key }}" class="btn btn-sm btn-outline-secondary">
         <i class="fa-solid fa-arrow-left me-1"></i>{{ previous_stage.label }}

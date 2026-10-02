@@ -1,5 +1,5 @@
 {% if lead.measurement_mode %}
-  <p class="mb-2"><span class="badge bg-success">{{ lead.get_measurement_mode_display }}</span></p>
+  <p class="mb-2"><span class="badge bg-success text-wrap text-start">{{ lead.get_measurement_mode_display }}</span></p>
   {% if lead.measurement_notes %}
     <div class="tw-note"><strong>Measurements:</strong><br>{{ lead.measurement_notes|linebreaksbr }}</div>
   {% endif %}

@@ -16,7 +16,7 @@
         <span class="d-block small text-truncate">{{ enquiry.remarks }}</span>
         <span class="d-block small text-muted">{{ enquiry.created_at|date:"d M, h:i A" }}</span>
       </a>
-      <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}">
+      <form method="post" data-enquiry-address action="{% url 'crm:enquiry_addressed' enquiry.pk %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <button class="btn btn-sm btn-primary text-nowrap">Addressed</button>

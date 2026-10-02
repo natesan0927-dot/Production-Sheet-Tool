@@ -127,20 +127,25 @@ CODES = {
 }
 
 
-def employee_pdf(worker, month):
-    """One employee's month, laid out to be read or printed."""
+def employee_pdf(worker, month, to_date=None):
+    """One employee's month, laid out to be read or printed.
+
+    `to_date` makes it the month so far — the report the employee's page can
+    always give, with whatever has been recorded up to that day.
+    """
     style = statements._styles()
     found = months.figures(worker, month)
+    period = f"{month:%B %Y}" if to_date is None else f"1 – {to_date:%d %B %Y} (month in progress)"
     story = [
         Paragraph(escape(worker.name), style["title"]),
-        Paragraph(escape(f"{worker.designation + ' · ' if worker.designation else ''}{month:%B %Y}"), style["sub"]),
+        Paragraph(escape(f"{worker.designation + ' · ' if worker.designation else ''}{period}"), style["sub"]),
         Spacer(1, 6 * mm),
     ]
     facts = [
         ("Mobile", worker.phone or "—"),
         ("Joined", f"{worker.joined_on:%d %b %Y}" if worker.joined_on else "—"),
         ("Monthly salary", statements.money(worker.monthly_salary)),
-        ("Report for", f"{month:%B %Y}"),
+        ("Report for", f"{month:%B %Y}" if to_date is None else f"{month:%B %Y}, up to {to_date:%d %b}"),
     ]
     story += [statements._facts_table(facts, style), Spacer(1, 6 * mm)]
 
@@ -233,7 +238,8 @@ def employee_pdf(worker, month):
     pay = Table(
         [[Paragraph(label, style["cell"]), Paragraph(value, style["cellr"])] for label, value in [
             ("Monthly salary", statements.money(advance.salary)),
-            ("Less: deducted towards the advance", statements.money(advance.deducted)),
+            ("Less: deducted towards the advance",
+             statements.money(advance.deducted) if advance.settled or to_date is None else "at the month's end"),
             ("<b>Salary to be paid</b>", f"<b>{statements.money(advance.salary_to_pay)}</b>"),
         ]],
         colWidths=[70 * mm, 40 * mm], hAlign="LEFT",
@@ -247,6 +253,12 @@ def employee_pdf(worker, month):
     ]))
     story.append(pay)
 
-    filename = f"Report-{statements._filename(worker.name)}-{month:%Y-%m}.pdf"
+    if to_date is not None:
+        story.append(Spacer(1, 3 * mm))
+        story.append(Paragraph(
+            f"Figures up to {to_date:%d %b %Y}. The month is still open, so they may change; the amount to deduct is "
+            "entered when the month's report is downloaded after it closes.", style["note"]))
+    suffix = f"{month:%Y-%m}" if to_date is None else f"{to_date:%Y-%m-%d}"
+    filename = f"Report-{statements._filename(worker.name)}-{suffix}.pdf"
     buffer, doc = statements._document(filename)
     return statements._respond(buffer, doc, story, filename, decorate=statements.letterhead("Monthly Attendance Report"))

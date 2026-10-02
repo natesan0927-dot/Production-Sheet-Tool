@@ -62,6 +62,38 @@
     });
   }
 
+  /* -------------------------------- tables that stack into cards on a phone */
+  // Each cell is labelled with its column's heading, so a stacked row still says
+  // what each value is. Cells labelled in the template keep their own label; a
+  // cell spanning columns (an empty-list line) or a total's caption gets none.
+  document.querySelectorAll("table.tw-stack").forEach(function (table) {
+    var headings = [];
+    var head = table.querySelector("thead tr:last-child");
+    if (head) Array.prototype.forEach.call(head.children, function (th) {
+      var span = parseInt(th.getAttribute("colspan") || "1", 10);
+      for (var i = 0; i < span; i++) headings.push(span > 1 ? "" : th.textContent.replace(/\s+/g, " ").trim());
+    });
+    table.querySelectorAll("tbody > tr, tfoot > tr").forEach(function (row) {
+      var column = 0;
+      var total = row.parentNode.tagName === "TFOOT";
+      Array.prototype.forEach.call(row.children, function (cell) {
+        var span = parseInt(cell.getAttribute("colspan") || "1", 10);
+        var caption = span > 1 || (total && column === 0);
+        if (!cell.hasAttribute("data-label")) {
+          cell.setAttribute("data-label", caption ? "" : (headings[column] || ""));
+          // A name, a place and a badge stay one block beside the label, not three squeezed columns.
+          if (cell.childNodes.length && !(cell.children.length === 1 && cell.firstElementChild.classList.contains("tw-cell"))) {
+            var wrap = document.createElement("div");
+            wrap.className = "tw-cell";
+            while (cell.firstChild) wrap.appendChild(cell.firstChild);
+            cell.appendChild(wrap);
+          }
+        }
+        column += span;
+      });
+    });
+  });
+
   /* ------------------------------ documents open in the phone's own apps */
   // On Android a tapped document is handed to the phone's viewer (a PDF app,
   // Drive, Photos) instead of only being downloaded, so back from the viewer
@@ -74,6 +106,49 @@
     if (!link || link.origin !== window.location.origin) return;
     event.preventDefault();
     window.location.href = "/open/?u=" + encodeURIComponent(link.pathname + link.search);
+  });
+
+  /* ------------- a quick enquiry addressed: make it a lead, or junk it */
+  // "Addressed" is saved, and the question of what became of it is asked right
+  // there. Put off, it waits on the to-do. Without this script the enquiry's own
+  // page asks the same question.
+  document.addEventListener("submit", function (event) {
+    var form = event.target.closest("form[data-enquiry-address]");
+    var decide = document.getElementById("enquiry-decide");
+    if (!form || !decide || !window.bootstrap || !window.fetch) return;
+    event.preventDefault();
+    var button = form.querySelector("button");
+    if (button) button.disabled = true;
+    fetch(form.action, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" },
+      body: new FormData(form),
+    }).then(function (response) {
+      if (!response.ok) throw new Error();
+      return response.json();
+    }).then(function (answer) {
+      if (!answer.deciding) { window.location.reload(); return; }
+      document.querySelectorAll(".modal.show").forEach(function (open) {
+        if (open !== decide) bootstrap.Modal.getOrCreateInstance(open).hide();
+      });
+      decide.querySelector("[data-decide-who]").textContent = answer.who;
+      decide.querySelector("[data-decide-lead]").href = answer.lead_url;
+      decide.querySelector("[data-decide-junk]").action = answer.junk_url;
+      bootstrap.Modal.getOrCreateInstance(decide).show();
+    }).catch(function () {
+      form.removeAttribute("data-enquiry-address");
+      form.submit();   // the plain way: the enquiry's page asks
+    });
+  });
+
+  document.addEventListener("click", function (event) {
+    if (event.target.closest("[data-decide-later]")) window.location.reload();
+  });
+
+  document.addEventListener("submit", function (event) {
+    var junk = event.target.closest("form[data-decide-junk]");
+    if (junk && !window.confirm("Junk this enquiry?")) event.preventDefault();
   });
 
   /* ------------------------------------------------- installable as an app */

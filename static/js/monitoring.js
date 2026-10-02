@@ -202,19 +202,16 @@
       opener.classList.remove("d-none");
       note("");
     } else if (action === "complete") {
-      if (!window.confirm("Complete today's work? Your last site stop is the end of the day.")) return;
+      // Just the time: the last site stop already says where the day ended.
+      if (!window.confirm("Complete today's work?")) return;
       button.disabled = true;
-      note("Getting your location…");
-      var url = work.getAttribute("data-complete-url");
-      // Where the day ended, if the phone can say; the day is completed either way.
-      send(url).catch(function () {
-        return fetch(url, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-          body: "{}",
-        }).then(function (response) { if (!response.ok) throw new Error("It could not be saved. Try again."); });
-      }).then(function () {
+      fetch(work.getAttribute("data-complete-url"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+        body: "{}",
+      }).then(function (response) {
+        if (!response.ok) throw new Error("It could not be saved. Try again.");
         window.location.reload();
       }).catch(function (problem) {
         note(problem.message, "bad");

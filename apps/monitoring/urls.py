@@ -15,6 +15,7 @@ urlpatterns = [
     path("employees/<int:pk>/remove/", views.employee_remove, name="employee_remove"),
     path("employees/<int:pk>/restore/", views.employee_restore, name="employee_restore"),
     path("employees/<int:pk>/day/", views.employee_day, name="employee_day"),
+    path("employees/<int:pk>/report/", views.report_to_date, name="report_to_date"),
     path("employees/<int:pk>/report/<str:month>/", views.report_pdf, name="report_pdf"),
     path("employees/<int:pk>/report/<str:month>/deduct/", views.report_deduction, name="report_deduction"),
     path("attendance/", views.attendance, name="attendance"),

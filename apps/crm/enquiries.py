@@ -17,6 +17,7 @@ import re
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -181,10 +182,23 @@ def detail(request, pk):
 @login_required
 @require_POST
 def addressed(request, pk):
+    """Called back — and then, straight away, the question of what became of it.
+
+    The page asks "Create as a lead, or junk it?" there and then. Only if that
+    is put off does it wait on the to-do.
+    """
     enquiry = get_object_or_404(Enquiry, pk=pk, assigned_to=request.user)
-    if mark_addressed(enquiry, request.user):
-        messages.success(request, "Addressed. It is on your to-do — make it a lead, or junk it.")
-    return safe_next(request, reverse("crm:dashboard"))
+    mark_addressed(enquiry, request.user)
+    if "application/json" in request.headers.get("Accept", ""):
+        return JsonResponse({
+            "ok": True,
+            "deciding": enquiry.deciding,
+            "who": enquiry.who,
+            "lead_url": f"{reverse('crm:lead_create')}?enquiry={enquiry.pk}",
+            "junk_url": reverse("crm:enquiry_junk", args=[enquiry.pk]),
+        })
+    # Without the page's script: the enquiry's own page, which asks the same.
+    return redirect("crm:enquiry_detail", pk=enquiry.pk)
 
 
 @login_required

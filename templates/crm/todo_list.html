@@ -32,7 +32,7 @@
       <div class="card-header"><i class="fa-solid fa-list-check me-2"></i>My to-do</div>
       <div class="list-group list-group-flush">
         {% for task in tasks %}
-          <div class="list-group-item d-flex justify-content-between align-items-start gap-2">
+          <div class="list-group-item d-flex justify-content-between align-items-start gap-2 tw-todo-item">
             <div>
               <div class="{% if task.done %}text-decoration-line-through text-muted{% else %}fw-semibold{% endif %}">
                 {{ task.title }}
@@ -53,9 +53,9 @@
             </div>
             {% if task.enquiry and not task.done %}
               {# A quick enquiry: addressed first, then made a lead or junked. #}
-              <div class="d-flex flex-column gap-1 flex-shrink-0">
+              <div class="d-flex flex-column gap-1 flex-shrink-0 tw-todo-actions">
                 {% if task.enquiry.is_open %}
-                <form method="post" action="{% url 'crm:enquiry_addressed' task.enquiry.pk %}">
+                <form method="post" data-enquiry-address action="{% url 'crm:enquiry_addressed' task.enquiry.pk %}">
                   {% csrf_token %}
                   <input type="hidden" name="next" value="{{ request.get_full_path }}">
                   <button class="btn btn-sm btn-primary w-100">Addressed</button>
