@@ -1,0 +1,11 @@
+{% load money %}
+{# REPORT for one employee and one month: asks the amount to deduct first (see _report_box.html). #}
+<button type="button" class="btn {{ style|default:'btn-primary' }}" data-report
+        data-name="{{ worker.name }}" data-month="{{ month|date:'F Y' }}"
+        data-save="{% url 'monitoring:report_deduction' worker.pk month|date:'Y-m' %}"
+        data-pdf="{% url 'monitoring:report_pdf' worker.pk month|date:'Y-m' %}"
+        data-salary="{{ table.salary|floatformat:'2' }}" data-owed="{{ table.owed|floatformat:'2' }}"
+        data-previous="{{ table.previous|floatformat:'2' }}" data-received="{{ table.received|floatformat:'2' }}"
+        data-deduction="{% if table.settled %}{{ table.deducted|floatformat:'-2' }}{% endif %}">
+  <i class="fa-solid fa-file-pdf me-1"></i>{{ label|default:"" }}{% if label %}{{ month|date:"F Y" }}{% else %}REPORT{% endif %}
+</button>

@@ -5,65 +5,68 @@
 <div class="tw-eyebrow">Monitoring</div>
 <h4 class="mb-1">Site Visits</h4>
 <p class="text-muted small mb-3">
-  {% if people %}Where the sales executives stopped, with their remarks. Pick one to see only theirs.
-  {% else %}Every site stop you have recorded, with your remarks.{% endif %}
+  {% if people %}One sales executive's day at a time: where they started, each site they stopped at, and where they finished.
+  {% else %}Your day: where you started, each site you stopped at, and where you finished.{% endif %}
 </p>
 
-<form method="get" class="row g-2 align-items-end mb-3">
+<form method="get" class="d-flex align-items-end gap-2 flex-wrap mb-3">
   {% if people %}
-  <div class="col-12 col-md-4">
+  <div>
     <label class="form-label small mb-1" for="who">Sales executive</label>
-    <select name="salesperson" id="who" class="form-select form-select-sm" onchange="this.form.submit()">
-      <option value="">Everyone</option>
+    <select name="salesperson" id="who" class="form-select" onchange="this.form.submit()">
       {% for someone in people %}<option value="{{ someone.pk }}" {% if person.pk == someone.pk %}selected{% endif %}>{{ someone.display_name }}</option>{% endfor %}
     </select>
   </div>
   {% endif %}
-  <div class="col-6 col-md-3">
-    <label class="form-label small mb-1" for="from">From</label>
-    <input type="date" name="from" id="from" value="{{ start|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="form-control form-control-sm">
+  <div>
+    <label class="form-label small mb-1" for="on">Day</label>
+    <div class="d-flex gap-1">
+      <a class="btn btn-outline-secondary" href="?{% if people %}salesperson={{ person.pk }}&amp;{% endif %}date={{ previous_date|date:'Y-m-d' }}" aria-label="Day before"><i class="fa-solid fa-chevron-left"></i></a>
+      <input type="date" name="date" id="on" value="{{ date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="form-control" onchange="this.form.submit()">
+      {% if next_date %}<a class="btn btn-outline-secondary" href="?{% if people %}salesperson={{ person.pk }}&amp;{% endif %}date={{ next_date|date:'Y-m-d' }}" aria-label="Day after"><i class="fa-solid fa-chevron-right"></i></a>{% endif %}
+    </div>
   </div>
-  <div class="col-6 col-md-3">
-    <label class="form-label small mb-1" for="to">To</label>
-    <input type="date" name="to" id="to" value="{{ end|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="form-control form-control-sm">
-  </div>
-  <div class="col-12 col-md-2"><button class="btn btn-sm btn-outline-secondary w-100">Show</button></div>
 </form>
 
 <div class="card">
-  <div class="card-header small text-muted">
-    {{ stops_count }} site stop{{ stops_count|pluralize }}{% if person and people %} by {{ person.display_name }}{% endif %},
-    {{ start|date:"d M" }} – {{ end|date:"d M Y" }}
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="fa-solid fa-route me-2"></i>{{ person.display_name|default:"—" }} · {{ date|date:"l, d M Y" }}{% if date == today %} <span class="badge bg-primary ms-1">Today</span>{% endif %}</span>
+    <span class="small text-muted">{{ stops_count }} site{{ stops_count|pluralize }} visited</span>
   </div>
-  <div class="table-responsive">
-    <table class="table align-middle mb-0 tw-stack">
-      <thead class="table-light">
-        <tr>
-          <th>S.No</th><th>Date &amp; time</th>{% if people and not person %}<th>Sales executive</th>{% endif %}<th>Location</th><th>Remark</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for entry in entries %}
-        <tr{% if entry.kind == 'start' %} class="table-light"{% endif %}>
-          <td class="text-muted" data-label="S.No">{{ forloop.counter }}</td>
-          <td class="text-nowrap" data-label="Date & time">{{ entry.at|date:"d M Y" }}<span class="d-block small text-muted">{{ entry.at|time:"h:i A" }}</span></td>
-          {% if people and not person %}<td data-label="Sales executive">{{ entry.user.display_name }}</td>{% endif %}
-          <td data-label="Location">
-            <a href="https://www.google.com/maps?q={{ entry.latitude }},{{ entry.longitude }}" target="_blank" rel="noopener" class="text-nowrap">
-              <i class="fa-solid fa-map-location-dot me-1"></i>{{ entry.latitude|floatformat:5 }}, {{ entry.longitude|floatformat:5 }}
-            </a>
-            {% if entry.accuracy %}<span class="d-block small text-muted">accurate to ±{{ entry.accuracy }} m</span>{% endif %}
-          </td>
-          <td data-label="Remark">
-            {% if entry.kind == 'start' %}<span class="badge bg-success"><i class="fa-solid fa-play me-1"></i>Started the day</span>
-            {% else %}<span class="tw-cell">{{ entry.remark|linebreaksbr }}</span>{% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="5" class="text-center text-muted py-5" data-label="">Nothing recorded in these dates.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="card-body">
+    {% if events %}
+    <ol class="mon-timeline">
+      {% for event in events %}
+      <li class="mon-step is-{{ event.kind }}">
+        <span class="mon-dot">
+          {% if event.kind == 'start' %}<i class="fa-solid fa-play"></i>{% elif event.kind == 'end' %}<i class="fa-solid fa-flag-checkered"></i>{% else %}{{ forloop.counter|add:"-1" }}{% endif %}
+        </span>
+        <div class="mon-step-body">
+          <div class="mon-step-time">{{ event.at|time:"h:i A" }}</div>
+          <div class="mon-step-title">{% if event.kind == 'stop' %}{{ event.title|linebreaksbr }}{% else %}{{ event.title }}{% endif %}</div>
+          {% if event.latitude is not None %}
+          <a href="https://www.google.com/maps?q={{ event.latitude }},{{ event.longitude }}" target="_blank" rel="noopener" class="small">
+            <i class="fa-solid fa-location-dot me-1"></i>{% if event.place %}near {{ event.place }}{% else %}{{ event.latitude|floatformat:5 }}, {{ event.longitude|floatformat:5 }}{% endif %}
+          </a>
+          {% if event.accuracy %}<span class="small text-muted"> · within {{ event.accuracy }} m</span>{% endif %}
+          {% elif event.kind == 'end' %}<span class="small text-muted">location not shared</span>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+      {% if day and not day.completed_at %}
+      <li class="mon-step is-open">
+        <span class="mon-dot"><i class="fa-solid fa-ellipsis"></i></span>
+        <div class="mon-step-body"><div class="mon-step-title text-muted">{% if date == today %}Still out — the day is not completed yet{% else %}The day was not marked completed{% endif %}</div></div>
+      </li>
+      {% endif %}
+    </ol>
+    <p class="text-muted small mb-0 mt-2">Areas from © OpenStreetMap contributors.</p>
+    {% else %}
+    <div class="text-center text-muted py-5">
+      <i class="fa-regular fa-calendar-xmark fs-3 d-block mb-2 opacity-50"></i>
+      {% if person %}{{ person.display_name }} did not start work on {{ date|date:"d M Y" }}.{% else %}No sales executives yet.{% endif %}
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

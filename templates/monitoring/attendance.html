@@ -71,6 +71,13 @@
                 {% endif %}
                 <button type="button" class="btn mon-mark-btn is-ot {% if record.overtime_hours %}active{% endif %}" data-ot-toggle
                         aria-expanded="{% if record.overtime_hours %}true{% else %}false{% endif %}" title="Overtime" {% if closed %}disabled{% endif %}>OT</button>
+                {# Whatever advance they were given today — weekly, monthly, any. #}
+                <div class="input-group mon-advance-box" title="Advance given today">
+                  <span class="input-group-text">₹</span>
+                  <input type="number" name="adv_{{ worker.pk }}" id="adv{{ worker.pk }}" class="form-control" min="0" step="1"
+                         inputmode="decimal" placeholder="Advance" aria-label="Advance given to {{ worker.name }} today"
+                         value="{% if row.advance %}{{ row.advance|floatformat:'-2' }}{% endif %}" {% if closed %}disabled{% endif %}>
+                </div>
               </div>
               <div class="mon-ot-box {% if not record.overtime_hours %}d-none{% endif %}">
                 <label class="small text-muted me-1" for="ot{{ worker.pk }}">Overtime hours</label>

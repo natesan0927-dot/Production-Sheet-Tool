@@ -38,7 +38,11 @@
                 {{ task.title }}
               </div>
               <div class="text-muted small">
-                {% if task.enquiry and not task.done %}<span class="badge bg-danger me-1"><i class="fa-solid fa-bolt me-1"></i>Urgent</span><a href="tel:{{ task.enquiry.dial }}" class="me-1"><i class="fa-solid fa-phone me-1"></i>Call</a>{% endif %}
+                {% if task.enquiry and not task.done %}
+                  {% if task.enquiry.is_open %}<span class="badge bg-danger me-1"><i class="fa-solid fa-bolt me-1"></i>Urgent</span>
+                  {% else %}<span class="badge bg-warning me-1">Addressed — what became of it?</span>{% endif %}
+                  <a href="tel:{{ task.enquiry.dial }}" class="me-1"><i class="fa-solid fa-phone me-1"></i>Call</a>
+                {% endif %}
                 {% if task.due_date %}Due {{ task.due_date|date:"d M Y" }}{% else %}No due date{% endif %}
                 {% if task.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
                 {% if not task.is_self_assigned %}
@@ -47,7 +51,26 @@
               </div>
               {% if task.details %}<div class="text-muted small mt-1">{{ task.details|linebreaksbr }}</div>{% endif %}
             </div>
-            {% if not task.done %}
+            {% if task.enquiry and not task.done %}
+              {# A quick enquiry: addressed first, then made a lead or junked. #}
+              <div class="d-flex flex-column gap-1 flex-shrink-0">
+                {% if task.enquiry.is_open %}
+                <form method="post" action="{% url 'crm:enquiry_addressed' task.enquiry.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="btn btn-sm btn-primary w-100">Addressed</button>
+                </form>
+                {% else %}
+                <a href="{% url 'crm:lead_create' %}?enquiry={{ task.enquiry.pk }}" class="btn btn-sm btn-success"><i class="fa-solid fa-user-plus me-1"></i>Create as a lead</a>
+                <form method="post" action="{% url 'crm:enquiry_junk' task.enquiry.pk %}"
+                      onsubmit="return confirm('Junk the enquiry from {{ task.enquiry.who|escapejs }}?')">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="btn btn-sm btn-outline-danger w-100"><i class="fa-solid fa-trash me-1"></i>Junk it</button>
+                </form>
+                {% endif %}
+              </div>
+            {% elif not task.done %}
             <form method="post" action="{% url 'crm:todo_done' task.pk %}">
               {% csrf_token %}
               <button class="btn btn-sm btn-outline-success">Done</button>

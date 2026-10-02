@@ -680,31 +680,37 @@ executives** can sign in to it; everyone else is turned away.
 - **Employees** — the factory's staff, who do not sign in: name, mobile, designation, joining date,
   **monthly salary**, and any advance already outstanding when they are added. Edit or remove them;
   removing keeps their past months, and they can be restored.
-- **Attendance** — everyone in alphabetical order, with ✓ present, ✗ absent, 0.5 half day and OT
-  (hours of overtime), saved for the day. *Holiday today* marks the day a holiday for everyone.
-  *Mark the rest present* fills in whoever is left. Any earlier day of an open month can be opened
-  and corrected.
-- **Employee page** — their details, the month on a calendar (tap a day to enter that day's
-  overtime), and the advance table.
-- **Salary & Advances** — for each employee and month: advance received this month, weekly advance,
-  and the amount to deduct. The table shows *advance received this month* (monthly + weekly),
-  *previous advance* (what was still owed coming into the month), *deducted this month*, and *total
-  advance remaining* (previous + received − deducted).
+- **Attendance** — everyone in alphabetical order, with ✓ present, ✗ absent, 0.5 half day, OT
+  (hours of overtime) and **Advance ₹** — whatever advance they were given that day, weekly, monthly or
+  any — saved for the day. Advances add up for the month. *Holiday today* marks the day a holiday for
+  everyone; *Mark the rest present* fills in whoever is left. Pick any earlier day of an open month to
+  change its attendance and advances.
+- **Employee page** — their details and salary, the month on a calendar (tap a day for its overtime
+  and advance), and the advance table: *previous advance* (last month's remaining), *advance
+  received this month*, *deducted this month*, *total advance remaining*, *salary to be paid*.
 - **Reports** — on the **1st of every month** the month just ended closes and its report is ready
-  (the Super Admin gets a notification): an **Excel sheet** for everyone and a **PDF** per employee,
-  also under *REPORT* on each employee's page. A closed month cannot be changed; *Reopen for
-  corrections* opens it again until it is closed again. Reports are drawn when downloaded and never
-  stored, so they take no space — download again any time.
+  (the Super Admin gets a notification). Each employee's **REPORT** first asks the **amount to
+  deduct** for that month — the box shows what they owe and their salary — then downloads the PDF
+  with the attendance, the advances given, previous advance, received, deducted, remaining, and the
+  **salary to be paid** (monthly salary − deduction). The **Excel sheet** has everyone, with the
+  deductions entered so far. A closed month cannot be changed; *Reopen for corrections* opens it again
+  until it is closed again. Reports are drawn when downloaded and never stored — download again any
+  time.
 
 **A sales executive**
 
 - **Today's Work** — *Start today's work* (the phone asks for location), then *Update site stop* at
-  each site: a remark, and the phone's location at that moment. As many stops a day as needed.
-- **Site Visits** — their own stops with time, a map link and the remark. The Super Admin sees
-  everyone's and can pick one sales executive and a range of dates.
+  each site: the site's name and a remark, and the phone's location at that moment — as many as
+  needed. *Complete day* ends it (*Resume the day* undoes a mis-tap).
+- **Site Visits** — one sales executive's day at a time (today unless another is picked; the Super
+  Admin picks the person from a list), as a timeline: *Started the day*, each site in order with the
+  area it was in ("near Anna Nagar, Chennai") and a map link, then *Completed the day*. The area comes
+  from OpenStreetMap's free address service; if it cannot be reached, the map link is still there.
+  Set `PLACES_LOOKUP_URL` to empty on Render to switch the area names off.
 
 Location needs HTTPS and the phone's location switched on; if it is refused, the page says how to
-allow it and nothing is saved without a location.
+allow it and nothing is saved without a location (except *Complete day*, which records the time even
+when the phone cannot tell where).
 
 **Storage.** Everything is in the database: thirty employees marked every day is about a megabyte a
 year, so there is no need for Google Sheets.
@@ -762,10 +768,12 @@ app's right-click menu on the taskbar. (Android only lets real apps put typing b
 screen itself, so this shortcut is the nearest a web app can go.) If *Quick enquiry* is not in the
 list, remove the app and add it again — Android reads the shortcuts when the app is installed.
 
-The sales executive gets it on their phone at once, marked urgent; a pop-up the next time they open
-the app asking them to deal with it now; and, if they close that, a red banner at the top of every
-page, a to-do, and a pin at the top of Notifications — until they press *Addressed* (or tick the
-to-do). The Super Admin is told when it is addressed.
+The screen asks for the customer's number, their name (optional), what they asked, and the sales
+executive to call back. That person gets it on their phone at once, marked urgent; a pop-up the next
+time they open the app; and the newest one as a red banner at the top of every page — older ones wait
+pinned at the top of Notifications — until they press *Addressed*. It then sits at the top of their
+to-do asking what became of it: **Create as a lead** opens the new-lead form filled in from the
+enquiry, **Junk it** junks it. Either way the Super Admin is told, with the customer's name and number.
 
 **Several people on one device.** The menu under your name has *Add another account*. Each person
 signs in once; after that everyone added on the device is one tap away under *Switch account*, with

@@ -360,10 +360,11 @@ PAGE_NOTES = {
     ),
     "crm:enquiry": (
         "Quick Enquiry",
-        "When a customer rings with a quick question: their number, what they asked, and "
-        "tap the sales executive who should call back. They get it on their phone at once "
-        "and it stays at the top of their app until they mark it addressed. Keep it on your "
-        "home screen: press and hold the Titans icon and drag Quick enquiry out.",
+        "When a customer rings with a quick question: their number, their name if you have "
+        "it, what they asked, and tap the sales executive who should call back. They get it "
+        "on their phone at once; once they have called back they make it a lead or junk it, "
+        "and you are told which. Keep it on your home screen: press and hold the Titans icon "
+        "and drag Quick enquiry out.",
     ),
     "crm:day_summary": (
         "Summary for the Day",

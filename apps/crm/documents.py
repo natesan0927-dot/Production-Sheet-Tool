@@ -39,6 +39,8 @@ DOCUMENTS = {
     "crm:handover_download",
     "crm:ledger_pdf",
     "crm:outstanding_pdf",
+    "monitoring:report_pdf",
+    "monitoring:report_excel",
 }
 
 SALT = "titans.open-document"

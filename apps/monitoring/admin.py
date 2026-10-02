@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Advance, Attendance, ReopenedMonth, SiteStop, Worker, WorkDay
+from .models import Advance, Attendance, DayAdvance, ReopenedMonth, SiteStop, Worker, WorkDay
 
 
 @admin.register(Worker)
@@ -19,7 +19,13 @@ class AttendanceAdmin(admin.ModelAdmin):
 
 @admin.register(Advance)
 class AdvanceAdmin(admin.ModelAdmin):
-    list_display = ("month", "worker", "monthly_advance", "weekly_advance", "deduction")
+    list_display = ("month", "worker", "deduction")
+
+
+@admin.register(DayAdvance)
+class DayAdvanceAdmin(admin.ModelAdmin):
+    list_display = ("date", "worker", "amount")
+    date_hierarchy = "date"
 
 
 @admin.register(SiteStop)

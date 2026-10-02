@@ -31,10 +31,10 @@ COLUMNS = [
     ("S.No", 6), ("Name", 24), ("Designation", 16), ("Monthly salary", 14),
     ("Days present", 10), ("Half days", 9), ("Days absent", 10), ("Holidays", 9), ("Not marked", 10),
     ("Days worked", 10), ("Overtime hours", 11), ("Overtime days (dates)", 26),
-    ("Advance received this month", 15), ("Previous advance", 14), ("Deducted this month", 14),
-    ("Total advance remaining", 15),
+    ("Previous advance", 14), ("Advance received this month", 15), ("Deducted this month", 14),
+    ("Total advance remaining", 15), ("Salary to be paid", 14),
 ]
-MONEY_COLUMNS = {4, 13, 14, 15, 16}
+MONEY_COLUMNS = {4, 13, 14, 15, 16, 17}
 
 
 def _download(content, content_type, filename):
@@ -77,7 +77,8 @@ def month_workbook(month):
             number, worker.name, worker.designation, worker.monthly_salary,
             found.present, found.half, found.absent, found.holiday, found.unmarked,
             found.days_worked, found.overtime_hours, found.overtime_dates or "—",
-            found.advance.received, found.advance.previous, found.advance.deducted, found.advance.remaining,
+            found.advance.previous, found.advance.received, found.advance.deducted, found.advance.remaining,
+            found.advance.salary_to_pay,
         ]
         row += 1
         for column, value in enumerate(values, start=1):
@@ -104,7 +105,8 @@ def month_workbook(month):
     sheet.freeze_panes = sheet.cell(row=header_row + 1, column=3)
     sheet.cell(row=row + 2, column=1, value=(
         "Days worked = days present + half of each half day. Previous advance is what was still owed coming "
-        "into the month. Remaining = previous + received this month − deducted."
+        "into the month. Remaining = previous + received this month − deducted. Salary to be paid = monthly "
+        "salary − deducted (the deduction is entered when each employee's report is downloaded)."
     )).font = Font(italic=True, size=9, color="6B7280")
 
     output = BytesIO()
@@ -158,9 +160,9 @@ def employee_pdf(worker, month):
     story.append(Spacer(1, 2 * mm))
     grid = [[Paragraph(day, style["head"]) for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]]
     shading = []
-    for r, week in enumerate(months.calendar_weeks(month, found.days), start=1):
+    for r, week in enumerate(months.calendar_weeks(month, found.days, found.advances_by_day), start=1):
         cells = []
-        for c, (day, record) in enumerate(week):
+        for c, (day, record, given) in enumerate(week):
             if day is None:
                 cells.append("")
                 continue
@@ -171,6 +173,8 @@ def employee_pdf(worker, month):
                 if record.overtime_hours:
                     mark += f" <font size='7' color='#192265'>+{record.overtime_hours:g}h OT</font>"
                 shading.append(("BACKGROUND", (c, r), (c, r), fill))
+            if given:
+                mark += f"<br/><font size='7' color='#0f766e'>Adv {statements.money(given, prefix=False)}</font>"
             cells.append(Paragraph(f"{day.day}{mark}", style["cell"]))
         grid.append(cells)
     table = Table(grid, colWidths=[24.8 * mm] * 7, rowHeights=[None] + [13 * mm] * (len(grid) - 1), hAlign="LEFT")
@@ -195,22 +199,53 @@ def employee_pdf(worker, month):
         story.append(statements._grid(rows, [60 * mm, 30 * mm], style, right_from=1))
         story.append(Spacer(1, 5 * mm))
 
+    advance = found.advance
+    if advance.given:
+        story.append(Paragraph("<b>Advances given this month</b>", style["cell"]))
+        story.append(Spacer(1, 2 * mm))
+        rows = [[Paragraph("Date", style["head"]), Paragraph("Amount", style["headr"])]]
+        rows += [[Paragraph(f"{day:%a, %d %b %Y}", style["cell"]), Paragraph(statements.money(amount), style["cellr"])]
+                 for day, amount in advance.given]
+        rows.append([Paragraph("<b>Total</b>", style["cell"]), Paragraph(f"<b>{statements.money(advance.received)}</b>", style["cellr"])])
+        story.append(statements._grid(rows, [60 * mm, 40 * mm], style, right_from=1))
+        story.append(Spacer(1, 5 * mm))
+
     story.append(Paragraph("<b>Advance</b>", style["cell"]))
     story.append(Spacer(1, 2 * mm))
-    advance = found.advance
     rows = [
         [Paragraph(label, style["headr"]) for label in
-         ["Advance received this month", "Previous advance", "Deducted this month", "Total advance remaining"]],
+         ["Previous advance", "Advance received this month", "Deducted this month", "Total advance remaining"]],
         [Paragraph(statements.money(value), style["cellr"]) for value in
-         [advance.received, advance.previous, advance.deducted, advance.remaining]],
+         [advance.previous, advance.received, advance.deducted, advance.remaining]],
     ]
     story.append(statements._grid(rows, [43.4 * mm] * 4, style, right_from=0))
     story.append(Spacer(1, 2 * mm))
     story.append(Paragraph(
-        f"Received this month: monthly advance {statements.money(advance.monthly)} + weekly advance "
-        f"{statements.money(advance.weekly)}. Previous advance is what was still owed coming into the month.",
+        "Previous advance is what was still owed coming into the month. "
+        "Remaining = previous + received this month − deducted.",
         style["note"],
     ))
+    story.append(Spacer(1, 5 * mm))
+
+    # What they are paid this month: the salary, less what is taken back towards the advance.
+    story.append(Paragraph("<b>Salary</b>", style["cell"]))
+    story.append(Spacer(1, 2 * mm))
+    pay = Table(
+        [[Paragraph(label, style["cell"]), Paragraph(value, style["cellr"])] for label, value in [
+            ("Monthly salary", statements.money(advance.salary)),
+            ("Less: deducted towards the advance", statements.money(advance.deducted)),
+            ("<b>Salary to be paid</b>", f"<b>{statements.money(advance.salary_to_pay)}</b>"),
+        ]],
+        colWidths=[70 * mm, 40 * mm], hAlign="LEFT",
+    )
+    pay.setStyle(TableStyle([
+        ("LINEABOVE", (0, 0), (-1, 0), 0.8, statements.NAVY),
+        ("LINEABOVE", (0, -1), (-1, -1), 0.8, statements.NAVY),
+        ("BACKGROUND", (0, -1), (-1, -1), statements.BAND),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(pay)
 
     filename = f"Report-{statements._filename(worker.name)}-{month:%Y-%m}.pdf"
     buffer, doc = statements._document(filename)

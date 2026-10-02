@@ -105,7 +105,6 @@ MONITORING_GROUPS = {
         ("Monitoring", "production", [
             ("Attendance", "monitoring:attendance", "fa-clipboard-user", None),
             ("Employees", "monitoring:employees", "fa-people-group", None),
-            ("Salary & Advances", "monitoring:salary", "fa-wallet", None),
             ("Reports", "monitoring:reports", "fa-file-excel", None),
             ("Site Visits", "monitoring:status", "fa-location-dot", None),
         ]),

@@ -6,13 +6,15 @@ month again to correct it, and close it again after.
 
 The advance table, for one worker and one month:
 
-    received this month   = monthly advance + weekly advance
-    previous advance      = what they still owed coming into the month: the
-                            advance outstanding when they were added here, plus
-                            every earlier month's advances, less every earlier
-                            month's deductions
-    deducted this month   = the amount entered to deduct
+    received this month   = every advance given on a day of the month (entered
+                            beside that day's attendance)
+    previous advance      = what they still owed coming into the month — last
+                            month's remaining: the advance outstanding when they
+                            were added here, plus every earlier advance, less
+                            every earlier month's deduction
+    deducted this month   = the amount entered when the month's report is downloaded
     remaining             = previous + received this month − deducted
+    salary to be paid     = monthly salary − deducted this month
 """
 
 import calendar
@@ -23,7 +25,7 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.utils import timezone
 
-from .models import ZERO, Advance, Attendance, ReopenedMonth, Worker
+from .models import ZERO, Advance, Attendance, DayAdvance, ReopenedMonth, Worker
 
 
 def first_of(day):
@@ -73,7 +75,7 @@ def first_month():
     """The earliest month with anything recorded, for lists of months."""
     starts = [
         Attendance.objects.order_by("date").values_list("date", flat=True).first(),
-        Advance.objects.order_by("month").values_list("month", flat=True).first(),
+        DayAdvance.objects.order_by("date").values_list("date", flat=True).first(),
     ]
     added = Worker.objects.order_by("created_at").values_list("created_at", flat=True).first()
     if added:
@@ -98,7 +100,7 @@ def covers(worker, month):
     end = last_day(month)
     if Attendance.objects.filter(worker=worker, date__gte=month, date__lte=end).exists():
         return True
-    if Advance.objects.filter(worker=worker, month=month).exists():
+    if DayAdvance.objects.filter(worker=worker, date__gte=month, date__lte=end).exists():
         return True
     added = timezone.localtime(worker.created_at).date()
     started = max(filter(None, [worker.joined_on, added]))
@@ -109,7 +111,7 @@ def workers_for(month):
     """Everyone on the roll at some point in the month, or with something recorded in it."""
     end = last_day(month)
     with_records = set(Attendance.objects.filter(date__gte=month, date__lte=end).values_list("worker_id", flat=True))
-    with_records |= set(Advance.objects.filter(month=month).values_list("worker_id", flat=True))
+    with_records |= set(DayAdvance.objects.filter(date__gte=month, date__lte=end).values_list("worker_id", flat=True))
     return [
         worker for worker in Worker.objects.all()
         if worker.pk in with_records
@@ -123,12 +125,23 @@ class AdvanceTable:
     received: Decimal = ZERO
     previous: Decimal = ZERO
     deducted: Decimal = ZERO
-    monthly: Decimal = ZERO
-    weekly: Decimal = ZERO
+    salary: Decimal = ZERO
+    # Whether a deduction has been entered for the month yet (at the report).
+    settled: bool = False
+    given: list = field(default_factory=list)   # [(date, amount)] this month
+
+    @property
+    def owed(self):
+        """Everything they owe before this month's deduction."""
+        return self.previous + self.received
 
     @property
     def remaining(self):
-        return self.previous + self.received - self.deducted
+        return self.owed - self.deducted
+
+    @property
+    def salary_to_pay(self):
+        return self.salary - self.deducted
 
 
 @dataclass
@@ -146,6 +159,10 @@ class MonthFigures:
     advance: AdvanceTable = field(default_factory=AdvanceTable)
 
     @property
+    def advances_by_day(self):
+        return dict(self.advance.given)
+
+    @property
     def days_worked(self):
         """Full days plus half of each half day."""
         return Decimal(self.present) + Decimal(self.half) / 2
@@ -157,15 +174,19 @@ class MonthFigures:
 
 
 def advance_table(worker, month):
+    end = last_day(month)
+    given_before = DayAdvance.objects.filter(worker=worker, date__lt=month).aggregate(t=Sum("amount"))["t"] or ZERO
+    deducted_before = Advance.objects.filter(worker=worker, month__lt=month).aggregate(t=Sum("deduction"))["t"] or ZERO
+    given = [(a.date, a.amount) for a in DayAdvance.objects.filter(worker=worker, date__gte=month, date__lte=end)]
     row = Advance.objects.filter(worker=worker, month=month).first()
-    earlier = Advance.objects.filter(worker=worker, month__lt=month).aggregate(
-        monthly=Sum("monthly_advance"), weekly=Sum("weekly_advance"), deducted=Sum("deduction")
+    return AdvanceTable(
+        received=sum((amount for _, amount in given), ZERO),
+        previous=worker.opening_advance + given_before - deducted_before,
+        deducted=row.deduction if row else ZERO,
+        salary=worker.monthly_salary,
+        settled=row is not None,
+        given=given,
     )
-    previous = worker.opening_advance + (earlier["monthly"] or ZERO) + (earlier["weekly"] or ZERO) - (earlier["deducted"] or ZERO)
-    if row is None:
-        return AdvanceTable(previous=previous)
-    return AdvanceTable(received=row.received, previous=previous, deducted=row.deduction,
-                        monthly=row.monthly_advance, weekly=row.weekly_advance)
 
 
 def figures(worker, month):
@@ -188,9 +209,11 @@ def figures(worker, month):
     return result
 
 
-def calendar_weeks(month, days):
-    """Weeks of the month, Monday first: each a list of (date or None, Attendance or None)."""
+def calendar_weeks(month, days, advances=None):
+    """Weeks of the month, Monday first: each a list of (date or None, Attendance or None, advance or None)."""
+    advances = advances or {}
     weeks = []
     for week in calendar.Calendar(firstweekday=0).monthdatescalendar(month.year, month.month):
-        weeks.append([(day, days.get(day)) if day.month == month.month else (None, None) for day in week])
+        weeks.append([(day, days.get(day), advances.get(day)) if day.month == month.month else (None, None, None)
+                      for day in week])
     return weeks

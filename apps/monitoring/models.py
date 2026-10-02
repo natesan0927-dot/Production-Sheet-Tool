@@ -79,13 +79,34 @@ class Attendance(models.Model):
         return f"{self.worker} {self.date}: {self.get_status_display()}"
 
 
+class DayAdvance(models.Model):
+    """Money advanced to a worker on a day — a weekly advance, a monthly one, whatever was given.
+
+    Entered beside the day's attendance. A month's advances are the sum of its days.
+    """
+
+    worker = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name="day_advances")
+    date = models.DateField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    given_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["date"]
+        constraints = [models.UniqueConstraint(fields=["worker", "date"], name="one_advance_per_worker_per_day")]
+
+    def __str__(self):
+        return f"{self.worker} {self.date}: {self.amount}"
+
+
 class Advance(models.Model):
-    """A worker's advances in one month, and what was recovered from their salary."""
+    """What was recovered from a worker's salary for one month's advances.
+
+    Entered when the month's report is downloaded.
+    """
 
     worker = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name="advances")
     month = models.DateField(help_text="The 1st of the month.")
-    monthly_advance = models.DecimalField("Advance received this month", max_digits=12, decimal_places=2, default=ZERO)
-    weekly_advance = models.DecimalField("Weekly advance for this month", max_digits=12, decimal_places=2, default=ZERO)
     deduction = models.DecimalField("Amount to deduct", max_digits=12, decimal_places=2, default=ZERO)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,10 +117,6 @@ class Advance(models.Model):
 
     def __str__(self):
         return f"{self.worker} {self.month:%b %Y}"
-
-    @property
-    def received(self):
-        return self.monthly_advance + self.weekly_advance
 
 
 class ReopenedMonth(models.Model):
@@ -117,7 +134,7 @@ class ReopenedMonth(models.Model):
 
 
 class WorkDay(models.Model):
-    """A sales executive's day out: when and where they started."""
+    """A sales executive's day out: when and where they started, and when they finished."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="workdays")
     date = models.DateField(default=timezone.localdate)
@@ -125,6 +142,13 @@ class WorkDay(models.Model):
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     accuracy = models.PositiveIntegerField("Accurate to (metres)", null=True, blank=True)
+    # The area it was in, looked up from the coordinates ("Anna Nagar, Chennai").
+    place = models.CharField(max_length=200, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    end_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    end_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    end_accuracy = models.PositiveIntegerField(null=True, blank=True)
+    end_place = models.CharField(max_length=200, blank=True)
 
     class Meta:
         ordering = ["-date"]
@@ -143,6 +167,7 @@ class SiteStop(models.Model):
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     accuracy = models.PositiveIntegerField("Accurate to (metres)", null=True, blank=True)
+    place = models.CharField(max_length=200, blank=True)
     remark = models.TextField(max_length=1000)
 
     class Meta:

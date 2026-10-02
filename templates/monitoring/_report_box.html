@@ -1,0 +1,36 @@
+{# One box for the page: the amount to deduct, asked as a REPORT is downloaded. Filled by monitoring.js. #}
+<div class="modal fade" id="report-box" tabindex="-1" aria-labelledby="report-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" data-report-form>
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title" id="report-title"><i class="fa-solid fa-file-pdf me-2"></i><span data-report-name></span> — <span data-report-month></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row small mb-3">
+          <dt class="col-7">Previous advance</dt><dd class="col-5 text-end">₹<span data-report-previous></span></dd>
+          <dt class="col-7">Advance received this month</dt><dd class="col-5 text-end">₹<span data-report-received></span></dd>
+          <dt class="col-7">Advance owed</dt><dd class="col-5 text-end fw-bold">₹<span data-report-owed></span></dd>
+          <dt class="col-7">Monthly salary</dt><dd class="col-5 text-end">₹<span data-report-salary></span></dd>
+        </dl>
+        <label class="form-label fw-semibold" for="report-deduction">Amount to deduct from this month's salary (₹)</label>
+        <input type="number" id="report-deduction" name="deduction" class="form-control form-control-lg" min="0" step="1"
+               inputmode="decimal" placeholder="0" required>
+        <div class="d-flex justify-content-between small mt-2">
+          <span class="text-muted">Salary to be paid</span><strong>₹<span data-report-pay></span></strong>
+        </div>
+        <div class="d-flex justify-content-between small">
+          <span class="text-muted">Advance remaining after this</span><strong>₹<span data-report-left></span></strong>
+        </div>
+        <div class="text-danger small mt-2" data-report-error></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary"><i class="fa-solid fa-download me-1"></i>Download report</button>
+      </div>
+    </form>
+  </div>
+</div>
+{# Clicked once the deduction is saved, so on a phone it opens in the phone's PDF app. #}
+<a href="#" download class="d-none" data-report-link aria-hidden="true" tabindex="-1">report</a>

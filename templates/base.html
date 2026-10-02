@@ -167,14 +167,14 @@
       </div>
     </div>
     {% endif %}
-    {% if open_enquiries and not hide_chrome %}
-    {# Quick enquiries waiting on this person: at the top of every page until addressed. #}
-    <div class="enq-banner mb-3" role="region" aria-label="Urgent enquiries">
-      {% for enquiry in open_enquiries|slice:":3" %}
+    {% if newest_enquiry and not hide_chrome %}
+    {# The newest quick enquiry waiting on this person, at the top of every page; older ones wait in Notifications. #}
+    {% with enquiry=newest_enquiry %}
+    <div class="enq-banner mb-3" role="region" aria-label="Urgent enquiry">
       <div class="enq-banner-item">
         <i class="fa-solid fa-bolt"></i>
         <a href="{% url 'crm:enquiry_detail' enquiry.pk %}" class="flex-grow-1 min-w-0 text-reset text-decoration-none">
-          <strong>Urgent enquiry — call {{ enquiry.phone }}</strong>
+          <strong>Urgent enquiry — call {{ enquiry.who }}</strong>
           <span class="d-block small text-truncate">{{ enquiry.remarks }}</span>
         </a>
         <a href="tel:{{ enquiry.dial }}" class="btn btn-sm btn-light" aria-label="Call {{ enquiry.phone }}"><i class="fa-solid fa-phone"></i></a>
@@ -184,9 +184,11 @@
           <button class="btn btn-sm btn-light fw-semibold">Addressed</button>
         </form>
       </div>
-      {% endfor %}
-      {% if open_enquiries|length > 3 %}<a href="{% url 'crm:todo_list' %}" class="small text-white">and {{ open_enquiries|length|add:"-3" }} more on your to-do</a>{% endif %}
+      {% if open_enquiries|length > 1 %}
+      <a href="{% url 'crm:notifications' %}" class="small enq-more">{{ open_enquiries|length|add:"-1" }} older enquir{{ open_enquiries|length|add:"-1"|pluralize:"y,ies" }} waiting in Notifications</a>
+      {% endif %}
     </div>
+    {% endwith %}
     {% endif %}
     {% if storage_usage and storage_usage.level != 'ok' %}
     <div class="alert alert-{% if storage_usage.level == 'critical' %}danger{% else %}warning{% endif %}" role="alert">
@@ -224,7 +226,7 @@ copy, so the two never both render.
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content enq-popup">
       <div class="modal-header">
-        <h5 class="modal-title" id="enquiry-popup-title"><i class="fa-solid fa-bolt me-2"></i>Urgent enquiry{{ enquiry_popup|length|pluralize }} — please address now</h5>
+        <h5 class="modal-title" id="enquiry-popup-title"><i class="fa-solid fa-bolt me-2"></i>Urgent enquiry — please address now</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close for now"></button>
       </div>
       <div class="modal-body">
@@ -234,6 +236,7 @@ copy, so the two never both render.
             <a href="tel:{{ enquiry.dial }}" class="fs-4 fw-bold text-decoration-none"><i class="fa-solid fa-phone me-1"></i>{{ enquiry.phone }}</a>
             <span class="small text-muted text-nowrap">{{ enquiry.created_at|time:"h:i A" }}</span>
           </div>
+          {% if enquiry.customer_name %}<div class="fw-semibold">{{ enquiry.customer_name }}</div>{% endif %}
           <p class="mb-2">{{ enquiry.remarks|linebreaksbr }}</p>
           <div class="small text-muted mb-2">From {{ enquiry.created_by.display_name|default:"the Super Admin" }}</div>
           <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">

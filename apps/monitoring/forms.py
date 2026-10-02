@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role
 
-from .models import Advance, Worker
+from .models import Worker
 
 CONTROL = {"class": "form-control"}
 
@@ -65,35 +65,3 @@ class WorkerForm(forms.ModelForm):
         if day and day > timezone.localdate():
             raise forms.ValidationError("The joining date cannot be in the future.")
         return day
-
-
-class AdvanceForm(forms.ModelForm):
-    """The three figures a month's advances are made of. Editable until the month closes."""
-
-    class Meta:
-        model = Advance
-        fields = ["monthly_advance", "weekly_advance", "deduction"]
-        widgets = {name: forms.NumberInput(attrs={**CONTROL, "min": "0", "step": "0.01", "inputmode": "decimal"})
-                   for name in ["monthly_advance", "weekly_advance", "deduction"]}
-        labels = {
-            "monthly_advance": "Advance received this month (₹)",
-            "weekly_advance": "Weekly advance for this month (₹)",
-            "deduction": "Amount to deduct (₹)",
-        }
-
-    def __init__(self, *args, previous=Decimal("0"), **kwargs):
-        super().__init__(*args, **kwargs)
-        self.previous = previous
-
-    def clean(self):
-        data = super().clean()
-        for name in ["monthly_advance", "weekly_advance", "deduction"]:
-            value = data.get(name)
-            if value is None:
-                data[name] = Decimal("0")
-            elif value < 0:
-                self.add_error(name, "Enter 0 or more.")
-        owed = self.previous + data.get("monthly_advance", 0) + data.get("weekly_advance", 0)
-        if data.get("deduction", 0) > owed:
-            self.add_error("deduction", f"That is more than the ₹{owed:,.2f} of advance they owe.")
-        return data

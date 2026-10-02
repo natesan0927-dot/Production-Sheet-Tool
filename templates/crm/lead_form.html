@@ -3,10 +3,17 @@
 
 {% block content %}
 <h4 class="mb-3">{% if lead %}Edit Lead — {{ lead.customer_name }}{% else %}Add Lead{% endif %}</h4>
+{% if enquiry %}
+<div class="alert alert-info small tw-form-narrow">
+  <i class="fa-solid fa-phone-volume me-1"></i>From the quick enquiry <strong>{{ enquiry.who }}</strong> — what the Super Admin passed on
+  is filled in. Saving the lead tells them it was made a lead.
+</div>
+{% endif %}
 <div class="card tw-form-narrow">
   <div class="card-body">
     <form method="post">
       {% csrf_token %}
+      {% if enquiry %}<input type="hidden" name="enquiry" value="{{ enquiry.pk }}">{% endif %}
       <div class="row g-3">
         {% for field in form %}
         {% if field.name != 'project_same_as_customer' %}

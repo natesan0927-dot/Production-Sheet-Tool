@@ -5,7 +5,7 @@
 <div class="mx-auto" style="max-width:560px">
   <div class="tw-eyebrow"><i class="fa-solid fa-phone-volume me-1"></i>Quick enquiry</div>
   <h4 class="mb-1">Pass a call to a sales executive</h4>
-  <p class="text-muted small mb-3">They get it on their phone now, and it stays on their to-do until they mark it addressed.</p>
+  <p class="text-muted small mb-3">They get it on their phone now. Once they have called back, they make it a lead or junk it — and you are told which.</p>
 
   <form method="post" class="card mb-4" id="enquiry-form">
     {% csrf_token %}
@@ -15,6 +15,11 @@
         <input type="tel" name="phone" id="id_phone" class="form-control form-control-lg" inputmode="tel" autocomplete="off"
                value="{{ form.phone.value|default:'' }}" placeholder="98765 43210" required {% if not form.errors %}autofocus{% endif %}>
         {% if form.phone.errors %}<div class="text-danger small mt-1">{{ form.phone.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="id_customer_name">Customer's name <span class="text-muted fw-normal small">— optional</span></label>
+        <input type="text" name="customer_name" id="id_customer_name" class="form-control" autocomplete="off" maxlength="150"
+               value="{{ form.customer_name.value|default:'' }}" placeholder="If they gave it">
       </div>
       <div class="mb-3">
         <label class="form-label fw-semibold" for="id_remarks">What was the enquiry?</label>
@@ -55,9 +60,11 @@
       {% for enquiry in recent %}
       <a href="{% url 'crm:enquiry_detail' enquiry.pk %}" class="list-group-item list-group-item-action">
         <div class="d-flex justify-content-between gap-2">
-          <strong>{{ enquiry.phone }}</strong>
-          {% if enquiry.is_open %}<span class="badge bg-warning">Waiting</span>
-          {% else %}<span class="badge bg-success">Addressed {{ enquiry.addressed_at|date:"d M, h:i A" }}</span>{% endif %}
+          <strong class="min-w-0 text-truncate">{{ enquiry.who }}</strong>
+          {% if enquiry.outcome == 'lead' %}<span class="badge bg-success text-nowrap">Lead created</span>
+          {% elif enquiry.outcome == 'junk' %}<span class="badge bg-secondary text-nowrap">Junked</span>
+          {% elif enquiry.is_open %}<span class="badge bg-warning text-nowrap">Waiting</span>
+          {% else %}<span class="badge bg-info text-nowrap">Addressed</span>{% endif %}
         </div>
         <div class="small text-truncate">{{ enquiry.remarks }}</div>
         <div class="small text-muted">to {{ enquiry.assigned_to.display_name }} · {{ enquiry.created_at|date:"d M, h:i A" }}</div>

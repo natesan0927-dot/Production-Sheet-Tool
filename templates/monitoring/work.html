@@ -7,7 +7,8 @@
 <h4 class="mb-1">Today's Work</h4>
 <p class="text-muted small mb-3">{{ today|date:"l, d M Y" }}</p>
 
-<div class="mon-work" data-start-url="{% url 'monitoring:work_start' %}" data-stop-url="{% url 'monitoring:work_stop' %}">
+<div class="mon-work" data-start-url="{% url 'monitoring:work_start' %}" data-stop-url="{% url 'monitoring:work_stop' %}"
+     data-complete-url="{% url 'monitoring:work_complete' %}">
   {% if not day %}
     <div class="card text-center">
       <div class="card-body py-5">
@@ -17,6 +18,18 @@
           <i class="fa-solid fa-play me-2"></i>Start today's work
         </button>
         <div class="small mt-3" data-work-note></div>
+      </div>
+    </div>
+  {% elif day.completed_at %}
+    <div class="card text-center mb-3">
+      <div class="card-body py-4">
+        <i class="fa-solid fa-flag-checkered fs-1 mb-2 d-block text-success"></i>
+        <h5 class="mb-1">Day completed at {{ day.completed_at|time:"h:i A" }}</h5>
+        <p class="text-muted small mb-3">Started {{ day.started_at|time:"h:i A" }} · {{ stops|length }} site stop{{ stops|length|pluralize }}</p>
+        <form method="post" action="{% url 'monitoring:work_resume' %}" onsubmit="return confirm('Open today\'s work again to add more stops?')">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-link">Completed by mistake? Resume the day</button>
+        </form>
       </div>
     </div>
   {% else %}
@@ -31,9 +44,9 @@
           <i class="fa-solid fa-location-dot me-2"></i>Update site stop
         </button>
         <form class="mon-stop-form d-none text-start mt-3 mx-auto" style="max-width:520px" data-stop-form>
-          <label class="form-label fw-semibold" for="stop-remark">Remark about this site</label>
+          <label class="form-label fw-semibold" for="stop-remark">Site name, and what happened there</label>
           <textarea id="stop-remark" class="form-control" rows="3" maxlength="1000" required
-                    placeholder="Who you met, what was discussed, the next step…"></textarea>
+                    placeholder="e.g. Sunrise Apartments — met the site engineer, measurements on Friday"></textarea>
           <div class="form-text">Your current location is taken when you submit.</div>
           <div class="d-flex gap-2 mt-3">
             <button class="btn btn-primary flex-grow-1" data-work="submit-stop"><i class="fa-solid fa-paper-plane me-1"></i>Submit</button>
@@ -43,25 +56,33 @@
         <div class="small mt-3" data-work-note></div>
       </div>
     </div>
+  {% endif %}
 
-    {% if stops %}
-    <div class="card">
-      <div class="card-header"><i class="fa-solid fa-route me-2"></i>Today's site stops</div>
-      <div class="list-group list-group-flush">
-        {% for stop in stops %}
-        <div class="list-group-item">
-          <div class="d-flex justify-content-between gap-2">
-            <strong>{{ stop.recorded_at|time:"h:i A" }}</strong>
-            <a href="https://www.google.com/maps?q={{ stop.latitude }},{{ stop.longitude }}" target="_blank" rel="noopener" class="small">
-              <i class="fa-solid fa-map-location-dot me-1"></i>Map{% if stop.accuracy %} · ±{{ stop.accuracy }} m{% endif %}
-            </a>
-          </div>
-          <div class="small">{{ stop.remark|linebreaksbr }}</div>
+  {% if stops %}
+  <div class="card mb-3">
+    <div class="card-header"><i class="fa-solid fa-route me-2"></i>Today's site stops</div>
+    <div class="list-group list-group-flush">
+      {% for stop in stops %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between gap-2">
+          <strong>{{ stop.recorded_at|time:"h:i A" }}</strong>
+          <a href="https://www.google.com/maps?q={{ stop.latitude }},{{ stop.longitude }}" target="_blank" rel="noopener" class="small">
+            <i class="fa-solid fa-map-location-dot me-1"></i>{{ stop.place|default:"Map" }}
+          </a>
         </div>
-        {% endfor %}
+        <div class="small">{{ stop.remark|linebreaksbr }}</div>
       </div>
+      {% endfor %}
     </div>
-    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if day and not day.completed_at %}
+  <div class="text-center">
+    <button type="button" class="btn btn-outline-success px-4" data-work="complete">
+      <i class="fa-solid fa-flag-checkered me-1"></i>Complete day
+    </button>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

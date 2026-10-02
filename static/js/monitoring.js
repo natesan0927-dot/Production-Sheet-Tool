@@ -50,11 +50,73 @@
       if (!day || day.disabled) return;
       box.querySelector("[name=date]").value = day.getAttribute("data-date");
       box.querySelector("[name=hours]").value = day.getAttribute("data-hours") || "";
+      var given = box.querySelector("[name=advance]");
+      if (given) given.value = day.getAttribute("data-advance") || "";
       box.querySelector("[data-overtime-day]").textContent =
         day.getAttribute("data-label") + " · " + day.getAttribute("data-status");
       modal.show();
     });
     box.addEventListener("shown.bs.modal", function () { box.querySelector("[name=hours]").focus(); });
+  }
+
+  /* ------------------------------- REPORT: the deduction, then the PDF */
+  var report = document.getElementById("report-box");
+  if (report && window.bootstrap) {
+    var reportModal = bootstrap.Modal.getOrCreateInstance(report);
+    var reportForm = report.querySelector("[data-report-form]");
+    var reportLink = document.querySelector("[data-report-link]");
+    var current = null;
+    var money = function (value) {
+      return Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    var put = function (name, value) { report.querySelector("[data-report-" + name + "]").textContent = value; };
+    var recount = function () {
+      var take = Number(reportForm.deduction.value || 0);
+      put("pay", money(Number(current.getAttribute("data-salary")) - take));
+      put("left", money(Number(current.getAttribute("data-owed")) - take));
+    };
+
+    document.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-report]");
+      if (!button) return;
+      current = button;
+      put("name", button.getAttribute("data-name"));
+      put("month", button.getAttribute("data-month"));
+      ["previous", "received", "owed", "salary"].forEach(function (key) { put(key, money(button.getAttribute("data-" + key))); });
+      reportForm.action = button.getAttribute("data-save");
+      reportForm.deduction.value = button.getAttribute("data-deduction") || "";
+      reportForm.deduction.max = Math.min(Number(button.getAttribute("data-owed")), Number(button.getAttribute("data-salary")));
+      put("error", "");
+      recount();
+      reportModal.show();
+    });
+    report.addEventListener("shown.bs.modal", function () { reportForm.deduction.focus(); });
+    reportForm.deduction.addEventListener("input", recount);
+
+    reportForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var send = reportForm.querySelector("button:not([data-bs-dismiss])");
+      send.disabled = true;
+      fetch(reportForm.action, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Accept": "application/json", "X-CSRFToken": reportForm.csrfmiddlewaretoken.value },
+        body: new FormData(reportForm),
+      }).then(function (response) {
+        return response.json().then(function (answer) {
+          if (!response.ok || !answer.ok) throw new Error(answer.error || "It could not be saved.");
+          return answer;
+        });
+      }).then(function (answer) {
+        current.setAttribute("data-deduction", reportForm.deduction.value || "0");
+        reportModal.hide();
+        // A real link, so a phone hands the PDF to its own viewer (see app.js).
+        reportLink.href = answer.pdf;
+        reportLink.click();
+      }).catch(function (problem) {
+        put("error", problem.message);
+      }).then(function () { send.disabled = false; });
+    });
   }
 
   /* ------------------------------------------------------- today's work */
@@ -139,6 +201,25 @@
       form.classList.add("d-none");
       opener.classList.remove("d-none");
       note("");
+    } else if (action === "complete") {
+      if (!window.confirm("Complete today's work? Your last site stop is the end of the day.")) return;
+      button.disabled = true;
+      note("Getting your location…");
+      var url = work.getAttribute("data-complete-url");
+      // Where the day ended, if the phone can say; the day is completed either way.
+      send(url).catch(function () {
+        return fetch(url, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+          body: "{}",
+        }).then(function (response) { if (!response.ok) throw new Error("It could not be saved. Try again."); });
+      }).then(function () {
+        window.location.reload();
+      }).catch(function (problem) {
+        note(problem.message, "bad");
+        button.disabled = false;
+      });
     }
   });
 

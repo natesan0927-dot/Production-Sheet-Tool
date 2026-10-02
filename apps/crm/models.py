@@ -830,16 +830,25 @@ class Enquiry(models.Model):
     addressed.
     """
 
+    class Outcome(models.TextChoices):
+        LEAD = "lead", "Created as a lead"
+        JUNK = "junk", "Junked"
+
     phone = models.CharField("Customer's number", max_length=20)
+    customer_name = models.CharField("Customer's name", max_length=150, blank=True)
     remarks = models.TextField("What the enquiry was", max_length=1000)
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="enquiries")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
-    # The to-do it sits on; marking either one done addresses both.
+    # The to-do it sits on, from the moment it is sent until it is made a lead or junked.
     task = models.OneToOneField("Task", on_delete=models.SET_NULL, null=True, blank=True, related_name="enquiry")
-    # Shown as the pop-up once; after that it waits on the to-do and the banner.
+    # Shown as the pop-up once; after that it waits on the banner, the notifications and the to-do.
     popped_at = models.DateTimeField(null=True, blank=True)
+    # Called back. It then waits on the to-do for what became of it.
     addressed_at = models.DateTimeField(null=True, blank=True)
+    outcome = models.CharField(max_length=10, choices=Outcome.choices, blank=True)
+    outcome_at = models.DateTimeField(null=True, blank=True)
+    lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         ordering = ["-created_at"]
@@ -849,7 +858,18 @@ class Enquiry(models.Model):
 
     @property
     def is_open(self):
+        """Not yet called back."""
         return self.addressed_at is None
+
+    @property
+    def deciding(self):
+        """Called back, and waiting to be made a lead or junked."""
+        return self.addressed_at is not None and not self.outcome
+
+    @property
+    def who(self):
+        """"Ravi Kumar, 98765 43210" — or just the number when no name was given."""
+        return f"{self.customer_name}, {self.phone}" if self.customer_name else self.phone
 
     @property
     def dial(self):

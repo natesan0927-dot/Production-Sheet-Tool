@@ -190,6 +190,14 @@ WEBPUSH_TEST_ENDPOINTS = env.list("WEBPUSH_TEST_ENDPOINTS", default=[])
 # Send during the request rather than on a background thread (tests only).
 WEBPUSH_INLINE = env.bool("WEBPUSH_INLINE", default=False)
 
+# Monitoring's site visits name the area each stop was in, from OpenStreetMap's free
+# address service (see apps/monitoring/places.py). Empty switches the lookup off.
+PLACES_LOOKUP_URL = env("PLACES_LOOKUP_URL", default="https://nominatim.openstreetmap.org/reverse")
+PLACES_USER_AGENT = env(
+    "PLACES_USER_AGENT", default=f"TitansWindowsCRM/1.0 (+https://{_render_host or 'localhost'})"
+)
+PLACES_INLINE = env.bool("PLACES_INLINE", default=False)
+
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 

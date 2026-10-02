@@ -11,9 +11,7 @@
   </div>
   <div class="d-flex gap-2 flex-wrap">
     {% if report_month %}
-    <a href="{% url 'monitoring:report_pdf' worker.pk report_month|date:'Y-m' %}" download class="btn btn-primary">
-      <i class="fa-solid fa-file-pdf me-1"></i>REPORT · {{ report_month|date:"F Y" }}
-    </a>
+    {% include "monitoring/_report_button.html" with worker=worker month=report_month table=report_table label="REPORT · " %}
     {% endif %}
     <a href="{% url 'monitoring:employee_edit' worker.pk %}" class="btn btn-outline-secondary"><i class="fa-solid fa-pen me-1"></i>Edit</a>
   </div>
@@ -57,27 +55,29 @@
           {% if figures.unmarked %}<span class="text-warning"><strong>{{ figures.unmarked }}</strong> not marked</span>{% endif %}
         </div>
 
-        {# Tap a day to enter that day's overtime. #}
+        {# Tap a day for its overtime and the advance given that day. #}
         <div class="mon-calendar" role="grid" aria-label="{{ month|date:'F Y' }}">
           {% for name in "MTWTFSS" %}<div class="mon-dow" role="columnheader">{{ name }}</div>{% endfor %}
-          {% for week in weeks %}{% for day, record in week %}
+          {% for week in weeks %}{% for day, record, advance in week %}
             {% if day %}
             <button type="button" role="gridcell"
                     class="mon-day{% if record %} is-{{ record.status }}{% endif %}{% if day == today %} is-today{% endif %}"
                     {% if not open or day > today %}disabled{% endif %}
                     data-date="{{ day|date:'Y-m-d' }}" data-label="{{ day|date:'l, d M Y' }}"
                     data-hours="{% if record and record.overtime_hours %}{{ record.overtime_hours|floatformat:'-1' }}{% endif %}"
+                    data-advance="{% if advance %}{{ advance|floatformat:'-2' }}{% endif %}"
                     data-status="{{ record.get_status_display|default:'Not marked' }}"
                     title="{{ day|date:'d M' }}{% if record %}: {{ record.get_status_display }}{% endif %}">
               <span class="mon-num">{{ day.day }}</span>
               {% if record %}<span class="mon-mark">{% if record.status == 'present' %}P{% elif record.status == 'absent' %}A{% elif record.status == 'half' %}½{% else %}H{% endif %}</span>{% endif %}
               {% if record.overtime_hours %}<span class="mon-ot">+{{ record.overtime_hours|floatformat:"-1" }}h</span>{% endif %}
+              {% if advance %}<span class="mon-adv">₹{{ advance|floatformat:"0" }}</span>{% endif %}
             </button>
             {% else %}<div class="mon-day is-blank" aria-hidden="true"></div>{% endif %}
           {% endfor %}{% endfor %}
         </div>
         <div class="text-muted small mt-2">
-          {% if open %}Tap a day to enter the overtime worked that day.{% else %}{{ month|date:"F Y" }} is closed. Reopen it under Reports to correct it.{% endif %}
+          {% if open %}Tap a day to enter its overtime, or an advance given that day.{% else %}{{ month|date:"F Y" }} is closed. Reopen it under Reports to correct it.{% endif %}
           <span class="d-block mt-1"><span class="mon-key is-present">P</span> present <span class="mon-key is-half">½</span> half day <span class="mon-key is-absent">A</span> absent <span class="mon-key is-holiday">H</span> holiday</span>
         </div>
         {% if figures.overtime_days %}
@@ -89,11 +89,12 @@
 
   <div class="col-12">
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="fa-solid fa-wallet me-2"></i>Advance — {{ month|date:"F Y" }}</span>
-        <a href="{% url 'monitoring:salary_employee' worker.pk %}?month={{ month|date:'Y-m' }}" class="small">{% if open %}Enter advances{% else %}Open{% endif %}</a>
-      </div>
+      <div class="card-header"><i class="fa-solid fa-wallet me-2"></i>Advance — {{ month|date:"F Y" }}</div>
       {% include "monitoring/_advance_table.html" with table=figures.advance %}
+      <div class="card-footer small text-muted">
+        {% if figures.advance.given %}Given this month: {% for day, amount in figures.advance.given %}{{ day|date:"d M" }} ₹{{ amount|floatformat:"-2" }}{% if not forloop.last %} · {% endif %}{% endfor %}.{% else %}No advance given this month.{% endif %}
+        Advances are entered on the Attendance sheet, or by tapping a day above. The deduction is asked for when the month's report is downloaded.
+      </div>
     </div>
   </div>
 </div>
@@ -101,10 +102,10 @@
 {% if open %}
 <div class="modal fade" id="overtime-box" tabindex="-1" aria-labelledby="overtime-title" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-sm">
-    <form class="modal-content" method="post" action="{% url 'monitoring:employee_overtime' worker.pk %}">
+    <form class="modal-content" method="post" action="{% url 'monitoring:employee_day' worker.pk %}">
       {% csrf_token %}
       <div class="modal-header">
-        <h5 class="modal-title" id="overtime-title">Overtime</h5>
+        <h5 class="modal-title" id="overtime-title">Overtime &amp; advance</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -112,7 +113,10 @@
         <input type="hidden" name="date">
         <label class="form-label" for="overtime-hours">Hours worked overtime</label>
         <input type="number" id="overtime-hours" name="hours" class="form-control" min="0" max="24" step="0.5" inputmode="decimal" placeholder="e.g. 2">
-        <div class="form-text">0 or empty clears it. A day not yet marked is marked present.</div>
+        <div class="form-text mb-3">0 or empty clears it. A day not yet marked is marked present.</div>
+        <label class="form-label" for="day-advance">Advance given that day (₹)</label>
+        <input type="number" id="day-advance" name="advance" class="form-control" min="0" step="1" inputmode="decimal" placeholder="e.g. 2000">
+        <div class="form-text">Weekly, monthly — whatever was given. Empty clears it.</div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-link" data-bs-dismiss="modal">Cancel</button>
@@ -122,6 +126,7 @@
   </div>
 </div>
 {% endif %}
+{% if report_month %}{% include "monitoring/_report_box.html" %}{% endif %}
 {% endblock %}
 
 {% block extra_js %}<script src="{% static 'js/monitoring.js' %}?v={{ css_version }}"></script>{% endblock %}

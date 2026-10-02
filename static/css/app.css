@@ -1614,3 +1614,27 @@ body.tw-tour-on #tw-sidebar { z-index: 1086; }
 .enq-popup .modal-header { background: #b42318; color: #fff; }
 .enq-popup .modal-header .btn-close { filter: invert(1); }
 .enq-popup-item + .enq-popup-item { border-top: 1px solid var(--tw-border); margin-top: .9rem; padding-top: .9rem; }
+
+/* Attendance: the day's advance, beside OT. */
+.mon-advance-box { width: 8.5rem; flex-wrap: nowrap; }
+.mon-advance-box .input-group-text { padding: 0 .55rem; border-radius: 10px 0 0 10px; }
+.mon-advance-box .form-control { height: 2.6rem; border-radius: 0 10px 10px 0; }
+@media (max-width: 575.98px) { .mon-advance-box { width: 9rem; } .mon-advance-box .form-control { height: 3rem; } }
+.mon-adv { font-size: .68rem; font-weight: 700; color: #0f766e; background: #ccfbf1; border-radius: 6px; padding: 0 .25rem; align-self: flex-start; }
+
+/* Site Visits: the day as a timeline, start to finish. */
+.mon-timeline { list-style: none; margin: 0; padding: 0; position: relative; }
+.mon-step { position: relative; display: flex; gap: .9rem; padding-bottom: 1.2rem; }
+.mon-step::before { content: ""; position: absolute; left: 1.05rem; top: 2.2rem; bottom: 0; width: 2px; background: var(--tw-border-strong); }
+.mon-step:last-child::before { display: none; }
+.mon-dot {
+  flex: none; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .85rem; background: var(--tw-surface-2); border: 2px solid var(--tw-gold); color: var(--bs-body-color);
+}
+.mon-step.is-start .mon-dot { background: #16a34a; border-color: #16a34a; color: #fff; }
+.mon-step.is-end .mon-dot { background: var(--tw-navy-700); border-color: var(--tw-gold); color: var(--tw-gold); }
+.mon-step.is-open .mon-dot { border-style: dashed; color: var(--tw-blue-400); }
+.mon-step-body { min-width: 0; padding-top: .15rem; }
+.mon-step-time { font-size: .78rem; font-weight: 700; color: var(--tw-blue-400); }
+.mon-step-title { font-weight: 600; overflow-wrap: anywhere; }
+.enq-more { color: var(--bs-body-color); padding-left: .3rem; }

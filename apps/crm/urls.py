@@ -82,6 +82,7 @@ urlpatterns = [
     path("enquiry/", enquiries.send, name="enquiry"),
     path("enquiry/<int:pk>/", enquiries.detail, name="enquiry_detail"),
     path("enquiry/<int:pk>/addressed/", enquiries.addressed, name="enquiry_addressed"),
+    path("enquiry/<int:pk>/junk/", enquiries.junk, name="enquiry_junk"),
     # Shared to-do list
     path("to-do/", views.todo_list, name="todo_list"),
     path("to-do/<int:pk>/done/", views.todo_done, name="todo_done"),

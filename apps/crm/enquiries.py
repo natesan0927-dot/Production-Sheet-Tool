@@ -1,15 +1,15 @@
 """Quick enquiries: a customer's call, passed by the Super Admin straight to a sales executive.
 
 When a customer rings with a quick question, the Super Admin opens Quick enquiry
-(a shortcut on the phone's home screen), types the number and what they asked,
-and taps the sales executive who should call back. That person gets:
+(a shortcut on the phone's home screen), types the number, the name if they have
+it, and what they asked, and taps the sales executive who should call back.
 
-- a notification on their phone straight away, marked urgent;
-- a pop-up the next time they open the app, with an "Addressed" button;
-- a to-do, and a banner at the top of every page, until they mark it addressed.
-
-Ticking the to-do done and pressing "Addressed" are the same thing, and the
-Super Admin is told either way.
+That person gets a notification on their phone at once, marked urgent; a pop-up
+the next time they open the app; and the newest one as a banner at the top of
+every page, older ones pinned at the top of Notifications — until they press
+"Addressed". It then stays at the top of their to-do, asking what became of it:
+"Create as a lead" (the new-lead form, filled in from the enquiry) or "Junk it".
+Either way the Super Admin is told, with the customer's name and number.
 """
 
 import re
@@ -37,6 +37,7 @@ def _salespeople():
 
 class EnquiryForm(forms.Form):
     phone = forms.CharField(label="Customer's number", max_length=20)
+    customer_name = forms.CharField(label="Customer's name", max_length=150, required=False)
     remarks = forms.CharField(label="What was the enquiry?", max_length=1000, widget=forms.Textarea)
     assigned_to = forms.ModelChoiceField(queryset=User.objects.none(), label="Assign to",
                                          error_messages={"required": "Tap the sales executive who should call back."})
@@ -52,37 +53,81 @@ class EnquiryForm(forms.Form):
             raise forms.ValidationError("Enter the customer's phone number.")
         return " ".join(typed.split())
 
+    def clean_customer_name(self):
+        return " ".join(self.cleaned_data["customer_name"].split())
+
     def clean_remarks(self):
         return self.cleaned_data["remarks"].strip()
 
 
-def complete_task(task, user):
-    """A to-do marked done: whoever handed it out is told. If it was an enquiry, that is addressed too."""
-    if task.done:
-        return False
-    now = timezone.now()
-    task.done = True
-    task.done_at = now
-    task.save(update_fields=["done", "done_at"])
-    updates.clear(updates.todo(task))
+# ---------------------------------------------------------------- what happens to one
+def _decide_title(enquiry):
+    return f"Enquiry from {enquiry.who}: create a lead or junk it"
 
-    enquiry = Enquiry.objects.filter(task=task, addressed_at__isnull=True).first()
-    if enquiry is not None:
-        enquiry.addressed_at = now
-        enquiry.save(update_fields=["addressed_at"])
-        updates.clear(updates.enquiry(enquiry))
-    if task.assigned_by_id and task.assigned_by_id != user.pk:
-        message = (
-            f"{user.display_name} addressed the enquiry from {enquiry.phone}" if enquiry
-            else f"{user.display_name} completed: {task.title}"
-        )
-        updates.send([task.assigned_by], message, topic=updates.todo_finished(task), link=f"{updates.todo_link()}#assigned")
+
+def mark_addressed(enquiry, user):
+    """Called back. Off the banner and the pins; on the to-do, waiting to be made a lead or junked."""
+    if not enquiry.is_open:
+        return False
+    enquiry.addressed_at = timezone.now()
+    enquiry.save(update_fields=["addressed_at"])
+    updates.clear(updates.enquiry(enquiry))
+    if enquiry.task_id:
+        Task.objects.filter(pk=enquiry.task_id).update(title=_decide_title(enquiry)[:200])
     return True
 
 
+def settle(enquiry, user, outcome, lead=None):
+    """Made a lead or junked: the to-do is done, and the Super Admin hears what became of it."""
+    if enquiry.outcome:
+        return False
+    now = timezone.now()
+    enquiry.addressed_at = enquiry.addressed_at or now
+    enquiry.outcome, enquiry.outcome_at, enquiry.lead = outcome, now, lead
+    enquiry.save(update_fields=["addressed_at", "outcome", "outcome_at", "lead"])
+    updates.clear(updates.enquiry(enquiry))
+    task = enquiry.task
+    if task and not task.done:
+        task.done, task.done_at = True, now
+        task.save(update_fields=["done", "done_at"])
+        updates.clear(updates.todo(task))
+    if enquiry.created_by_id and enquiry.created_by_id != user.pk:
+        what = "created a lead from" if outcome == Enquiry.Outcome.LEAD else "junked"
+        updates.send(
+            [enquiry.created_by],
+            f"{user.display_name} {what} the enquiry — {enquiry.who}",
+            lead=lead,
+            topic=updates.todo_finished(task) if task else "",
+            link=lead.get_absolute_url() if lead else reverse("crm:enquiry_detail", args=[enquiry.pk]),
+        )
+    return True
+
+
+def complete_task(task, user):
+    """A to-do marked done: whoever handed it out is told.
+
+    An enquiry's to-do is not simply ticked off: the first tick is "Addressed",
+    and after that it is finished by making it a lead or junking it.
+    """
+    if task.done:
+        return False
+    enquiry = Enquiry.objects.filter(task=task).first()
+    if enquiry is not None:
+        return mark_addressed(enquiry, user)
+    task.done = True
+    task.done_at = timezone.now()
+    task.save(update_fields=["done", "done_at"])
+    updates.clear(updates.todo(task))
+    if task.assigned_by_id and task.assigned_by_id != user.pk:
+        updates.send([task.assigned_by], f"{user.display_name} completed: {task.title}",
+                     topic=updates.todo_finished(task), link=f"{updates.todo_link()}#assigned")
+    return True
+
+
+# ---------------------------------------------------------------- the pages
 @login_required
 def send(request):
-    """The quick-enquiry screen: a number, what they asked, and who calls back."""
+    """The quick-enquiry screen: a number, a name if known, what they asked, and who calls back."""
     if not request.user.is_super_admin:
         # The home-screen shortcut is on everyone's phone; only the Super Admin sends.
         messages.info(request, "Quick enquiries are sent by the Super Admin. Yours arrive here and on your to-do.")
@@ -91,18 +136,19 @@ def send(request):
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         person = data["assigned_to"]
-        task = Task.objects.create(
-            title=f"Urgent enquiry — call {data['phone']}",
+        enquiry = Enquiry(phone=data["phone"], customer_name=data["customer_name"], remarks=data["remarks"],
+                          assigned_to=person, created_by=request.user)
+        enquiry.task = Task.objects.create(
+            title=f"Urgent enquiry — call {enquiry.who}"[:200],
             details=data["remarks"],
             assigned_to=person,
             assigned_by=request.user,
             due_date=timezone.localdate(),
         )
-        enquiry = Enquiry.objects.create(phone=data["phone"], remarks=data["remarks"], assigned_to=person,
-                                         created_by=request.user, task=task)
+        enquiry.save()
         updates.send(
             [person],
-            f"URGENT enquiry from {request.user.display_name}: call {enquiry.phone} — {enquiry.remarks}",
+            f"URGENT enquiry from {request.user.display_name}: call {enquiry.who} — {enquiry.remarks}",
             topic=updates.enquiry(enquiry),
             link=reverse("crm:enquiry_detail", args=[enquiry.pk]),
         )
@@ -115,15 +161,15 @@ def send(request):
             "form": form,
             "salespeople": _salespeople(),
             "picked": str(form["assigned_to"].value() or ""),
-            "recent": Enquiry.objects.select_related("assigned_to")[:LATEST],
+            "recent": Enquiry.objects.select_related("assigned_to", "lead")[:LATEST],
         },
     )
 
 
 @login_required
 def detail(request, pk):
-    """One enquiry: who to call and why, and the button to say it is dealt with."""
-    enquiry = get_object_or_404(Enquiry.objects.select_related("assigned_to", "created_by"), pk=pk)
+    """One enquiry: who to call and why, and what to do with it."""
+    enquiry = get_object_or_404(Enquiry.objects.select_related("assigned_to", "created_by", "lead"), pk=pk)
     if enquiry.assigned_to_id != request.user.pk and not request.user.is_super_admin:
         return redirect("crm:dashboard")
     if enquiry.assigned_to_id == request.user.pk and enquiry.popped_at is None:
@@ -136,22 +182,33 @@ def detail(request, pk):
 @require_POST
 def addressed(request, pk):
     enquiry = get_object_or_404(Enquiry, pk=pk, assigned_to=request.user)
-    if enquiry.is_open:
-        if enquiry.task_id:
-            complete_task(enquiry.task, request.user)
-        else:
-            enquiry.addressed_at = timezone.now()
-            enquiry.save(update_fields=["addressed_at"])
-            updates.clear(updates.enquiry(enquiry))
-        messages.success(request, f"Enquiry from {enquiry.phone} marked addressed.")
+    if mark_addressed(enquiry, request.user):
+        messages.success(request, "Addressed. It is on your to-do — make it a lead, or junk it.")
     return safe_next(request, reverse("crm:dashboard"))
 
 
-def context(request):
-    """For the person they are assigned to: open enquiries for the banner, and new ones to pop up.
+@login_required
+@require_POST
+def junk(request, pk):
+    enquiry = get_object_or_404(Enquiry, pk=pk, assigned_to=request.user)
+    if settle(enquiry, request.user, Enquiry.Outcome.JUNK):
+        messages.success(request, f"The enquiry from {enquiry.who} is junked.")
+    return safe_next(request, reverse("crm:todo_list"))
 
-    A new one pops up once, the next time they open a page; closing the pop-up
-    leaves it on the to-do and the banner until it is addressed.
+
+def for_new_lead(request):
+    """The enquiry a new lead is being made from, if it is this person's and still waiting for that."""
+    pk = request.POST.get("enquiry") or request.GET.get("enquiry")
+    if not (pk and str(pk).isdigit()):
+        return None
+    return Enquiry.objects.filter(pk=pk, assigned_to=request.user, outcome="").first()
+
+
+def context(request):
+    """For the person they are assigned to: the newest waiting enquiry for the banner, and a new one to pop up.
+
+    Only the newest is shown as the alert; older ones wait pinned at the top of
+    Notifications. A new one pops up once, the next time they open a page.
     """
     user = getattr(request, "user", None)
     if not (user and user.is_authenticated) or request.path in ("/sw.js", "/offline/"):
@@ -164,4 +221,4 @@ def context(request):
         Enquiry.objects.filter(pk__in=[e.pk for e in fresh]).update(popped_at=timezone.now())
     else:
         fresh = []
-    return {"open_enquiries": waiting, "enquiry_popup": fresh}
+    return {"open_enquiries": waiting, "newest_enquiry": waiting[0], "enquiry_popup": fresh[:1]}

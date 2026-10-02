@@ -5,7 +5,7 @@ from urllib.parse import quote, urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Count, Exists, F, OuterRef, Q, Sum
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -294,10 +294,23 @@ def dashboard(request):
         {
             "updates": todays_updates,
             "cards": _queue_cards(request.user, counts),
-            "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
+            "my_todos": my_tasks(request.user).filter(done=False)[:8],
             **_handed_out(request.user),
             "accounts_totals": _accounts_totals() if request.user.role == Role.ACCOUNTS else None,
         },
+    )
+
+
+def my_tasks(user):
+    """Someone's to-dos, with a quick enquiry still waiting on them at the top."""
+    from .models import Enquiry
+
+    waiting = Enquiry.objects.filter(task=OuterRef("pk"), outcome="")
+    return (
+        Task.objects.filter(assigned_to=user)
+        .select_related("assigned_by")
+        .annotate(from_enquiry=Exists(waiting))
+        .order_by("-from_enquiry", "done", "due_date", "-created_at")
     )
 
 
@@ -359,7 +372,7 @@ def _sales_dashboard(request, todays_updates):
         },
         "open_followups": panel_followups,
         "today": today,
-        "my_todos": Task.objects.filter(assigned_to=request.user, done=False).select_related("assigned_by")[:8],
+        "my_todos": my_tasks(request.user).filter(done=False)[:8],
         **_handed_out(request.user),
         "salespeople": sales_executives(),
         "selected_salesperson": selected_salesperson,
@@ -486,6 +499,10 @@ def filter_leads(leads, status):
 
 @role_required(Role.SALESPERSON)
 def lead_create(request):
+    from . import enquiries
+
+    # Made from a quick enquiry: the form starts with what the Super Admin passed on.
+    enquiry = enquiries.for_new_lead(request)
     if request.method == "POST":
         form = LeadForm(request.POST, user=request.user)
         if form.is_valid():
@@ -500,11 +517,17 @@ def lead_create(request):
                     f"A new lead opportunity has been assigned to you — {lead.customer_name}, {lead.site_location}",
                     lead.assigned_to,
                 )
+            if enquiry is not None:
+                enquiries.settle(enquiry, request.user, enquiry.Outcome.LEAD, lead=lead)
             messages.success(request, f"Lead for {lead.customer_name} saved. Set the first follow-up below.")
             return redirect(lead.get_absolute_url())
     else:
-        form = LeadForm(user=request.user)
-    return render(request, "crm/lead_form.html", {"form": form})
+        initial = {}
+        if enquiry is not None:
+            initial = {"customer_name": enquiry.customer_name, "phone": enquiry.phone,
+                       "remarks": f"Phone enquiry passed on by {enquiry.created_by.display_name if enquiry.created_by else 'the Super Admin'}: {enquiry.remarks}"}
+        form = LeadForm(user=request.user, initial=initial)
+    return render(request, "crm/lead_form.html", {"form": form, "enquiry": enquiry})
 
 
 @role_required(Role.SALESPERSON)
@@ -1998,7 +2021,7 @@ def queue_warranty(request):
 
 @login_required
 def todo_list(request):
-    mine = Task.objects.filter(assigned_to=request.user).select_related("assigned_by")
+    mine = my_tasks(request.user)
     if request.GET.get("show") != "all":
         mine = mine.filter(done=False)
 
