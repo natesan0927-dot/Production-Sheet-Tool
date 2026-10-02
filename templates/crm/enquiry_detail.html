@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Enquiry {{ enquiry.phone }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width:560px">
+  <div class="tw-eyebrow text-danger"><i class="fa-solid fa-bolt me-1"></i>Urgent enquiry</div>
+  <div class="card mt-2">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <h3 class="mb-0">{{ enquiry.phone }}</h3>
+        {% if enquiry.is_open %}<span class="badge bg-warning">Waiting</span>
+        {% else %}<span class="badge bg-success">Addressed</span>{% endif %}
+      </div>
+      <p class="mb-3">{{ enquiry.remarks|linebreaksbr }}</p>
+      <p class="text-muted small mb-3">
+        From {{ enquiry.created_by.display_name|default:"the Super Admin" }} for {{ enquiry.assigned_to.display_name }},
+        {{ enquiry.created_at|date:"d M Y, h:i A" }}{% if not enquiry.is_open %} · addressed {{ enquiry.addressed_at|date:"d M, h:i A" }}{% endif %}
+      </p>
+      <div class="d-grid gap-2">
+        <a href="tel:{{ enquiry.dial }}" class="btn btn-success btn-lg"><i class="fa-solid fa-phone me-1"></i>Call {{ enquiry.phone }}</a>
+        {% if enquiry.is_open and enquiry.assigned_to == user %}
+        <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">
+          {% csrf_token %}
+          <button class="btn btn-primary btn-lg"><i class="fa-solid fa-check me-1"></i>Addressed</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

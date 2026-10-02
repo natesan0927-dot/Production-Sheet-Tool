@@ -109,6 +109,10 @@
   });
 
   document.addEventListener("DOMContentLoaded", function () {
+    /* ------------------------------ a new quick enquiry pops up at once */
+    var enquiry = document.getElementById("enquiry-popup");
+    if (enquiry && window.bootstrap && bootstrap.Modal) bootstrap.Modal.getOrCreateInstance(enquiry).show();
+
     /* ------------------------------------------------- numbers count up */
     var numbers = document.querySelectorAll(".stat-value, .tw-stat-value");
     numbers.forEach(function (node) {

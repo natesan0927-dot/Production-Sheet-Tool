@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Quick enquiry{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width:560px">
+  <div class="tw-eyebrow"><i class="fa-solid fa-phone-volume me-1"></i>Quick enquiry</div>
+  <h4 class="mb-1">Pass a call to a sales executive</h4>
+  <p class="text-muted small mb-3">They get it on their phone now, and it stays on their to-do until they mark it addressed.</p>
+
+  <form method="post" class="card mb-4" id="enquiry-form">
+    {% csrf_token %}
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="id_phone">Customer's number</label>
+        <input type="tel" name="phone" id="id_phone" class="form-control form-control-lg" inputmode="tel" autocomplete="off"
+               value="{{ form.phone.value|default:'' }}" placeholder="98765 43210" required {% if not form.errors %}autofocus{% endif %}>
+        {% if form.phone.errors %}<div class="text-danger small mt-1">{{ form.phone.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="id_remarks">What was the enquiry?</label>
+        <textarea name="remarks" id="id_remarks" class="form-control" rows="3" maxlength="1000" required
+                  placeholder="e.g. Wants sliding windows for a 3BHK in Anna Nagar, call before 6 pm">{{ form.remarks.value|default:'' }}</textarea>
+        {% if form.remarks.errors %}<div class="text-danger small mt-1">{{ form.remarks.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="mb-1 fw-semibold">Assign to</div>
+      <div class="enq-people" role="radiogroup" aria-label="Assign to">
+        {% for person in salespeople %}
+          <input type="radio" class="btn-check" name="assigned_to" id="to{{ person.pk }}" value="{{ person.pk }}" {% if picked == person.pk|stringformat:'s' %}checked{% endif %} required>
+          <label class="btn enq-person" for="to{{ person.pk }}">
+            <span class="tw-avatar tw-avatar-sm">{{ person.display_name|slice:":1"|upper }}</span>{{ person.display_name }}
+          </label>
+        {% empty %}
+          <div class="text-muted small">There are no sales executives yet.</div>
+        {% endfor %}
+      </div>
+      {% if form.assigned_to.errors %}<div class="text-danger small mt-1">{{ form.assigned_to.errors.0 }}</div>{% endif %}
+    </div>
+    <div class="card-footer">
+      <button class="btn btn-primary btn-lg w-100"><i class="fa-solid fa-paper-plane me-1"></i>Send</button>
+    </div>
+  </form>
+
+  <details class="small text-muted mb-4">
+    <summary>Put this on your phone's home screen</summary>
+    <p class="mt-2 mb-0">
+      Press and hold the Titans app icon, then drag <strong>Quick enquiry</strong> onto the home screen. It becomes an
+      icon of its own that opens straight here. (If it is not in the list yet, remove the app and add it again from
+      Chrome — Android picks up new shortcuts when the app is installed.)
+    </p>
+  </details>
+
+  <h6 class="text-muted text-uppercase small fw-bold mb-2">Recent</h6>
+  <div class="card">
+    <div class="list-group list-group-flush">
+      {% for enquiry in recent %}
+      <a href="{% url 'crm:enquiry_detail' enquiry.pk %}" class="list-group-item list-group-item-action">
+        <div class="d-flex justify-content-between gap-2">
+          <strong>{{ enquiry.phone }}</strong>
+          {% if enquiry.is_open %}<span class="badge bg-warning">Waiting</span>
+          {% else %}<span class="badge bg-success">Addressed {{ enquiry.addressed_at|date:"d M, h:i A" }}</span>{% endif %}
+        </div>
+        <div class="small text-truncate">{{ enquiry.remarks }}</div>
+        <div class="small text-muted">to {{ enquiry.assigned_to.display_name }} · {{ enquiry.created_at|date:"d M, h:i A" }}</div>
+      </a>
+      {% empty %}
+      <div class="text-center text-muted py-4">None sent yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

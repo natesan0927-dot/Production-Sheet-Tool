@@ -167,6 +167,27 @@
       </div>
     </div>
     {% endif %}
+    {% if open_enquiries and not hide_chrome %}
+    {# Quick enquiries waiting on this person: at the top of every page until addressed. #}
+    <div class="enq-banner mb-3" role="region" aria-label="Urgent enquiries">
+      {% for enquiry in open_enquiries|slice:":3" %}
+      <div class="enq-banner-item">
+        <i class="fa-solid fa-bolt"></i>
+        <a href="{% url 'crm:enquiry_detail' enquiry.pk %}" class="flex-grow-1 min-w-0 text-reset text-decoration-none">
+          <strong>Urgent enquiry — call {{ enquiry.phone }}</strong>
+          <span class="d-block small text-truncate">{{ enquiry.remarks }}</span>
+        </a>
+        <a href="tel:{{ enquiry.dial }}" class="btn btn-sm btn-light" aria-label="Call {{ enquiry.phone }}"><i class="fa-solid fa-phone"></i></a>
+        <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button class="btn btn-sm btn-light fw-semibold">Addressed</button>
+        </form>
+      </div>
+      {% endfor %}
+      {% if open_enquiries|length > 3 %}<a href="{% url 'crm:todo_list' %}" class="small text-white">and {{ open_enquiries|length|add:"-3" }} more on your to-do</a>{% endif %}
+    </div>
+    {% endif %}
     {% if storage_usage and storage_usage.level != 'ok' %}
     <div class="alert alert-{% if storage_usage.level == 'critical' %}danger{% else %}warning{% endif %}" role="alert">
       <i class="fa-solid fa-hard-drive me-2"></i>
@@ -196,6 +217,40 @@ copy, so the two never both render.
 {% endblock %}
 
 {{ tour_steps|json_script:"tw-tour-steps" }}
+
+{% if enquiry_popup and not hide_chrome %}
+{# A new quick enquiry, the first time the app is opened after it came in. #}
+<div class="modal fade" id="enquiry-popup" tabindex="-1" aria-labelledby="enquiry-popup-title" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content enq-popup">
+      <div class="modal-header">
+        <h5 class="modal-title" id="enquiry-popup-title"><i class="fa-solid fa-bolt me-2"></i>Urgent enquiry{{ enquiry_popup|length|pluralize }} — please address now</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close for now"></button>
+      </div>
+      <div class="modal-body">
+        {% for enquiry in enquiry_popup %}
+        <div class="enq-popup-item">
+          <div class="d-flex justify-content-between gap-2">
+            <a href="tel:{{ enquiry.dial }}" class="fs-4 fw-bold text-decoration-none"><i class="fa-solid fa-phone me-1"></i>{{ enquiry.phone }}</a>
+            <span class="small text-muted text-nowrap">{{ enquiry.created_at|time:"h:i A" }}</span>
+          </div>
+          <p class="mb-2">{{ enquiry.remarks|linebreaksbr }}</p>
+          <div class="small text-muted mb-2">From {{ enquiry.created_by.display_name|default:"the Super Admin" }}</div>
+          <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="btn btn-primary"><i class="fa-solid fa-check me-1"></i>Addressed</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="modal-footer justify-content-start small text-muted">
+        Not now? It stays at the top of every page and on your to-do until you mark it addressed.
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% if popup_notifications %}
 {# Shown once, then they live on in Notifications. #}

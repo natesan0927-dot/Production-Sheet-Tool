@@ -125,11 +125,14 @@ def send(subscription, payload):
 
 
 def payload_for(note):
+    # A quick enquiry stays on the phone's screen until it is tapped.
+    urgent = note.topic.startswith("enquiry:")
     return {
-        "title": TITLE,
+        "title": "Urgent enquiry" if urgent else TITLE,
         "body": note.message,
         "url": note.url or reverse("crm:notifications"),
         "tag": f"titans-{note.pk}" if note.pk else "titans",
+        "urgent": urgent,
     }
 
 
@@ -168,7 +171,7 @@ def _send_all(items):
             for device in (d for d in devices if d.user_id == user_id):
                 message = dict(payload)
                 if device.endpoint in shared:
-                    message["title"] = f"{TITLE} · {device.user.display_name}"
+                    message["title"] = f"{message['title']} · {device.user.display_name}"
                 status = send(device, message)
                 if status in (404, 410):
                     # The phone unsubscribed, or the app was removed: stop sending there.

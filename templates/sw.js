@@ -54,7 +54,9 @@ self.addEventListener("push", (event) => {
       badge: "/static/branding/badge-96.png",
       tag: data.tag || undefined,
       renotify: Boolean(data.tag),
-      vibrate: [120, 60, 120],
+      // An urgent enquiry stays until it is tapped, and buzzes harder.
+      requireInteraction: Boolean(data.urgent),
+      vibrate: data.urgent ? [300, 120, 300, 120, 300] : [120, 60, 120],
       data: { url: data.url || "/notifications/" },
     })
   );

@@ -87,6 +87,7 @@ TEMPLATES = [
                 "apps.crm.context_processors.month_end",
                 "apps.crm.context_processors.reminders",
                 "apps.crm.push.context",
+                "apps.crm.enquiries.context",
                 "apps.monitoring.notices.report_ready",
             ],
         },

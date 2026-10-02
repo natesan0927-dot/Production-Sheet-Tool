@@ -69,6 +69,7 @@ FIELD_MANAGER_TABS = [
 ]
 
 ADMIN_TABS = [
+    ("Quick Enquiry", "crm:enquiry", "fa-phone-volume", None),
     ("Summary for the Day", "crm:day_summary", "fa-calendar-day", None),
     ("Summary for the Month", "crm:month_summary", "fa-calendar-days", None),
     ("Employees", "accounts:employee_list", "fa-users", "passwords"),
@@ -376,6 +377,8 @@ def reminders(request):
 
 def _take_popups(user):
     """Anything not yet shown as a pop-up and still worth saying. It stays in the list either way."""
+    # A quick enquiry has a pop-up and a banner of its own (see enquiries.py).
+    user.notifications.filter(popped=False, topic__startswith="enquiry:").update(popped=True)
     pending = list(user.notifications.filter(popped=False, dismissed=False).select_related("lead")[:4])
     if pending:
         Notification.objects.filter(pk__in=[n.pk for n in pending]).update(popped=True)

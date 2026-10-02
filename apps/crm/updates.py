@@ -44,6 +44,11 @@ def todo_finished(task):
     return f"todo-done:{task.pk}"
 
 
+def enquiry(item):
+    """A quick enquiry waiting for its sales executive to call back."""
+    return f"enquiry:{item.pk}"
+
+
 def complaint(item):
     return f"complaint:{item.pk}"
 

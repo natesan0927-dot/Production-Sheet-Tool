@@ -4,6 +4,28 @@
 {% block content %}
 <h4 class="mb-1">Notifications</h4>
 <p class="text-muted small mb-3">Everything you have been told, newest first. Ones marked <span class="badge text-bg-success">Done</span> have been dealt with.</p>
+{% if open_enquiries %}
+{# Pinned here until each one is addressed. #}
+<div class="card mb-3 border-danger">
+  <div class="card-header text-danger fw-semibold"><i class="fa-solid fa-bolt me-2"></i>Waiting for you</div>
+  <div class="list-group list-group-flush">
+    {% for enquiry in open_enquiries %}
+    <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+      <a href="{% url 'crm:enquiry_detail' enquiry.pk %}" class="min-w-0 text-reset text-decoration-none">
+        <strong>Urgent enquiry — call {{ enquiry.phone }}</strong>
+        <span class="d-block small text-truncate">{{ enquiry.remarks }}</span>
+        <span class="d-block small text-muted">{{ enquiry.created_at|date:"d M, h:i A" }}</span>
+      </a>
+      <form method="post" action="{% url 'crm:enquiry_addressed' enquiry.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="btn btn-sm btn-primary text-nowrap">Addressed</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 <div class="card">
   <div class="list-group list-group-flush">
     {% for note in notifications %}

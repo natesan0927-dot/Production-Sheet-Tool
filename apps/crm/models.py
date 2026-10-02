@@ -820,6 +820,43 @@ class Task(models.Model):
         return self.assigned_by_id == self.assigned_to_id
 
 
+class Enquiry(models.Model):
+    """A customer's call the Super Admin passed straight to a sales executive to deal with now.
+
+    Sent from the Quick enquiry screen (a home-screen shortcut) with just the
+    number, what they asked about, and who should call back. The sales executive
+    gets it on their phone, as a pop-up the next time they open the app, on
+    their to-do list, and pinned to the top of every page until they mark it
+    addressed.
+    """
+
+    phone = models.CharField("Customer's number", max_length=20)
+    remarks = models.TextField("What the enquiry was", max_length=1000)
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="enquiries")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    # The to-do it sits on; marking either one done addresses both.
+    task = models.OneToOneField("Task", on_delete=models.SET_NULL, null=True, blank=True, related_name="enquiry")
+    # Shown as the pop-up once; after that it waits on the to-do and the banner.
+    popped_at = models.DateTimeField(null=True, blank=True)
+    addressed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Enquiry {self.phone} for {self.assigned_to}"
+
+    @property
+    def is_open(self):
+        return self.addressed_at is None
+
+    @property
+    def dial(self):
+        """The number as a phone dials it."""
+        return "".join(ch for ch in self.phone if ch.isdigit() or ch == "+")
+
+
 class PushSubscription(models.Model):
     """A device where someone turned on notifications, so updates reach it as banners. See push.py.
 

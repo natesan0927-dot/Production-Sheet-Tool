@@ -69,8 +69,8 @@
                 {% if user.is_super_admin %}
                   <a class="dropdown-item" href="{% url 'crm:lead_edit' lead.pk %}"><i class="fa-solid fa-user-pen me-2"></i>Reassign Sales Executive</a>
                 {% endif %}
-                {% if lead.status != 'won' %}
-                {# A confirmed order carries the accounts ledger and the site paperwork, so it is never deleted from here. #}
+                {% if lead.status != 'won' and user.is_super_admin %}
+                {# Only the Super Admin deletes. A confirmed order carries the accounts ledger and the site paperwork, so it is never deleted from here. #}
                 <div class="dropdown-divider"></div>
                 <form method="post" action="{% url 'crm:lead_delete' lead.pk %}"
                       onsubmit="return confirm('Delete the lead for {{ lead.customer_name|escapejs }}? This cannot be undone.')">

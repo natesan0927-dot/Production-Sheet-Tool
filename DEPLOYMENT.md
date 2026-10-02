@@ -755,6 +755,18 @@ on an iPhone), and each message is encrypted so that service cannot read it.
 device has gone **48 hours without being used** — every hour of use starts the 48 hours again.
 Change it with `SESSION_COOKIE_AGE` on Render, in seconds (`172800` is 48 hours).
 
+**Quick enquiry on the home screen (Super Admin).** Press and hold the Titans app icon and drag
+*Quick enquiry* onto the home screen: an icon of its own that opens straight to three things — the
+customer's number, what they asked, and the sales executive to call back. On Windows it is in the
+app's right-click menu on the taskbar. (Android only lets real apps put typing boxes on the home
+screen itself, so this shortcut is the nearest a web app can go.) If *Quick enquiry* is not in the
+list, remove the app and add it again — Android reads the shortcuts when the app is installed.
+
+The sales executive gets it on their phone at once, marked urgent; a pop-up the next time they open
+the app asking them to deal with it now; and, if they close that, a red banner at the top of every
+page, a to-do, and a pin at the top of Notifications — until they press *Addressed* (or tick the
+to-do). The Super Admin is told when it is addressed.
+
 **Several people on one device.** The menu under your name has *Add another account*. Each person
 signs in once; after that everyone added on the device is one tap away under *Switch account*, with
 no password. While anyone is using the app on the device, all of its accounts stay signed in. If the

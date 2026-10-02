@@ -1595,3 +1595,22 @@ body.tw-tour-on #tw-sidebar { z-index: 1086; }
 .mon-key { display: inline-block; min-width: 1.4rem; text-align: center; border-radius: 5px; border: 1px solid; font-weight: 700; margin: 0 .2rem 0 .5rem; }
 .mon-key:first-child { margin-left: 0; }
 @media (max-width: 575.98px) { .mon-day { min-height: 2.9rem; font-size: .72rem; padding: .2rem; } .mon-ot { font-size: .62rem; } }
+
+/* ------------------------------------------------------- quick enquiries */
+.enq-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
+.enq-person {
+  display: flex; align-items: center; gap: .5rem; justify-content: flex-start; padding: .6rem .7rem;
+  border: 1px solid var(--tw-border-strong); border-radius: 12px; background: var(--tw-surface-2); color: var(--bs-body-color);
+  font-weight: 600; text-align: left; white-space: normal; overflow-wrap: anywhere; min-width: 0;
+}
+.btn-check:checked + .enq-person { background: var(--tw-gold); border-color: var(--tw-gold); color: var(--tw-navy-900); }
+.enq-banner { display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; }
+.enq-banner-item {
+  display: flex; align-items: center; gap: .6rem; padding: .6rem .8rem; border-radius: 12px;
+  background: linear-gradient(135deg, #b42318, #dc2626); color: #fff; box-shadow: 0 6px 18px rgba(220, 38, 38, .25);
+}
+.enq-banner-item > .fa-bolt { flex: none; }
+.enq-banner-item form { flex: none; }
+.enq-popup .modal-header { background: #b42318; color: #fff; }
+.enq-popup .modal-header .btn-close { filter: invert(1); }
+.enq-popup-item + .enq-popup-item { border-top: 1px solid var(--tw-border); margin-top: .9rem; padding-top: .9rem; }

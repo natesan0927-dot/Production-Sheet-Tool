@@ -543,9 +543,10 @@ def lead_edit(request, pk):
     return render(request, "crm/lead_form.html", {"form": form, "lead": lead})
 
 
-@role_required(Role.SALESPERSON)
+@role_required(Role.SUPER_ADMIN)
 @require_POST
 def lead_delete(request, pk):
+    """Only the Super Admin deletes a lead; a sales executive marks it lost instead."""
     lead = get_lead(request, pk)
     if lead.status == Lead.Status.WON:
         # A confirmed order carries the customer's payments, the installer's ledger
@@ -2036,20 +2037,10 @@ def todo_list(request):
 @login_required
 @require_POST
 def todo_done(request, pk):
+    from .enquiries import complete_task
+
     task = get_object_or_404(Task, pk=pk, assigned_to=request.user)
-    if task.done:
-        return safe_next(request, reverse("crm:todo_list"))
-    task.done = True
-    task.done_at = timezone.now()
-    task.save(update_fields=["done", "done_at"])
-    updates.clear(updates.todo(task))
-    if task.assigned_by_id and task.assigned_by_id != request.user.id:
-        updates.send(
-            [task.assigned_by],
-            f"{request.user.display_name} completed: {task.title}",
-            topic=updates.todo_finished(task),
-            link=f"{updates.todo_link()}#assigned",
-        )
+    complete_task(task, request.user)
     return safe_next(request, reverse("crm:todo_list"))
 
 

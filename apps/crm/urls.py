@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import documents, installation_views, push, views
+from . import documents, enquiries, installation_views, push, views
 
 app_name = "crm"
 
@@ -78,6 +78,10 @@ urlpatterns = [
     path("service-requests/<int:pk>/resolve/", views.complaint_resolve, name="complaint_resolve"),
     path("service-requests/new/", views.complaint_register, name="complaint_register"),
     path("leads/<int:pk>/complaint/", views.complaint_create, name="complaint_create"),
+    # Quick enquiries: the Super Admin passes a customer's call to a sales executive
+    path("enquiry/", enquiries.send, name="enquiry"),
+    path("enquiry/<int:pk>/", enquiries.detail, name="enquiry_detail"),
+    path("enquiry/<int:pk>/addressed/", enquiries.addressed, name="enquiry_addressed"),
     # Shared to-do list
     path("to-do/", views.todo_list, name="todo_list"),
     path("to-do/<int:pk>/done/", views.todo_done, name="todo_done"),
