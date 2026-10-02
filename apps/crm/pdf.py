@@ -53,51 +53,78 @@ def _slug(name):
     return "-".join(part for part in cleaned.split("-") if part) or "lead"
 
 
-def field(x, y_from_top, text, size=11, align="left", max_width=None, font=FONT, char_space=0.0,
-          lift=BASELINE_LIFT, ink=INK, run_to=None, line_end=None):
-    """One value to print on a template.
+def field(x, y_from_top, text, size=11, align="left", font=FONT, char_space=0.0, lift=BASELINE_LIFT, ink=INK,
+          right=None, next_x=None, leading=None, lines=2, room_below=None, line_end=None, underline_from=None):
+    """One value to print on a template — always at the template's own size.
 
-    `max_width` is the blank it should fit, shrinking if need be. Or, for a blank
-    that is a run of underscores ending at `line_end`: the value keeps its size,
-    the printed line is carried on underneath anything longer, as far as `run_to`
-    (an x on the page), and only past that is the value made smaller.
+    A value longer than its room is never made smaller. It runs on as far as
+    `right` (an x on the page), then carries on, word by word and at the same
+    size, onto the next line down: `leading` below, starting at `next_x`
+    (under the first line unless said otherwise), for as many `lines` as the
+    form has room for. Where the next printed row is too close for that,
+    `room_below` is how far below the label a line may go: the value's lines are
+    lifted to stay within it, into the empty space above.
+
+    A blank that is a run of underscores ending at `line_end` has the printed
+    line carried on under a longer first line, and drawn again under each
+    further line from `underline_from`, so the value always sits on a rule.
     """
-    return {"x": x, "y": y_from_top, "text": text, "size": size, "align": align, "max_width": max_width,
-            "font": font, "char_space": char_space, "lift": lift, "ink": ink, "run_to": run_to,
-            "line_end": line_end}
+    return {"x": x, "y": y_from_top, "text": text, "size": size, "align": align, "font": font,
+            "char_space": char_space, "lift": lift, "ink": ink, "right": right,
+            "next_x": x if next_x is None else next_x, "leading": leading or round(size * 1.2, 2),
+            "lines": lines, "room_below": room_below, "line_end": line_end, "underline_from": underline_from}
 
 
 def _width(text, font, size, char_space=0.0):
     return stringWidth(text, font, size) + char_space * len(text)
 
 
-def _fitted(item):
-    """The text and size to print: within the blank if it can be, readable either way."""
-    text, font, size, spacing = str(item["text"]), item["font"], item["size"], item["char_space"]
-    if item["run_to"] is not None:
-        room = item["run_to"] - item["x"]
-        while size > 8 and _width(text, font, size, spacing) > room:
-            size -= 0.25
-        while len(text) > 1 and _width(text, font, size, spacing) > room:
-            text = text[:-2].rstrip() + "…"
-        return text, size
-    blank = item["max_width"]
-    while blank and size > 6 and _width(text, font, size, spacing) > blank:
-        size -= 0.5
-    return text, size
+def _lines(item):
+    """The value broken into the lines it is printed on, at its own size.
+
+    Breaks between words; a single word too long for a whole line is broken
+    inside it. Past the last line the form has room for — a value no form could
+    hold — the end is shown as "…" rather than shrinking anything.
+    """
+    text = " ".join(str(item["text"]).split())
+    if item["right"] is None or not text:
+        return [text]
+    font, size, spacing = item["font"], item["size"], item["char_space"]
+    fits = lambda words, room: _width(words, font, size, spacing) <= room  # noqa: E731
+    rooms = [item["right"] - item["x"]] + [item["right"] - item["next_x"]] * (item["lines"] - 1)
+    words, printed = text.split(" "), []
+    for room in rooms:
+        line = ""
+        while words:
+            longer = f"{line} {words[0]}".strip()
+            if fits(longer, room):
+                line, words = longer, words[1:]
+            elif not line:
+                cut = len(words[0])
+                while cut > 1 and not fits(words[0][:cut], room):
+                    cut -= 1
+                line, words = words[0][:cut], [words[0][cut:]] + words[1:]
+            else:
+                break
+        printed.append(line)
+        if not words:
+            return printed
+    last = f"{printed[-1]} {' '.join(words)}"
+    while len(last) > 1 and not fits(last + "…", rooms[-1]):
+        last = last[:-1].rstrip()
+    printed[-1] = last + "…"
+    return printed
 
 
-def _carry_line_on(overlay, item, x, y, text_end):
-    """More of the printed underscores, under a value longer than its blank.
+def _underscores(overlay, item, start, y, text_end):
+    """A printed rule, made of the underscore itself, from `start` to just past `text_end`.
 
-    Drawn with the underscore itself — the same letter, size and spacing the
-    template uses — so the longer line is indistinguishable from the printed one.
-    It starts one underscore back, over the end of the printed line, so there is
-    no seam.
+    The same letter, size and spacing the template's own blanks use, so a line
+    carried on — or drawn under a second line — is indistinguishable from the
+    printed one.
     """
     font, size, spacing = item["font"], item["size"], item["char_space"]
     step = _width("_", font, size, spacing)
-    start = item["line_end"] - step
     count = 1
     while start + count * step < text_end + BLANK_INSET:
         count += 1
@@ -121,20 +148,28 @@ def _stamp(template, page_values, filename):
             buffer = BytesIO()
             overlay = canvas.Canvas(buffer, pagesize=(right, top))
             for item in values:
-                text, size = _fitted(item)
-                y = top - item["y"] + item["lift"]
-                x = item["x"]
-                if item["align"] == "center":
-                    x -= _width(text, item["font"], size, item["char_space"]) / 2
-                line = overlay.beginText(x, y)
-                line.setFont(item["font"], size)
-                line.setCharSpace(item["char_space"])
-                line.setFillColorRGB(*item["ink"])
-                line.textOut(text)
-                overlay.drawText(line)
-                end = x + _width(text, item["font"], size, item["char_space"])
-                if item["line_end"] is not None and end + BLANK_INSET > item["line_end"]:
-                    _carry_line_on(overlay, item, x, y, end)
+                font, size, spacing = item["font"], item["size"], item["char_space"]
+                lines = _lines(item)
+                below = item["leading"] * (len(lines) - 1)
+                lifted = max(0, below - item["room_below"]) if item["room_below"] is not None else 0
+                first = top - item["y"] + item["lift"] + lifted
+                for number, text in enumerate(lines):
+                    y = first - number * item["leading"]
+                    x = item["x"] if number == 0 else item["next_x"]
+                    if item["align"] == "center":
+                        x -= _width(text, font, size, spacing) / 2
+                    line = overlay.beginText(x, y)
+                    line.setFont(font, size)
+                    line.setCharSpace(spacing)
+                    line.setFillColorRGB(*item["ink"])
+                    line.textOut(text)
+                    overlay.drawText(line)
+                    end = x + _width(text, font, size, spacing)
+                    if number == 0 and item["line_end"] is not None and end + BLANK_INSET > item["line_end"]:
+                        # Over the end of the printed line, one underscore back, so there is no seam.
+                        _underscores(overlay, item, item["line_end"] - _width("_", font, size, spacing), y, end)
+                    elif number > 0 and item["underline_from"] is not None:
+                        _underscores(overlay, item, item["underline_from"], y, end)
             overlay.save()
             buffer.seek(0)
             page.merge_page(PdfReader(buffer).pages[0])
@@ -162,6 +197,10 @@ def render_caf(lead):
     quotation_date = timezone.localtime(lead.quotation_uploaded_at).strftime("%d / %m / %Y") if lead.quotation_uploaded_at else ""
     issued = timezone.localtime(lead.won_at or lead.updated_at)
     date_line = 187.25
+    # Each value runs on to the page's right-hand margin, then onto the line below:
+    # the rows are 33 pt apart, and under the project there is the whole gap before
+    # the paragraph, so it may take four lines.
+    margin = CAF_RIGHT_MARGIN
     return _stamp(
         CAF_TEMPLATE,
         {
@@ -169,26 +208,40 @@ def render_caf(lead):
                 field(514, date_line, issued.strftime("%d"), 10.5, align="center"),
                 field(544, date_line, issued.strftime("%m"), 10.5, align="center"),
                 field(585, date_line, issued.strftime("%Y"), 10.5, align="center"),
-                field(320, 414.50, lead.quotation_number, 11, max_width=128),
-                field(293, 447.50, quotation_date, 11, max_width=150),
-                field(332, 480.50, lead.project_label, 11, max_width=120),
+                field(320, 414.50, lead.quotation_number, 11, right=margin),
+                field(293, 447.50, quotation_date, 11, right=margin),
+                field(332, 480.50, lead.project_label, 11, right=margin, lines=4),
             ],
-            1: [field(88, 656.23, lead.customer_name, 11, max_width=330)],
+            1: [field(88, 656.23, lead.customer_name, 11, right=margin)],
         },
         f"CAF-{_slug(lead.customer_name)}.pdf",
     )
 
 
+# The CAF's text runs nearly edge to edge; its values stop where the paragraphs do.
+CAF_RIGHT_MARGIN = 570
+# The warranty card is narrow, and the next row sits only 17 pt below the name.
+WARRANTY_RIGHT_MARGIN = 405
+WARRANTY_LEADING = 11
+
+
 def render_warranty_certificate(lead):
-    """The client's own guarantee certificate. The customer keeps this one."""
+    """The client's own guarantee certificate. The customer keeps this one.
+
+    A name too long for the room right of "NAME :" goes onto two lines either
+    side of the label, since INVOICE NUMBER is too close underneath for a line
+    of its own; a longer one grows upward into the empty card above.
+    """
     invoice_date = lead.invoice_date.strftime("%d / %m / %Y") if lead.invoice_date else ""
+    margin = WARRANTY_RIGHT_MARGIN
     return _stamp(
         WARRANTY_TEMPLATE,
         {
             0: [
-                field(204, 251.56, lead.customer_name, 10, max_width=170),
-                field(252, 268.55, lead.invoice_number, 10, max_width=120),
-                field(251, 283.52, invoice_date, 10, max_width=120),
+                field(204, 251.56, lead.customer_name, 10, right=margin, leading=WARRANTY_LEADING, lines=4,
+                      room_below=WARRANTY_LEADING / 2),
+                field(252, 268.55, lead.invoice_number, 10, right=margin, lines=1),
+                field(251, 283.52, invoice_date, 10, right=margin, lines=1),
             ],
         },
         f"Warranty-{_slug(lead.customer_name)}.pdf",
@@ -200,9 +253,11 @@ def render_warranty_certificate(lead):
 # Page 1 is set at 14.79 pt with 0.13 pt between letters; page 2 at 13.515 pt,
 # spaced 1 pt. A value is printed in the same size and spacing, on the label's
 # own baseline, starting just inside the line; a longer value has the line carried
-# on underneath it.
-HANDOVER_PAGE_1 = {"size": 14.79, "char_space": 0.13}
-HANDOVER_PAGE_2 = {"size": 13.515, "char_space": 1.0}
+# on underneath it to the margin, then goes onto a second line with a rule of its
+# own. The rows are 36 pt apart on page 1 and 30 pt on page 2, room for one more
+# line each.
+HANDOVER_PAGE_1 = {"size": 14.79, "char_space": 0.13, "leading": 16.5}
+HANDOVER_PAGE_2 = {"size": 13.515, "char_space": 1.0, "leading": 15}
 HANDOVER_BLANKS = {
     "date": (0, 70.50, 236.00, 260.46),
     "site": (0, 220.00, 385.50, 296.46),
@@ -228,8 +283,10 @@ def _handover_field(blank, text):
         char_space=style["char_space"],
         lift=0,
         ink=(0, 0, 0),
-        run_to=RIGHT_MARGIN,
+        right=RIGHT_MARGIN,
+        leading=style["leading"],
         line_end=end,
+        underline_from=start,
     )
 
 
