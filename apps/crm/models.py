@@ -836,7 +836,7 @@ class Enquiry(models.Model):
 
     phone = models.CharField("Customer's number", max_length=20)
     customer_name = models.CharField("Customer's name", max_length=150, blank=True)
-    remarks = models.TextField("What the enquiry was", max_length=1000)
+    remarks = models.TextField("What the enquiry was", max_length=1000, blank=True)
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="enquiries")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)

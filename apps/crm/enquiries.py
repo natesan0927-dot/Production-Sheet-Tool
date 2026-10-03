@@ -39,7 +39,7 @@ def _salespeople():
 class EnquiryForm(forms.Form):
     phone = forms.CharField(label="Customer's number", max_length=20)
     customer_name = forms.CharField(label="Customer's name", max_length=150, required=False)
-    remarks = forms.CharField(label="What was the enquiry?", max_length=1000, widget=forms.Textarea)
+    remarks = forms.CharField(label="What was the enquiry?", max_length=1000, widget=forms.Textarea, required=False)
     assigned_to = forms.ModelChoiceField(queryset=User.objects.none(), label="Assign to",
                                          error_messages={"required": "Tap the sales executive who should call back."})
 
@@ -149,7 +149,7 @@ def send(request):
         enquiry.save()
         updates.send(
             [person],
-            f"URGENT enquiry from {request.user.display_name}: call {enquiry.who} — {enquiry.remarks}",
+            f"URGENT enquiry from {request.user.display_name}: call {enquiry.who}" + (f" — {enquiry.remarks}" if enquiry.remarks else ""),
             topic=updates.enquiry(enquiry),
             link=reverse("crm:enquiry_detail", args=[enquiry.pk]),
         )

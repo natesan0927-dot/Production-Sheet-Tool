@@ -525,7 +525,7 @@ def lead_create(request):
         initial = {}
         if enquiry is not None:
             initial = {"customer_name": enquiry.customer_name, "phone": enquiry.phone,
-                       "remarks": f"Phone enquiry passed on by {enquiry.created_by.display_name if enquiry.created_by else 'the Super Admin'}: {enquiry.remarks}"}
+                       "remarks": f"Phone enquiry passed on by {enquiry.created_by.display_name if enquiry.created_by else 'the Super Admin'}" + (f": {enquiry.remarks}" if enquiry.remarks else ".")}
         form = LeadForm(user=request.user, initial=initial)
     return render(request, "crm/lead_form.html", {"form": form, "enquiry": enquiry})
 

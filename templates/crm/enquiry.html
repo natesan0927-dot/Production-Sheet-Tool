@@ -22,8 +22,8 @@
                value="{{ form.customer_name.value|default:'' }}" placeholder="If they gave it">
       </div>
       <div class="mb-3">
-        <label class="form-label fw-semibold" for="id_remarks">What was the enquiry?</label>
-        <textarea name="remarks" id="id_remarks" class="form-control" rows="3" maxlength="1000" required
+        <label class="form-label fw-semibold" for="id_remarks">What was the enquiry? <span class="text-muted fw-normal small">— optional</span></label>
+        <textarea name="remarks" id="id_remarks" class="form-control" rows="3" maxlength="1000"
                   placeholder="e.g. Wants sliding windows for a 3BHK in Anna Nagar, call before 6 pm">{{ form.remarks.value|default:'' }}</textarea>
         {% if form.remarks.errors %}<div class="text-danger small mt-1">{{ form.remarks.errors.0 }}</div>{% endif %}
       </div>
@@ -66,7 +66,7 @@
           {% elif enquiry.is_open %}<span class="badge bg-warning text-nowrap">Waiting</span>
           {% else %}<span class="badge bg-info text-nowrap">Addressed</span>{% endif %}
         </div>
-        <div class="small text-truncate">{{ enquiry.remarks }}</div>
+        {% if enquiry.remarks %}<div class="small text-truncate">{{ enquiry.remarks }}</div>{% endif %}
         <div class="small text-muted">to {{ enquiry.assigned_to.display_name }} · {{ enquiry.created_at|date:"d M, h:i A" }}</div>
       </a>
       {% empty %}

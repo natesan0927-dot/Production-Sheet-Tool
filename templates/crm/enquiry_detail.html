@@ -14,7 +14,7 @@
         {% else %}<span class="badge bg-info">Addressed</span>{% endif %}
       </div>
       {% if enquiry.customer_name %}<div class="fs-5 fw-semibold mb-2">{{ enquiry.customer_name }}</div>{% endif %}
-      <p class="mb-3">{{ enquiry.remarks|linebreaksbr }}</p>
+      {% if enquiry.remarks %}<p class="mb-3">{{ enquiry.remarks|linebreaksbr }}</p>{% endif %}
       <p class="text-muted small mb-3">
         From {{ enquiry.created_by.display_name|default:"the Super Admin" }} for {{ enquiry.assigned_to.display_name }},
         {{ enquiry.created_at|date:"d M Y, h:i A" }}{% if enquiry.addressed_at %} · addressed {{ enquiry.addressed_at|date:"d M, h:i A" }}{% endif %}

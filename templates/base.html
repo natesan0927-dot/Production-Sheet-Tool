@@ -175,7 +175,7 @@
         <i class="fa-solid fa-bolt"></i>
         <a href="{% url 'crm:enquiry_detail' enquiry.pk %}" class="flex-grow-1 min-w-0 text-reset text-decoration-none">
           <strong>Urgent enquiry — call {{ enquiry.who }}</strong>
-          <span class="d-block small text-truncate">{{ enquiry.remarks }}</span>
+          {% if enquiry.remarks %}<span class="d-block small text-truncate">{{ enquiry.remarks }}</span>{% endif %}
         </a>
         <a href="tel:{{ enquiry.dial }}" class="btn btn-sm btn-light" aria-label="Call {{ enquiry.phone }}"><i class="fa-solid fa-phone"></i></a>
         <form method="post" data-enquiry-address action="{% url 'crm:enquiry_addressed' enquiry.pk %}">
@@ -237,7 +237,7 @@ copy, so the two never both render.
             <span class="small text-muted text-nowrap">{{ enquiry.created_at|time:"h:i A" }}</span>
           </div>
           {% if enquiry.customer_name %}<div class="fw-semibold">{{ enquiry.customer_name }}</div>{% endif %}
-          <p class="mb-2">{{ enquiry.remarks|linebreaksbr }}</p>
+          {% if enquiry.remarks %}<p class="mb-2">{{ enquiry.remarks|linebreaksbr }}</p>{% endif %}
           <div class="small text-muted mb-2">From {{ enquiry.created_by.display_name|default:"the Super Admin" }}</div>
           <form method="post" data-enquiry-address action="{% url 'crm:enquiry_addressed' enquiry.pk %}" class="d-grid">
             {% csrf_token %}
