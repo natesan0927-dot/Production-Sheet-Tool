@@ -2071,6 +2071,40 @@ def todo_done(request, pk):
     return safe_next(request, reverse("crm:todo_list"))
 
 
+REMIND_AGAIN_AFTER = timedelta(minutes=30)
+
+
+@login_required
+@require_POST
+def todo_remind(request, pk):
+    """Nudge the person an overdue to-do was assigned to, with an alert and a phone banner."""
+    task = get_object_or_404(Task.objects.select_related("assigned_to"), pk=pk, assigned_by=request.user)
+    back = safe_next(request, reverse("crm:todo_list") + "#assigned")
+    if task.assigned_to_id == request.user.id or not task.is_overdue:
+        messages.error(request, "A reminder can only be sent for an overdue to-do assigned to someone else.")
+        return back
+    # Pressing it twice in a row would only pile alerts onto the same phone.
+    recent = Notification.objects.filter(
+        topic=updates.todo(task), message__startswith="Reminder", created_at__gte=timezone.now() - REMIND_AGAIN_AFTER
+    )
+    if recent.exists():
+        messages.info(request, f"{task.assigned_to} was reminded a moment ago.")
+        return back
+    days = (timezone.localdate() - task.due_date).days
+    late = "due yesterday" if days == 1 else f"overdue by {days} days"
+    # The same topic as the assignment, so completing the to-do clears the reminder too;
+    # today's replaces the earlier alert rather than sitting beside it.
+    updates.clear(updates.todo(task), user=task.assigned_to)
+    updates.send(
+        [task.assigned_to],
+        f"Reminder from {request.user.display_name}: {task.title} is {late}",
+        topic=updates.todo(task),
+        link=updates.todo_link(),
+    )
+    messages.success(request, f"Reminder sent to {task.assigned_to}.")
+    return back
+
+
 @login_required
 @require_POST
 def todo_clear(request, pk=None):

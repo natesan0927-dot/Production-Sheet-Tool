@@ -87,6 +87,7 @@ urlpatterns = [
     path("to-do/", views.todo_list, name="todo_list"),
     path("to-do/<int:pk>/done/", views.todo_done, name="todo_done"),
     path("to-do/<int:pk>/remove/", views.todo_delete, name="todo_delete"),
+    path("to-do/<int:pk>/remind/", views.todo_remind, name="todo_remind"),
     path("to-do/<int:pk>/clear/", views.todo_clear, name="todo_clear"),
     path("to-do/clear-completed/", views.todo_clear, name="todo_clear_completed"),
     path("leads/<int:pk>/production-need-revision/", views.production_need_revision, name="production_need_revision"),

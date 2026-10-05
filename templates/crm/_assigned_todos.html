@@ -39,6 +39,11 @@ Used beside "My to-do" on the dashboards (compact) and on the To-Do page (full).
             </form>
           {% else %}
             {% if task.is_overdue %}<span class="badge bg-danger">Overdue</span>
+            <form method="post" action="{% url 'crm:todo_remind' task.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-sm btn-outline-danger" title="Alert {{ task.assigned_to }} that this is overdue"><i class="fa-solid fa-bell me-1"></i>Remind</button>
+            </form>
             {% else %}<span class="badge bg-warning">Pending</span>{% endif %}
             {% if full %}
             <form method="post" action="{% url 'crm:todo_delete' task.pk %}" onsubmit="return confirm('Withdraw this to-do from {{ task.assigned_to|escapejs }}?')">
