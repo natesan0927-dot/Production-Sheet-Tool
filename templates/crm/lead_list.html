@@ -69,13 +69,17 @@
                 {% if user.is_super_admin %}
                   <a class="dropdown-item" href="{% url 'crm:lead_edit' lead.pk %}"><i class="fa-solid fa-user-pen me-2"></i>Reassign Sales Executive</a>
                 {% endif %}
-                {% if lead.status != 'won' and user.is_super_admin %}
-                {# Only the Super Admin deletes. A confirmed order carries the accounts ledger and the site paperwork, so it is never deleted from here. #}
+                {% if user.is_super_admin %}
+                {# Only the Super Admin deletes. A confirmed order goes too, with its payments, ledger and every stored document. #}
                 <div class="dropdown-divider"></div>
                 <form method="post" action="{% url 'crm:lead_delete' lead.pk %}"
-                      onsubmit="return confirm('Delete the lead for {{ lead.customer_name|escapejs }}? This cannot be undone.')">
+                      {% if lead.status == 'won' %}
+                      onsubmit="return confirm('Permanently delete the CONFIRMED ORDER for {{ lead.customer_name|escapejs }}? Its payments, installer ledger and all stored documents are erased from the system and from storage. This cannot be undone.')"
+                      {% else %}
+                      onsubmit="return confirm('Delete the lead for {{ lead.customer_name|escapejs }} and its stored documents? This cannot be undone.')"
+                      {% endif %}>
                   {% csrf_token %}
-                  <button class="dropdown-item text-danger"><i class="fa-solid fa-trash me-2"></i>Delete lead</button>
+                  <button class="dropdown-item text-danger"><i class="fa-solid fa-trash me-2"></i>Delete {% if lead.status == 'won' %}order{% else %}lead{% endif %}</button>
                 </form>
                 {% endif %}
               </div>

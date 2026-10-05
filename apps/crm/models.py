@@ -418,6 +418,17 @@ class Lead(models.Model):
             return f"{self.project_name}, {self.site_location}"
         return self.site_location
 
+    def stored_files(self):
+        """Every file this lead has in storage: its documents and all payment receipts.
+
+        Collected before the lead is deleted, because the rows that name the files go
+        with it and the files themselves would then sit in the bucket for good.
+        """
+        files = [upload.file for upload in self.uploads.all()]
+        files += [receipt.file for receipt in PaymentReceipt.objects.filter(payment__lead=self)]
+        files += [receipt.file for receipt in InstallerReceipt.objects.filter(payment__lead=self)]
+        return files
+
     @property
     def open_followup(self):
         """Only one follow-up runs at a time, so there is at most one of these."""

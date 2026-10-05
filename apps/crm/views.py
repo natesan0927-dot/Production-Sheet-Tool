@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts import recovery
 from apps.accounts.models import Role, User
 
-from . import aging, daysummary, monthly, queues, updates
+from . import aging, daysummary, monthly, queues, storage_usage, updates
 from . import guide as guide_content
 from . import stages as stage_flow
 from .context_processors import ALL_QUEUE_KEYS, _pending_counts, navigation
@@ -569,24 +569,28 @@ def lead_edit(request, pk):
 @role_required(Role.SUPER_ADMIN)
 @require_POST
 def lead_delete(request, pk):
-    """Only the Super Admin deletes a lead; a sales executive marks it lost instead."""
+    """Only the Super Admin deletes a lead — even a confirmed order, with everything on it.
+
+    A sales executive marks a lead lost instead. A won lead takes its payments, the
+    installer's ledger and its paperwork with it, so the page asks twice.
+    """
     lead = get_lead(request, pk)
-    if lead.status == Lead.Status.WON:
-        # A confirmed order carries the customer's payments, the installer's ledger
-        # and the site paperwork. Deleting it would take all of that with it.
-        messages.error(request, "A confirmed order can't be deleted — its payments and documents would go with it.")
-        return redirect(lead.get_absolute_url())
     name = lead.customer_name
-    stored = [upload.file for upload in lead.uploads.all()]
+    stored = lead.stored_files()
     lead.delete()
     # The rows went with the lead; the files themselves have to be removed too, or
     # they sit in the bucket taking up room nobody can see.
+    failed = 0
     for file in stored:
         try:
             file.delete(save=False)
         except Exception:
-            pass
-    messages.success(request, f"Lead for {name} deleted.")
+            failed += 1
+    # The dashboard's storage bar is remembered for an hour; measure again now.
+    storage_usage.refresh()
+    messages.success(request, f"Lead for {name} deleted, with {len(stored) - failed} stored file(s).")
+    if failed:
+        messages.warning(request, f"{failed} file(s) could not be removed from storage and may still be taking up room.")
     return redirect("crm:lead_list")
 
 

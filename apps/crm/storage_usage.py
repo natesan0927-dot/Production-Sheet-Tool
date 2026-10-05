@@ -112,6 +112,11 @@ def current():
     return usage
 
 
+def refresh():
+    """Forget the remembered size, so the next page measures the bucket again."""
+    cache.delete(CACHE_KEY)
+
+
 def tell_super_admins(usage):
     """A bell notification per level, repeated weekly while it stays that full.
 
