@@ -17,3 +17,10 @@ python manage.py collectstatic --noinput
 python manage.py migrate --noinput
 python manage.py remove_demo_data
 python manage.py seed_employees
+
+# One-off: set IMPORT_OLD_CRM=true for a deploy to bring the old CRM's leads
+# over (and book their follow-ups). A lead already imported is skipped, so
+# leaving it set only repeats a no-op; remove it once the deploy has run.
+if [ "${IMPORT_OLD_CRM:-}" = "true" ]; then
+  python manage.py import_old_crm
+fi
