@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Notifications{% endblock %}
 
+{% block extra_head %}
+<style>
+  .tw-note:hover { background: var(--bs-tertiary-bg, #f8f9fa); }
+  @media (hover: hover) {
+    .tw-note .tw-note-clear { opacity: 0; transition: opacity .12s; }
+    .tw-note:hover .tw-note-clear, .tw-note:focus-within .tw-note-clear { opacity: 1; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <h4 class="mb-1">Notifications</h4>
 <p class="text-muted small mb-3">Everything you have been told, newest first. Ones marked <span class="badge text-bg-success">Done</span> have been dealt with.</p>
@@ -29,13 +39,20 @@
 <div class="card">
   <div class="list-group list-group-flush">
     {% for note in notifications %}
-      {% if note.url %}<a href="{{ note.url }}" class="list-group-item list-group-item-action{% if not note.read %} fw-semibold{% endif %}{% if note.dismissed %} text-muted{% endif %}">
-      {% else %}<div class="list-group-item{% if not note.read %} fw-semibold{% endif %}{% if note.dismissed %} text-muted{% endif %}">{% endif %}
-        {% if not note.read %}<span class="badge text-bg-danger me-1">New</span>{% endif %}
-        {% if note.dismissed %}<span class="badge text-bg-success me-1">Done</span>{% endif %}
-        {{ note.message }}
-        <span class="text-muted small d-block fw-normal">{{ note.created_at|date:"d M Y, H:i" }}</span>
-      {% if note.url %}</a>{% else %}</div>{% endif %}
+      <div class="list-group-item tw-note d-flex justify-content-between align-items-start gap-2{% if not note.read %} fw-semibold{% endif %}{% if note.dismissed %} text-muted{% endif %}">
+        {% if note.url %}<a href="{{ note.url }}" class="min-w-0 flex-grow-1 text-reset text-decoration-none">{% else %}<div class="min-w-0 flex-grow-1">{% endif %}
+          {% if not note.read %}<span class="badge text-bg-danger me-1">New</span>{% endif %}
+          {% if note.dismissed %}<span class="badge text-bg-success me-1">Done</span>{% endif %}
+          {{ note.message }}
+          <span class="text-muted small d-block fw-normal">{{ note.created_at|date:"d M Y, H:i" }}</span>
+        {% if note.url %}</a>{% else %}</div>{% endif %}
+        {# Shown when the pointer is on the row (always on a phone, which has no pointer). #}
+        <form method="post" action="{% url 'crm:notification_clear' note.pk %}" class="tw-note-clear flex-shrink-0">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button class="btn btn-sm btn-outline-secondary text-nowrap fw-normal" title="Clear this notification"><i class="fa-solid fa-xmark me-1"></i>Clear</button>
+        </form>
+      </div>
     {% empty %}
       <div class="text-center text-muted py-5">No notifications.</div>
     {% endfor %}

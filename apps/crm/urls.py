@@ -95,6 +95,7 @@ urlpatterns = [
     path("settings/stage-access/", views.stage_access_list, name="stage_access_list"),
     path("settings/stage-access/<int:pk>/", views.stage_access_edit, name="stage_access_edit"),
     path("notifications/", views.notifications, name="notifications"),
+    path("notifications/<int:pk>/clear/", views.notification_clear, name="notification_clear"),
     # Notifications on this device, as banners (see push.py)
     path("push/subscribe/", push.subscribe, name="push_subscribe"),
     path("push/unsubscribe/", push.unsubscribe, name="push_unsubscribe"),

@@ -2261,9 +2261,17 @@ def update_dismiss(request, pk):
 
 @login_required
 def notifications(request):
-    items = list(request.user.notifications.select_related("lead")[:100])
+    items = list(request.user.notifications.filter(cleared=False).select_related("lead")[:100])
     request.user.notifications.filter(read=False).update(read=True)
     return render(request, "crm/notifications.html", {"notifications": items})
+
+
+@login_required
+@require_POST
+def notification_clear(request, pk):
+    """Take one notification off your own list. It also stops counting and popping up."""
+    request.user.notifications.filter(pk=pk).update(cleared=True, read=True, dismissed=True, popped=True)
+    return safe_next(request, reverse("crm:notifications"))
 
 
 # ---------------------------------------------------------------------------

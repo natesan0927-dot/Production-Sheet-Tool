@@ -922,6 +922,9 @@ class Notification(models.Model):
     dismissed = models.BooleanField(default=False)
     # Shown once as a pop-up; it stays in the notifications list either way.
     popped = models.BooleanField(default=False)
+    # Cleared from the Notifications page by its owner. The row stays, because other
+    # reminders look for it to avoid sending the same one twice.
+    cleared = models.BooleanField(default=False)
     # What the update is waiting for ("rough", "todo:12", "password:5"), so it can be
     # cleared for everyone it went to the moment that is done. See crm/updates.py.
     topic = models.CharField(max_length=40, blank=True, db_index=True)
