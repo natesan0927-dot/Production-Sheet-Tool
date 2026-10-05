@@ -66,7 +66,7 @@ class Command(BaseCommand):
             rows = list(csv.DictReader(handle, delimiter="|"))
 
         executives = self.executives(rows)
-        problems = self.check(rows)
+        problems = self.find_problems(rows)
         if problems:
             raise CommandError("Nothing was imported:\n  " + "\n  ".join(problems))
 
@@ -103,7 +103,7 @@ class Command(BaseCommand):
             )
         return {name: found[name] for name in names}
 
-    def check(self, rows):
+    def find_problems(self, rows):
         problems, seen = [], set()
         for row in rows:
             tag = f"#{row['id']} {row['customer']}"
